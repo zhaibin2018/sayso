@@ -1,0 +1,32 @@
+{
+  "name": "sayso-install",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode preview",
+    "build": "vite build && node scripts/prepare-sites-build.mjs && node scripts/audit-production.mjs",
+    "preview": "vite preview",
+    "test:sites": "node --test tests/sites-worker.test.mjs",
+    "dev:release": "vite --mode production",
+    "build:preview": "vite build --mode preview --outDir dist-preview",
+    "test": "node --test tests/release.test.mjs tests/site-links.test.mjs",
+    "prebuild": "node scripts/licenses.mjs",
+    "verify": "npm test && npm run build && npm run test:sites",
+    "format:check": "prettier --check src scripts/audit-production.mjs scripts/licenses.mjs scripts/sign-release.mjs tests/release.test.mjs vite.config.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@vitejs/plugin-react": "5.0.4",
+    "esptool-js": "0.7.1",
+    "qrcode": "1.5.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "spark-md5": "3.0.2",
+    "vite": "6.4.2"
+  },
+  "devDependencies": {
+    "prettier": "3.10.1"
+  }
+}

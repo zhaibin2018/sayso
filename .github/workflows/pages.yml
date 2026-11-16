@@ -1,0 +1,60 @@
+name: Verify and publish SaySo website
+
+on:
+  pull_request:
+    paths: ["sayso-website/**", ".github/workflows/pages.yml"]
+  push:
+    paths: ["sayso-website/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy the verified integrated website to GitHub Pages"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sayso-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            sayso-website/package-lock.json
+            sayso-website/sayso-install/package-lock.json
+      - name: Install website dependencies
+        working-directory: sayso-website
+        run: npm ci
+      - name: Install independent installer dependencies
+        working-directory: sayso-website/sayso-install
+        run: npm ci
+      - name: Verify both applications and assemble one production artifact
+        working-directory: sayso-website
+        run: npm run build:integrated
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: sayso-website/dist/pages
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

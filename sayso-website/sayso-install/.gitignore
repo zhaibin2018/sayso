@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-preview/
+.logs/
+*.local
+*.pem
+*.key
+.env.local

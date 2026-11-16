@@ -1,0 +1,10 @@
+**/node_modules/
+**/dist/
+**/dist-preview/
+**/.logs/
+**/.publish/
+.env*
+*.pem
+*.key
+*.p12
+*.pfx

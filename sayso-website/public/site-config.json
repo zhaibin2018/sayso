@@ -1,0 +1,20 @@
+{
+  "releaseReady": false,
+  "appStoreUrl": null,
+  "appStoreBadge": null,
+  "installerUrl": null,
+  "installerPath": null,
+  "repositoryUrl": "https://github.com/zhaibin2018/sayso",
+  "supportEmail": null,
+  "publisherName": null,
+  "privacyApproved": false,
+  "quotaVerified": false,
+  "compatibility": [],
+  "screenshots": [],
+  "videos": {
+    "bus": null,
+    "food": null,
+    "subscription": null,
+    "setting": null
+  }
+}

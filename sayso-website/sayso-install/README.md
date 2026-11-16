@@ -17,3 +17,9 @@ For the unified website, run `npm run build:integrated` from the parent director
 The installer supports English/Chinese, shared appearance preferences and mobile handoff to a computer. Returning to the product website is separate from restarting device setup and is blocked while device work is busy.
 
 Dependency licenses are generated into public/THIRD_PARTY_NOTICES.txt. No project-wide open-source license is assigned to SaySo.
+
+## Maintenance
+
+The model catalog identifies current Apple phones but does not grant compatibility. See [maintenance policy](docs/MAINTENANCE.md) for the annual September review and signed-release renewal cadence. `npm run check:expiry` checks the local channel; `npm run check:expiry -- --base-url https://zhaibin2018.github.io/sayso/install/` checks the public channel. Signatures expiring within 30 days, expired releases and invalid data produce a failing check. No scheduled reminder or automatic re-signing is configured.
+
+Factory security calibration remains pending: [read-only sampling plan](docs/FACTORY_BASELINE.md). The strict device-security predicate is unchanged; synthetic tests are not factory measurements.

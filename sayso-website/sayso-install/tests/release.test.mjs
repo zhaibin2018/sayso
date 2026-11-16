@@ -15,13 +15,60 @@ import {
   environment,
   languageFrom,
   safeAppStoreURL,
+  MODELS,
 } from "../src/lib/policy.js";
+import { expiryStatus } from "../src/lib/expiry.js";
 
 const security = () => ({
   chipId: 9,
   flags: 0,
   flashCryptCnt: 0,
   keyPurposes: [0, 0, 0, 0, 0, 0, 0],
+});
+test("current Apple model names do not imply release compatibility", () => {
+  for (const id of [
+    "iPhone 17",
+    "iPhone 17 Pro",
+    "iPhone 17 Pro Max",
+    "iPhone Air",
+    "iPhone 17e",
+    "iPhone 18 Pro",
+    "iPhone 18 Pro Max",
+    "iPhone Duo",
+  ]) {
+    assert.equal(MODELS.find((model) => model.id === id)?.connector, "usb-c");
+    assert.equal(compatibility(id, null).kind, "unavailable");
+    assert.equal(
+      compatibility(id, {
+        compatibility: [{ model: "iPhone 16 Pro", minIOS: 17, maxIOS: 26 }],
+      }).kind,
+      "unverified",
+    );
+  }
+  assert.equal(new Set(MODELS.map((model) => model.id)).size, MODELS.length);
+});
+test("expiry warning includes the exact 30-day and expiry boundaries", () => {
+  const now = Date.parse("2026-01-01T00:00:00Z");
+  assert.equal(expiryStatus(null, now).kind, "unavailable");
+  assert.equal(expiryStatus({ expiresAt: "invalid" }, now).kind, "invalid");
+  assert.equal(
+    expiryStatus(
+      { expiresAt: new Date(now + 30 * 86400000 + 1).toISOString() },
+      now,
+    ).kind,
+    "current",
+  );
+  const warning = expiryStatus(
+    { expiresAt: new Date(now + 30 * 86400000).toISOString() },
+    now,
+  );
+  assert.equal(warning.kind, "expiring");
+  assert.equal(warning.daysRemaining, 30);
+  assert.equal(warning.reviewBy, new Date(now).toISOString());
+  assert.equal(
+    expiryStatus({ expiresAt: new Date(now).toISOString() }, now).kind,
+    "expired",
+  );
 });
 async function fixture(change = (x) => x) {
   const image = new Uint8Array(65536);
@@ -131,6 +178,37 @@ test("tampering and untrusted signer cannot pass", async () => {
   };
   await assert.rejects(verifyEnvelope(bad, f.keys), /signature/);
   await assert.rejects(verifyEnvelope(f.envelope, {}), /signature/);
+});
+test("expired signed releases get a distinct error only after signature validation", async () => {
+  const f = await fixture((m) => ({
+    ...m,
+    issuedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    expiresAt: new Date(Date.now() - 86400000).toISOString(),
+  }));
+  await assert.rejects(
+    verifyEnvelope(f.envelope, f.keys),
+    (error) =>
+      error.message === "release-expired" &&
+      error.expiresAt === f.payload.expiresAt,
+  );
+  await assert.rejects(verifyEnvelope(f.envelope, {}), /signature-invalid/);
+});
+test("expiry while waiting blocks a previously verified release before device actions", async () => {
+  const f = await fixture();
+  const release = await verifyEnvelope(f.envelope, f.keys);
+  const connected = device(f.image),
+    originalNow = Date.now;
+  try {
+    Date.now = () => Date.parse(release.expiresAt);
+    assert.throws(() => assertVerified(release), /release-expired/);
+    await assert.rejects(
+      flashDevice(connected, release, f.image, () => {}),
+      /release-expired/,
+    );
+    assert.deepEqual(connected.calls, []);
+  } finally {
+    Date.now = originalNow;
+  }
 });
 test("release validation rejects unsafe security, stale release, unapproved lifecycle and incompatible images", async (t) => {
   const f = await fixture();

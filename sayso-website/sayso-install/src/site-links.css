@@ -26,3 +26,21 @@
   outline: 2px solid currentColor;
   outline-offset: 5px;
 }
+.release-health {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 20px 24px;
+  margin: 16px 0;
+  border: 1px solid var(--warning);
+  border-radius: 16px;
+  color: var(--text);
+  background: var(--surface);
+}
+.release-health strong {
+  color: var(--warning);
+}
+.release-health p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}

@@ -1,5 +1,16 @@
+// Identification only: installation still requires a matching signed release.
+export const MODEL_CATALOG_REVIEWED_AT = "2026-11-16";
+export const MODEL_CATALOG_SOURCE = "https://support.apple.com/en-us/108044";
 export const MODELS = [
   ...[
+    "Duo",
+    "18 Pro",
+    "18 Pro Max",
+    "17",
+    "17 Pro",
+    "17 Pro Max",
+    "Air",
+    "17e",
     "15",
     "15 Plus",
     "15 Pro",

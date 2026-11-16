@@ -8,6 +8,7 @@ import {
   createHash,
 } from "node:crypto";
 import { assertManifest } from "../src/lib/release.js";
+import { expiryStatus } from "../src/lib/expiry.js";
 const [manifestPath, imagePath, keyPath, keyId, outputPath] =
   process.argv.slice(2);
 if (!outputPath || !/^[a-zA-Z0-9_-]{1,64}$/.test(keyId || ""))
@@ -54,6 +55,8 @@ console.log(
   JSON.stringify(
     {
       output: path.resolve(outputPath),
+      expiresAt: manifest.expiresAt,
+      reviewBy: expiryStatus(manifest).reviewBy,
       publicVerificationKey: { [keyId]: spki },
       note: "Only the public verification key is printed. Hardware attestations are not verified by this signing helper.",
     },

@@ -8,6 +8,8 @@ Update `public/site-config.json`; keep unavailable values `null`. Use UTF-8. Ass
 
 `installerPath`: the integrated build supplies `./install/` (also accepts `./install/index.html`). This is a real same-origin pathname, never a hash route or root-relative path. Leave it null in standalone website development unless the installer output is also hosted there. `installerUrl` is an optional verified HTTPS fallback for standalone deployments. `repositoryUrl`, `supportEmail`, `publisherName` remain actual approved public details.
 
+Use an approved domain support mailbox for `supportEmail`, not a personal mailbox. Keep it null until that public address is actually available.
+
 The combined build derives `install/site-links.json` from a whitelist of public metadata: App Store, repository, support contact and fixed parent-page routes. It excludes marketing readiness, compatibility arrays, firmware locations and trust keys. The installer's signed release manifest is the sole firmware admission source. Local language/theme keys are shared and synchronized across tabs; no device state or consent is stored with them.
 
 Run `npm run release:check -- --integrated` to inspect the merged package's content readiness. Firmware acceptance remains independent from that website check.

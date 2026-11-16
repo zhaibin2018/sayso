@@ -23,8 +23,8 @@ export function assertManifest(m, now = Date.now()) {
     typeof m.version !== "string" ||
     !/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(m.version) ||
     !Number.isFinite(Date.parse(m.expiresAt)) ||
-    Date.parse(m.expiresAt) <= now ||
     !Number.isFinite(Date.parse(m.issuedAt)) ||
+    Date.parse(m.expiresAt) <= Date.parse(m.issuedAt) ||
     Date.parse(m.issuedAt) > now + 300000 ||
     m.security?.efuseWrites !== false ||
     m.security?.secureBoot !== false ||
@@ -67,6 +67,11 @@ export function assertManifest(m, now = Date.now()) {
     !/^firmware\/[a-zA-Z0-9_.-]+\.bin$/.test(a.path)
   )
     throw new Error("manifest-invalid");
+  if (Date.parse(m.expiresAt) <= now) {
+    const error = new Error("release-expired");
+    error.expiresAt = m.expiresAt;
+    throw error;
+  }
   return m;
 }
 function freeze(value) {

@@ -11,6 +11,7 @@
     "dev:release": "vite --mode production",
     "build:preview": "vite build --mode preview --outDir dist-preview",
     "test": "node --test tests/release.test.mjs tests/site-links.test.mjs",
+    "check:expiry": "node scripts/check-release-expiry.mjs",
     "prebuild": "node scripts/licenses.mjs",
     "verify": "npm test && npm run build && npm run test:sites",
     "format:check": "prettier --check src scripts/audit-production.mjs scripts/licenses.mjs scripts/sign-release.mjs tests/release.test.mjs vite.config.mjs"

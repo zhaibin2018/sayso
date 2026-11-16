@@ -8,7 +8,7 @@
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs",
-    "test": "node --test tests/config.test.mjs tests/integration.test.mjs",
+    "test": "node --test tests/config.test.mjs tests/integration.test.mjs tests/workflow.test.mjs",
     "release:check": "node scripts/check-release.mjs",
     "build:pages": "node scripts/build-integrated.mjs",
     "build:website": "node scripts/licenses.mjs && vite build",
@@ -28,6 +28,6 @@
     "vite": "6.4.2"
   },
   "devDependencies": {
-    "prettier": "^3.10.1"
+    "prettier": "3.10.1"
   }
 }

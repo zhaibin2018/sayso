@@ -19,6 +19,7 @@ import {
 } from "@phosphor-icons/react";
 import { MODELS, compatibility, environment } from "./lib/policy.js";
 import { loadRelease, downloadFirmware } from "./lib/release.js";
+import { expiryStatus } from "./lib/expiry.js";
 import {
   TRUSTED_RELEASE_KEYS,
   SOURCE_URL,
@@ -62,6 +63,7 @@ const KNOWN_ERRORS = [
   "unverified-release",
   "manifest-invalid",
   "signature-invalid",
+  "release-expired",
   "preview-disconnect",
 ];
 
@@ -103,7 +105,7 @@ export function App() {
     [consent, setConsent] = useState(false);
   const [release, setRelease] = useState(null),
     [loading, setLoading] = useState(true),
-    [releaseError, setReleaseError] = useState(false),
+    [releaseError, setReleaseError] = useState(null),
     [attempt, setAttempt] = useState(0);
   const [decision, setDecision] = useState(null),
     [busy, setBusy] = useState(false),
@@ -111,6 +113,14 @@ export function App() {
     [phase, setPhase] = useState("download"),
     [progress, setProgress] = useState(0),
     [result, setResult] = useState(null);
+  const [clock, setClock] = useState(Date.now);
+  const releaseTiming = expiryStatus(release, clock);
+  const releaseExpired = releaseTiming.kind === "expired";
+  useEffect(() => {
+    if (!release || PREVIEW) return;
+    const timer = setInterval(() => setClock(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, [release]);
   const [modal, setModal] = useState(null),
     [copied, setCopied] = useState(false),
     [copyText, setCopyText] = useState(""),
@@ -143,7 +153,7 @@ export function App() {
     const abort = new AbortController();
     let valid = true;
     setLoading(true);
-    setReleaseError(false);
+    setReleaseError(null);
     (async () => {
       try {
         let current;
@@ -151,11 +161,18 @@ export function App() {
           current = (await import("./preview.js")).previewRelease;
         else
           current = await loadRelease(base, TRUSTED_RELEASE_KEYS, abort.signal);
-        if (valid) setRelease(current);
-      } catch {
+        if (valid) {
+          setRelease(current);
+          setClock(Date.now());
+        }
+      } catch (error) {
         if (valid && !abort.signal.aborted) {
           setRelease(null);
-          setReleaseError(true);
+          setReleaseError(
+            error.message === "release-expired"
+              ? "release-expired"
+              : "verification-failed",
+          );
         }
       } finally {
         if (valid) setLoading(false);
@@ -254,6 +271,13 @@ export function App() {
   };
   const check = () => {
     setError(null);
+    if (
+      releaseError === "release-expired" ||
+      (release && expiryStatus(release).kind === "expired")
+    ) {
+      setDecision("expired");
+      return;
+    }
     if (match.kind === "eligible" && ios === "yes") {
       setDecision(null);
       setChecked(false);
@@ -272,6 +296,10 @@ export function App() {
     KNOWN_ERRORS.includes(e.message) ? e.message : "connection-failed";
   const connect = async () => {
     if (lock.current || !checked || !release) return;
+    if (expiryStatus(release).kind === "expired") {
+      setError("release-expired");
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setError(null);
@@ -309,6 +337,10 @@ export function App() {
       ios !== "yes"
     )
       return;
+    if (expiryStatus(release).kind === "expired") {
+      setError("release-expired");
+      return;
+    }
     lock.current = true;
     setBusy(true);
     setStep(3);
@@ -410,6 +442,10 @@ export function App() {
       "The release is invalid or expired. Check again before installing.",
       "版本无效或已过期，请重新检查后再安装。",
     ),
+    "release-expired": t(
+      "This firmware release has expired. No new installation can start. Check for a newly signed release.",
+      "此固件发行清单已过期，不能开始新的安装。请检查重新签名的版本。",
+    ),
     "signature-invalid": t(
       "The release signature could not be verified.",
       "无法验证发行签名。",
@@ -441,6 +477,10 @@ export function App() {
       restart: t("Restarting device", "重启设备"),
     })[p];
   const decisionText = {
+    expired: t(
+      "This firmware release has expired. Installation is paused until a newly signed release is published. Nothing has been written.",
+      "此固件发行清单已过期。重新签名的版本发布前暂停安装，尚未写入设备。",
+    ),
     lightning: t(
       "This iPhone does not support device control in this release. You can still learn about screen sharing without a control device.",
       "此机型暂不支持本版本的设备操控。你仍可了解无需操控设备的屏幕共享功能。",
@@ -602,6 +642,50 @@ export function App() {
           ))}
         </ol>
       </nav>
+      {!PREVIEW &&
+        !installing &&
+        (releaseError === "release-expired" ||
+          releaseExpired ||
+          releaseTiming.kind === "expiring") && (
+          <aside
+            className="release-health"
+            role={
+              releaseError === "release-expired" || releaseExpired
+                ? "alert"
+                : "status"
+            }
+          >
+            <Info size={22} aria-hidden="true" />
+            <div>
+              <strong>
+                {releaseError === "release-expired" || releaseExpired
+                  ? t("Firmware release expired", "固件发行清单已过期")
+                  : t("Firmware release expires soon", "固件发行清单即将到期")}
+              </strong>
+              <p>
+                {releaseError === "release-expired" || releaseExpired
+                  ? t(
+                      "New installations are paused. Check for a newly signed release; do not change your clock to bypass expiry.",
+                      "已暂停新的安装。请检查重新签名的版本，不要修改系统时钟绕过有效期。",
+                    )
+                  : t(
+                      `Valid until ${releaseTiming.expiresAt}. The publisher should renew the signed release.`,
+                      `有效期至 ${releaseTiming.expiresAt}，发布者应更新发行清单签名。`,
+                    )}
+              </p>
+              <button
+                className="text-link"
+                disabled={busy}
+                onClick={() => {
+                  setDecision(null);
+                  setAttempt((value) => value + 1);
+                }}
+              >
+                {t("Check releases again", "重新检查发行版本")}
+              </button>
+            </div>
+          </aside>
+        )}
       <main id="main" className="main">
         {blocked ? (
           <section className="columns">
@@ -832,15 +916,17 @@ export function App() {
                     </div>
                   ) : (
                     <p className="quiet-note">
-                      {releaseError
-                        ? t(
-                            "Release information could not be verified. Try checking again.",
-                            "无法验证版本信息，请重新检查。",
-                          )
-                        : t(
-                            "Nothing is connected or written yet.",
-                            "尚未连接设备或写入固件。",
-                          )}
+                      {releaseError === "release-expired"
+                        ? messages["release-expired"]
+                        : releaseError
+                          ? t(
+                              "Release information could not be verified. Try checking again.",
+                              "无法验证版本信息，请重新检查。",
+                            )
+                          : t(
+                              "Nothing is connected or written yet.",
+                              "尚未连接设备或写入固件。",
+                            )}
                     </p>
                   )}
                 </div>
@@ -916,7 +1002,7 @@ export function App() {
                       ? t("Connecting…", "正在连接…")
                       : t("Choose USB device", "选择 USB 设备"),
                     connect,
-                    !checked || busy,
+                    !checked || busy || releaseExpired,
                   )}
                   <p className="helper">
                     {t(
@@ -1065,7 +1151,7 @@ export function App() {
                     {btn(
                       t("Erase and install SaySo", "清空并安装 SaySo"),
                       install,
-                      !consent || busy,
+                      !consent || busy || releaseExpired,
                     )}
                     <button className="text-link" onClick={back}>
                       {t("Back", "返回")}

@@ -19,6 +19,7 @@ run(root, "test");
 run(root, "run", "build");
 run(root, "run", "test:sites");
 run(path.join(root, "sayso-install"), "run", "verify");
+run(path.join(root, "sayso-install"), "run", "check:expiry");
 const result = await assemblePages(root);
 console.log(
   `Integrated Pages artifact: ${result.directory} (${result.files} files, ${result.bytes} bytes)`,

@@ -948,6 +948,21 @@ function Licenses({ t, config }) {
         subtitle={t.licensesSub}
       />
       <p className="lead">{t.licensesBody}</p>
+      <p>
+        <a
+          href="https://github.com/zhaibin2018/sayso/blob/main/LICENSE.md"
+          {...external}
+        >
+          FSL-1.1-ALv2
+        </a>{" "}
+        ·{" "}
+        <a
+          href="https://github.com/zhaibin2018/sayso/blob/main/TRADEMARK.md"
+          {...external}
+        >
+          SaySo trademark notice
+        </a>
+      </p>
       <Repository t={t} config={config} />
       <section className="document-sections">
         <h2>{t.licenseFrontend}</h2>

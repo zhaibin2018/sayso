@@ -16,7 +16,7 @@ For the unified website, run `npm run build:integrated` from the parent director
 
 The installer supports English/Chinese, shared appearance preferences and mobile handoff to a computer. Returning to the product website is separate from restarting device setup and is blocked while device work is busy.
 
-Dependency licenses are generated into public/THIRD_PARTY_NOTICES.txt. No project-wide open-source license is assigned to SaySo.
+Dependency licenses are generated into public/THIRD_PARTY_NOTICES.txt. Original SaySo code is source-available under the root FSL-1.1-ALv2 license, Copyright 2026 ZHAI BIN. This browser installer is distinct from the ESP firmware, which is not included here.
 
 ## Maintenance
 

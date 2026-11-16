@@ -1,0 +1,10 @@
+{
+  "sourceVersion": "1.2.37",
+  "skillCount": 7,
+  "mode": "skills-only source package",
+  "changes": [
+    "Removed developer-instance binding",
+    "Added FSL attribution"
+  ],
+  "accountPluginChanged": false
+}

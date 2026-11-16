@@ -2,6 +2,8 @@
 
 The public website and independent installer are built separately and combined for GitHub Pages. See the [project overview](../README.md) for availability and product requirements.
 
+Original SaySo code is source-available under FSL-1.1-ALv2, Copyright 2026 ZHAI BIN. See the root LICENSE.md, THIRD_PARTY.md and TRADEMARK.md; dependency licenses are unchanged.
+
 ## Commands
 
 Run from this directory with Node.js 24:

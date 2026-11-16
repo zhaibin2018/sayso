@@ -2,9 +2,9 @@ name: Verify and publish SaySo website
 
 on:
   pull_request:
-    paths: ["sayso-website/**", ".github/workflows/pages.yml"]
+    paths: ["sayso-website/**", "mcp/**", "plugins/**", "scripts/**", "*.md", "SOURCE_MANIFEST.json", ".github/workflows/pages.yml"]
   push:
-    paths: ["sayso-website/**", ".github/workflows/pages.yml"]
+    paths: ["sayso-website/**", "mcp/**", "plugins/**", "scripts/**", "*.md", "SOURCE_MANIFEST.json", ".github/workflows/pages.yml"]
   workflow_dispatch:
     inputs:
       deploy:
@@ -30,8 +30,20 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: |
+            mcp/package-lock.json
             sayso-website/package-lock.json
             sayso-website/sayso-install/package-lock.json
+      - name: Verify the pinned source inventory
+        run: node scripts/verify-source.mjs
+      - name: Install MCP dependencies
+        working-directory: mcp
+        run: npm run install:ci
+      - name: Verify MCP source
+        working-directory: mcp
+        run: |
+          npm test
+          npm run typecheck
+          npm run build
       - name: Install website dependencies
         working-directory: sayso-website
         run: npm ci

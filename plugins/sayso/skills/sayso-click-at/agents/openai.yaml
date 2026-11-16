@@ -1,0 +1,8 @@
+# Copyright 2026 ZHAI BIN
+# SPDX-License-Identifier: FSL-1.1-ALv2
+interface:
+  display_name: "Click / 点击"
+  short_description: "Click a visible target and continue from its real after-image. 看图点按。"
+  default_prompt: "Use $sayso-click-at to click my visible target once and continue from the actual after-image."
+policy:
+  allow_implicit_invocation: true

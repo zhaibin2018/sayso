@@ -1,0 +1,8 @@
+# Copyright 2026 ZHAI BIN
+# SPDX-License-Identifier: FSL-1.1-ALv2
+interface:
+  display_name: "Scroll / 滚动"
+  short_description: "Scroll and reuse the resulting image. 滚动后图直接接下一步。"
+  default_prompt: "Use $sayso-scroll-view to browse as requested and use its after-image for the next step."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "sayso",
+  "version": "1.2.37",
+  "description": "Read and operate a shared iPhone through the user's connected SaySo service.",
+  "author": {
+    "name": "ZHAI BIN"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "SaySo",
+        "shortDescription": "Read and operate your iPhone",
+        "longDescription": "Skills for a connected SaySo MCP service. Installation and device permissions are separate.",
+        "developerName": "ZHAI BIN",
+        "category": "Productivity",
+        "capabilities": [],
+        "defaultPrompt": null,
+        "websiteURL": "https://zhaibin2018.github.io/sayso/"
+      }
+    }
+  }
+}

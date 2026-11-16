@@ -1,0 +1,8 @@
+# Copyright 2026 ZHAI BIN
+# SPDX-License-Identifier: FSL-1.1-ALv2
+interface:
+  display_name: "Open app / 打开应用"
+  short_description: "Open an installed app using Search and actual images. 通用打开应用。"
+  default_prompt: "Use $sayso-open-app to open the app I requested and confirm it from the actual after-image."
+policy:
+  allow_implicit_invocation: true

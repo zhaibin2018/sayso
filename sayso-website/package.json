@@ -29,5 +29,6 @@
   },
   "devDependencies": {
     "prettier": "3.10.1"
-  }
+  },
+  "license": "FSL-1.1-ALv2"
 }

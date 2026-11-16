@@ -1,0 +1,8 @@
+# Copyright 2026 ZHAI BIN
+# SPDX-License-Identifier: FSL-1.1-ALv2
+interface:
+  display_name: "Type / 输入"
+  short_description: "Clear and type, optionally Return. 默认清空再输入，按意图回车。"
+  default_prompt: "Use $sayso-type-text to enter my text in the intended field and submit only as requested."
+policy:
+  allow_implicit_invocation: true

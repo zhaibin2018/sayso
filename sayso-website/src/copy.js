@@ -141,7 +141,7 @@ export const copy = {
       ],
       [
         "For developers",
-        "MCP, the plugin, skills and firmware are planned to be provided free through a versioned installation package. Source-code licensing is not yet decided. The GitHub repository currently contains the website and installer frontend; verified installation releases will be listed there when available.",
+        "MCP, the plugin and seven skills are available as a versioned source preview under FSL-1.1-ALv2. GitHub includes a copyable installation instruction and guide for your own private Site. Complete iPhone setup is still being verified. DIY accessory firmware will be released separately.",
       ],
     ],
     officialDocs: "Official ChatGPT documentation",
@@ -228,10 +228,9 @@ export const copy = {
     copied: "Checklist copied",
     copyFailed: "Copy unavailable. Select the checklist above to copy it.",
     licensesTitle: "Free components. Clear boundaries.",
-    licensesSub:
-      "Free availability and open-source permission are different things.",
+    licensesSub: "Source-available under FSL-1.1-ALv2.",
     licensesBody:
-      "The intended free components are MCP, the plugin, skills and accessory firmware. Source-code permissions are not finalized; no general permission to modify or redistribute is implied. Third-party components retain their own licenses.",
+      "Original SaySo website, installer frontend, MCP, plugin and skill source is available under FSL-1.1-ALv2. Copyright 2026 ZHAI BIN. Each covered version receives an additional Apache-2.0 license after two years. This is source-available software, not OSI-approved open source. Third-party licenses and SaySo trademark rights remain separate. The iOS app and ESP firmware source are not included.",
     licenseFrontend: "Website dependencies and bundled font notices",
     repoPending: "The public GitHub repository is not configured yet.",
     repoOpen: "Open GitHub repository",
@@ -367,7 +366,7 @@ export const copy = {
       ],
       [
         "开发者资料",
-        "MCP、插件、Skill 和配件固件计划免费提供，由版本化安装包统一交付。源码授权尚未决定。GitHub 仓库当前包含官网和安装器前端，经过验证的安装发行包将在就绪后提供。",
+        "MCP、插件和七个 Skill 已作为版本化源码预览提供，采用 FSL-1.1-ALv2。GitHub 提供可复制的一句话安装指令及私人 Site 安装指南。iPhone 完整安装流程仍待验收，DIY 配件固件另行发布。",
       ],
     ],
     officialDocs: "ChatGPT 官方说明",
@@ -444,9 +443,9 @@ export const copy = {
     copied: "清单已复制",
     copyFailed: "无法自动复制，请选中上方清单手动复制。",
     licensesTitle: "组件免费，授权边界清楚。",
-    licensesSub: "免费提供与开源许可是两回事。",
+    licensesSub: "采用 FSL-1.1-ALv2，源码公开。",
     licensesBody:
-      "MCP、插件、Skill 与配件固件计划免费提供。源码授权尚未定案，不意味着默认允许修改或再分发。第三方组件继续适用其自身许可证。",
+      "SaySo 原创的网站、安装器前端、MCP、插件和 Skill 源码采用 FSL-1.1-ALv2。Copyright 2026 ZHAI BIN。每个适用版本公开满两年后额外获得 Apache-2.0 许可。这属于源码公开，不是 OSI 认可的开源许可。第三方许可和 SaySo 商标权另行处理；iOS App 与 ESP 固件源码未包含在仓库中。",
     licenseFrontend: "网站依赖与字体许可",
     repoPending: "公开 GitHub 仓库尚未配置。",
     repoOpen: "打开 GitHub 仓库",

@@ -1,0 +1,6 @@
+# Copyright 2026 ZHAI BIN
+# SPDX-License-Identifier: FSL-1.1-ALv2
+interface:
+  display_name: "Phone actions / 手机操作"
+  short_description: "Read and operate iPhone from real images. 中英双语手机操作。"
+  default_prompt: "Use $sayso-control to complete my phone task. Reuse the prior after-image, decode and view image blocks, and reply in my language."

@@ -1,0 +1,8 @@
+# Copyright 2026 ZHAI BIN
+# SPDX-License-Identifier: FSL-1.1-ALv2
+interface:
+  display_name: "Drag / 拖拽"
+  short_description: "Drag between visible points and inspect the result. 看图选择起终点。"
+  default_prompt: "Use $sayso-drag-to to drag the requested visible target. Convert any 0–1 fractions to original image pixels before calling drag_at."
+policy:
+  allow_implicit_invocation: true

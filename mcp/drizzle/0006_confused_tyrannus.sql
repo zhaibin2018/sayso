@@ -1,0 +1,1 @@
+ALTER TABLE `sb_frames` ADD `inline_jpeg` text;

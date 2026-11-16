@@ -1,0 +1,1 @@
+ALTER TABLE `sb_app_search_queries` ADD `native_review_state` text;

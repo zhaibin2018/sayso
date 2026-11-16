@@ -2,7 +2,6 @@ import {
   readdir,
   readFile,
   writeFile,
-  mkdir,
   lstat,
   realpath,
   rm,
@@ -143,7 +142,6 @@ export async function assemblePages(projectRoot) {
   }
   // Absolute path and real parent are verified above before recursive removal.
   await rm(stage, { recursive: true, force: true });
-  await mkdir(stage, { recursive: true });
   await cp(home, stage, { recursive: true, force: false, errorOnExist: true });
   await cp(installer, path.join(stage, "install"), {
     recursive: true,

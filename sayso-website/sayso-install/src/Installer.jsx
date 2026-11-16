@@ -255,6 +255,26 @@ export function App() {
     device.current = null;
     await old?.close?.().catch(() => {});
   };
+  const refreshRelease = async () => {
+    if (busy || lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setConsent(false);
+    setChecked(false);
+    setIOS("");
+    try {
+      await closeDevice();
+      setRelease(null);
+      setDecision(null);
+      setError(null);
+      setResult(null);
+      setStep(0);
+      setAttempt((value) => value + 1);
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  };
   const back = async () => {
     if (busy || lock.current) return;
     lock.current = true;
@@ -676,10 +696,7 @@ export function App() {
               <button
                 className="text-link"
                 disabled={busy}
-                onClick={() => {
-                  setDecision(null);
-                  setAttempt((value) => value + 1);
-                }}
+                onClick={refreshRelease}
               >
                 {t("Check releases again", "重新检查发行版本")}
               </button>

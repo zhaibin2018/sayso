@@ -27,6 +27,8 @@ The check verifies signatures using the installer's trusted public keys before t
 
 The browser shows a distinct expired-release explanation and a refresh action. For loaded signed releases it refreshes deadline display every 30 seconds. New connect/install actions check the current deadline; already-running writes are not interrupted merely because a display timer passes the deadline. The write admission path still revalidates the release before starting device operations.
 
+Refreshing a release while idle closes the old connection, clears the prior iOS answer, board confirmation and erase consent, and returns to compatibility. Consent to an old manifest must not transfer to a newly downloaded manifest. Refresh remains unavailable during device work.
+
 Renewal requires the real offline signing key, an unchanged or re-accepted image digest, correct current compatibility/security assertions, and a reviewed new issuedAt/expiresAt. Re-signing is not automatic hardware revalidation. Publish the signed envelope and image under the same installer origin; keep redirect rejection and bounded downloads.
 
 ## Actions and dependencies

@@ -157,28 +157,35 @@ export const copy = {
     "privacySections": [
       [
         "Your screen and your private SaySo service",
-        "When you start screen sharing, SaySo sends visible screen images to the service you configured and consented to, for the connected ChatGPT functionality. Content visible in other apps may also be shared. The native app does not capture your microphone; ChatGPT handles your voice under its own policies."
+        "When you start screen sharing, visible images go to your private SaySo service in your ChatGPT account and to ChatGPT. Other apps may show personal information. ChatGPT handles voice under its own policies."
       ],
       [
-        "Storage is part of the data flow",
-        "Your private SaySo service can store screenshots in its database or object storage. It also processes requested input text, device and session identifiers, operation receipts and diagnostic records. A private Site does not mean that nothing is stored."
+        "How long information stays — service 0.13.249 and later",
+        "Text SaySo types is removed from the service when the command ends. A keyed summary and basic records remain to prevent the same request running twice. Detailed command records are reduced after seven days when cleanup runs."
       ],
       [
-        "Stopping is not deleting",
-        "Stopping control can leave screen sharing active. Ending a session stops input and uploads. Disconnecting a device does not erase all service records or your ChatGPT conversations. Image read expiry is not proof of physical deletion."
+        "Stopping and removing a device",
+        "Stopping tapping can leave screen sharing on. Ending the sharing session removes its cloud screen data. Removing a paired device deletes its related service records and screenshots. This does not delete your ChatGPT conversations."
       ],
       [
-        "What still needs to be finalized",
-        "The publisher and privacy contact, service responsibilities, exact retention periods and complete deletion process must be verified before public release. SaySo is not claiming “no data collected” or immediate deletion."
+        "When cleanup cannot run",
+        "Cleanup runs during normal use. If you stop using the service and no scheduled cleanup is configured, unfinished text may remain without a fixed deletion deadline. Account-wide deletion and a complete backup-deletion process are not available yet. When an image expires, SaySo stops using it, but that does not guarantee it has been erased."
+      ],
+      [
+        "Protected screens",
+        "If an app does not allow screen sharing, SaySo respects that and will not try to get around it. Not all banking or sensitive apps hide their content."
+      ],
+      [
+        "Preview information",
+        "This describes the updated public service source, not an automatic update to your existing installation. Publisher/contact details and the final privacy policy still need to be completed."
       ]
     ],
-    "privacyApple": "Apple’s privacy disclosure definitions",
     "supportTitle": "Let’s find the next step.",
     "supportSub": "Start with the symptom. Keep personal information out of diagnostics.",
     "supportItems": [
       [
         "I cannot see the screen",
-        "Confirm that iOS screen sharing is still running and your phone is online. Start sharing in SaySo. Connecting an account alone does not start the system broadcast."
+        "Confirm screen sharing is on and your phone is online. Connecting your account doesn't share your screen. Tap Start Sharing in SaySo."
       ],
       [
         "ChatGPT is waiting for approval",
@@ -186,11 +193,11 @@ export const copy = {
       ],
       [
         "Nothing happens when it tries to tap",
-        "Check the accessory, pairing and control permission. If the result is uncertain, do not repeatedly retry a purchase, message or deletion. A device receipt is not proof that the app action completed."
+        "Check the accessory, pairing and permission. If the result is uncertain, do not repeatedly retry a purchase, message or deletion. Even if the accessory reports a tap, check the screen to confirm the app actually did it."
       ],
       [
         "I need to stop",
-        "Use Stop control to end input. End the session or stop the system broadcast to end screen sharing. Stopping must remain available regardless of purchase status."
+        "Use Stop tapping to end input. Stop screen sharing in SaySo to stop sending your screen. You can always stop, even if your free tasks have run out."
       ]
     ],
     "report": "What to include in a report",
@@ -388,29 +395,36 @@ export const copy = {
     "draft": "隐私信息草案，尚非正式发行政策。",
     "privacySections": [
       [
-        "画面与所连接的服务",
-        "你开启系统屏幕共享后，SaySo 将可见画面发送到你配置并同意的服务，供所连接的 ChatGPT 功能使用。其他 App 的可见内容也可能被共享。SaySo 原生 App 不采集麦克风，ChatGPT 的语音处理适用其自身规则。"
+        "屏幕会传到哪里",
+        "开始屏幕共享后，画面会传到你 ChatGPT 账号里的私人服务和 ChatGPT。其他 App 可能显示个人信息。语音由 ChatGPT 按其政策处理。"
       ],
       [
-        "数据流包含存储",
-        "你的私人服务可将截图保存在数据库或对象存储中，并处理要求输入的文字、设备与会话标识、操作回执和诊断记录。私人 Site 不意味着完全不存储。"
+        "保存多久——服务0.13.249及之后版本",
+        "SaySo 输入的文字会在命令结束后从服务删除。为防止同一请求重复执行，会保留带密钥的摘要和基本记录；清理运行时，超过七天的详细命令记录会被精简。"
       ],
       [
-        "停止不等于删除",
-        "停止控制后画面仍可能继续共享；结束会话会停止输入与上传。解除设备连接不会删除所有服务记录或 ChatGPT 对话。图片读取过期也不代表已经物理删除。"
+        "停止和解除设备配对",
+        "停止帮你点后，屏幕共享可能仍在继续。结束共享会话会清除这次会话的云端屏幕数据；解除设备配对会清除其关联服务记录和截图。这不会删除 ChatGPT 对话。"
       ],
       [
-        "上线前还需确认",
-        "发布主体与隐私联系方式、服务责任方、确切保留期限及完整删除流程必须在公开发行前核验。SaySo 不宣称“不收集数据”或立即完整删除。"
+        "清理无法运行时",
+        "日常使用会触发清理。如果不再使用服务，也没有配置定时清理，未完成命令里的文字可能继续保留，没有固定删除期限。账户整体删除和完整的备份删除流程尚未提供。图片过期后不再被使用，但不保证已被彻底删除。"
+      ],
+      [
+        "受保护的画面",
+        "如果某个 App 不允许共享屏幕，SaySo 会尊重它的设置，不会尝试绕过。这不代表所有银行或敏感 App 都会隐藏内容。"
+      ],
+      [
+        "预览说明",
+        "以上描述的是更新后的公开服务源码，不会自动更新你已经安装的私人服务。发布者、联系信息和正式隐私政策仍需完善。"
       ]
     ],
-    "privacyApple": "Apple 隐私披露定义",
     "supportTitle": "一起找到下一步。",
     "supportSub": "从遇到的问题开始，不在诊断中提供个人敏感资料。",
     "supportItems": [
       [
         "看不到手机画面",
-        "确认 iOS 系统共享仍在运行、手机能够联网，并从 SaySo 开始共享。账号连接成功不会自动开启系统广播。"
+        "确认屏幕共享已开启，手机可以上网。连接账号不会自动共享屏幕，请在 SaySo 里点“开始共享”。"
       ],
       [
         "ChatGPT 在等待批准",
@@ -418,11 +432,11 @@ export const copy = {
       ],
       [
         "操作后没有变化",
-        "核对配件、配对和控制权限。结果不确定时，不要连续重试购买、发送或删除；设备回执不等于目标 App 已完成操作。"
+        "检查配件、配对和权限。结果不确定时，不要反复重试购买、发送或删除。配件显示已点击，也请看一眼屏幕，确认 App 真的完成了操作。"
       ],
       [
         "我想停止",
-        "用“停止控制”结束输入。结束本次使用或停止系统广播来结束共享。无论购买状态如何，停止入口都必须可用。"
+        "用“停止控制”结束帮你点；在 SaySo 停止屏幕共享，就不再发送画面。即使免费次数用完，也随时可以停止。"
       ]
     ],
     "report": "反馈时提供哪些资料",

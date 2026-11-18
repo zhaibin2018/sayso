@@ -889,9 +889,6 @@ function Privacy({ t, config }) {
         </p>
       )}
       <DocumentSections sections={t.privacySections} />
-      <Link to="https://developer.apple.com/app-store/app-privacy-details/">
-        {t.privacyApple}
-      </Link>
       <Link to="support">{t.support}</Link>
     </div>
   );

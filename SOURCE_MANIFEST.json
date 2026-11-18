@@ -4,7 +4,7 @@
   "license": "FSL-1.1-ALv2",
   "licensor": "ZHAI BIN",
   "mcpRuntime": "0.13.249",
-  "skillSourceVersion": "1.2.37",
+  "skillSourceVersion": "1.2.40",
   "consumerEndToEndAccepted": false,
   "files": [
     {
@@ -1224,8 +1224,8 @@
     },
     {
       "path": "mcp/public/sayso-icon.png",
-      "bytes": 490951,
-      "sha256": "947297d335b0feb8fcaaec5c768414f7c3361859fa114079f2b6e3c1e0c6f490"
+      "bytes": 490950,
+      "sha256": "1c3b958dddf536180eea99650aab80cfc433d41f818994993a4a9b78996268f2"
     },
     {
       "path": "mcp/scripts/benchmark-authenticated-observation.mjs",
@@ -1580,27 +1580,27 @@
     {
       "path": "plugins/sayso/plugin.json",
       "bytes": 744,
-      "sha256": "5659d34f627270575add561daf5851f290857ceaf5e76c7ccea3e110a45f1fbf"
+      "sha256": "b846c5eca4bb3d8b21060589224287f3a09114165ae594ae1b2cc7cedf5714de"
     },
     {
       "path": "plugins/sayso/skills/sayso-click-at/SKILL.md",
-      "bytes": 2178,
-      "sha256": "1124e1a81fb18c78f3d53d95b695d5dc65928eee617ec5488e2674ef97ffedfb"
+      "bytes": 1509,
+      "sha256": "8222a94c4c3e93d9750273adce19d9c636e067f8a731325ec90a45ad4ca362f0"
     },
     {
       "path": "plugins/sayso/skills/sayso-click-at/agents/openai.yaml",
-      "bytes": 368,
-      "sha256": "2b6e1bacd70a86d65e7b6a575c87b152799f38582808c27422106a13676d7e25"
+      "bytes": 304,
+      "sha256": "406f96206ead3438fdef5de27da389c0c1271b0bf795d1c3dc6838ed8646571e"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/SKILL.md",
-      "bytes": 1817,
-      "sha256": "611a7670e3205af9f64abf0cd28c13e4308e7a6d2f2ba3a24a28b26d2b8a4011"
+      "bytes": 1818,
+      "sha256": "c2d80a3c70adeb9a256346c4698f22666d2c871d4f63591dfd8bf435552bebb6"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/agents/openai.yaml",
-      "bytes": 368,
-      "sha256": "ad13bc905c03a9c7b32ec6c476551bf2927ae8ded29baade5b33b5d2e0fe6d84"
+      "bytes": 304,
+      "sha256": "6b2f1fa101b75d187c21bd102b127d304853ae089d0f9feffd33968e6b9d1320"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/compatibility.md",
@@ -1609,68 +1609,73 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/google-maps-live.md",
-      "bytes": 1604,
-      "sha256": "d1fbc9d1162b58caa2c2f4d5c661f0b8c1a9904d00b994cb99a4076c3b429e82"
+      "bytes": 1533,
+      "sha256": "bcec7088c79436f5267fb5597407559429819ccb4b0b7a3c16d7d3543e058ccd"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/image-handoff.md",
-      "bytes": 3129,
-      "sha256": "148d1f018422cdce10345c8317d3a443c5b10145f746434b22347fb9c57a94e3"
+      "bytes": 3048,
+      "sha256": "4ca43ada0893abd18973f4da6aa01632066094c31d5c5fe5fb7525702f495bd8"
+    },
+    {
+      "path": "plugins/sayso/skills/sayso-control/references/recovery.md",
+      "bytes": 1596,
+      "sha256": "8a8fd2600f229778d2acd3ebef5f0e098c33a365bcae65fb71ad28998c165dd6"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/workflows.md",
-      "bytes": 4783,
-      "sha256": "704a3b38cd8267d1f166735ed1e4691d57d891e6e1e2495384a37bc95a7a5ec4"
+      "bytes": 5005,
+      "sha256": "4a387c4dd32e049f7a6c3be279a428dcc22dfb48b73142403084519e7ec73f77"
     },
     {
       "path": "plugins/sayso/skills/sayso-drag-to/SKILL.md",
-      "bytes": 2136,
-      "sha256": "24cf8dc8bc67c008d66893861662c224462008c85c14c0d1f7279f2a080140bd"
+      "bytes": 1863,
+      "sha256": "85265b8d941a4bc12c265443f05504e91bda7e3a5d7c3b603e7d1d842b8f3f9a"
     },
     {
       "path": "plugins/sayso/skills/sayso-drag-to/agents/openai.yaml",
-      "bytes": 405,
-      "sha256": "6a4fa9dfd35363bea7d71afd23df01c6584ad167a5e1822bf40d258458145c2c"
+      "bytes": 341,
+      "sha256": "5b15101034aed97cbe7bc298a4a5b0d19a06760b68fd29f30363cfb1d052c90f"
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/SKILL.md",
-      "bytes": 1313,
-      "sha256": "e178c95da429b2853a41563ac2ceb5ad97b6d57e2f5fe8582718a096cf8b69b9"
+      "bytes": 1176,
+      "sha256": "368b37e7053a27f2eec70fe13990cc940db7b28fa30ceaad3bc908d380b57425"
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/agents/openai.yaml",
-      "bytes": 324,
-      "sha256": "79b0a5d6953bb427039ece2722eb6d90ead60d22f81b78e2acff584dddbc1256"
+      "bytes": 260,
+      "sha256": "6e769a8245b65eba5562d7c4bc2f687c03cce05ffae9eaaece5819ec34921e8d"
     },
     {
       "path": "plugins/sayso/skills/sayso-open-app/SKILL.md",
-      "bytes": 2327,
-      "sha256": "5c2a8dc42bbd0419708918f18b696f7f2fe5048788f9d97095f340028a527bf3"
+      "bytes": 2121,
+      "sha256": "2ea18612addaca9be0a6e52e98022fc31eecce4c8702a1618ebc80b1b7da795d"
     },
     {
       "path": "plugins/sayso/skills/sayso-open-app/agents/openai.yaml",
-      "bytes": 372,
-      "sha256": "077fbeea73efba5dff4e55bcc3a9a7f104845452c55a2207baa7a47a703ff049"
+      "bytes": 308,
+      "sha256": "e2d6b002c45a0883a3e5c3c123697fd331cbe8175fe2a131c85e87e5911127b6"
     },
     {
       "path": "plugins/sayso/skills/sayso-scroll-view/SKILL.md",
-      "bytes": 1069,
-      "sha256": "ec4e9c77eb22048cf9d16545e0382d34fa44d6aca3e392996636dc61bfd6de46"
+      "bytes": 1769,
+      "sha256": "ce38ec4596cd9d608dd0b98abdd73f887c76d212f6ce9f319f599896f95ee03f"
     },
     {
       "path": "plugins/sayso/skills/sayso-scroll-view/agents/openai.yaml",
-      "bytes": 357,
-      "sha256": "9aadd7be2726bb15d82ea3295ea00bf12ad45c16208a92a31f714395dc538756"
+      "bytes": 293,
+      "sha256": "9d7c3d02c14dd38de9138d2cac32079fc9c54b61a0ae16285e80071f1726cdc6"
     },
     {
       "path": "plugins/sayso/skills/sayso-type-text/SKILL.md",
-      "bytes": 2120,
-      "sha256": "7e3e8a6a69a45a5d3619ab21130dc8a29b2254426a5bfef35ba3fe42854d3b87"
+      "bytes": 2107,
+      "sha256": "6fd9d26f3b969a07e9c3ba61c6f640084d232ec2249f1bdeb38095a758904beb"
     },
     {
       "path": "plugins/sayso/skills/sayso-type-text/agents/openai.yaml",
-      "bytes": 362,
-      "sha256": "4cb84e02f312c917834f011c29cae6ef4e9b21b65459d522c8e8ad3403a38480"
+      "bytes": 298,
+      "sha256": "a7cd4c2a32cf542c5d09b7a9412f354f090e2d3c2d2f02e8baba8268f70044a1"
     },
     {
       "path": "scripts/generate-source-manifest.mjs",

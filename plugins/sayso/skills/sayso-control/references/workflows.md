@@ -1,4 +1,3 @@
-<!-- Copyright 2026 ZHAI BIN; SPDX-License-Identifier: FSL-1.1-ALv2 -->
 # Shared execution rules
 
 Reply in the user's current language, including English or Chinese. Keep app names and requested text exactly as supplied.
@@ -13,10 +12,13 @@ Reply in the user's current language, including English or Chinese. Keep app nam
 
 Ordinary typing clears first, then enters 1–60 printable ASCII characters. Intentional append uses `clear_before_input=false` and supports 1–64. For Chinese queries, use pinyin only when the user permits it. For an in-app search intent, automatically use one `type_text_in_field(submit="enter")` when supported; the user need not explicitly ask for Return. Decide submission from the user’s intent and the actual field, not an app-name rule. Omit submit for fill-only or system app discovery.
 
-For ordinary clicks, prefer an explicitly supported target-region center selector (`x=0,y=0` together) instead of independently estimating both a point and its region. Precise-point clicks retain original-image pixel coordinates inside the selected region.
+For ordinary clicks, use original-image pixel coordinates from the visible target and forward its exact proof.
 
-Normal opening uses `open_system_search → actual after-image → type_text_in_field → actual after-image → click_at`. `search_app_with_vision` and native preparation are legacy compatibility workflows. Use [compatibility and recovery](compatibility.md) only when such an existing task or recovery result needs it.
+Normal opening uses `open_system_search → actual after-image → type_text_in_field → actual after-image → click_at`. No legacy Search preparation or field-review tools are used. Use [original-ID recovery](recovery.md) for failed or uncertain actions.
 
 Use actual plugin calls and real images for acceptance. Mark real-device runs, historical-image replay and synthetic fixtures explicitly. WDA may prepare a test scene, while the measured mouse/keyboard action goes through SaySo and C124.
 
-For `drag_at`, omit `duration_ms` unless needed. A calibrated relative USB or BLE path uses only its reported duration, currently 350 ms; do not choose an arbitrary duration inside the legacy absolute range. A board acknowledgement does not establish the requested UI effect.
+For `drag_at`, choose visible endpoints and normally omit duration. The current direct absolute path does not require relative calibration; the default duration is 350 ms. Inspect its actual after-image to judge the app effect.
+
+Choose the action by the user's goal: scroll page/list content with the wheel; drag an object, slider or panel handle. Wheel direction comes from observed displacement on the current device, not a fixed sign convention. A partial sheet expansion/collapse is an intermediate result: use the returned image to choose the next bounded action until the requested visible state is reached, or accurately report the remaining blocker. An unexpected app/page change invalidates the planned next gesture; reassess its actual after-image before continuing.
+

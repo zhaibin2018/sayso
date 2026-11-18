@@ -17,3 +17,4 @@ Do not silently truncate or transliterate unsupported text. Pinyin needs user pe
 
 A confirmed type-and-Return can return a loading page or a visibly clipped query. Neither proves lost characters or authorizes blind retyping. If the destination has not settled, use one bounded original-command observation under the shared recovery rule. Re-enter only after actual evidence establishes a failed/wrong entry and the correction is warranted; a shortened display alone is not such evidence. Do not count repeated submissions as a first-attempt success.
 
+T6: For irreversible final payments, orders, sends, deletions, subscription cancellation or transfers, do not click/submit. Use `move_mouse_to`, inspect the real after-image, then name the button and ask the user to tap it themselves. Missing/uncertain images are not readiness. Follow the shared T6 and hidden-screen rules; ChatGPT approval is not the final tap. 中文：最后一步先停指针、确认真实后图，再请用户自己点；黑屏或共享警告时不操作。

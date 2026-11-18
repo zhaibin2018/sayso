@@ -4,5 +4,3 @@ interface:
   default_prompt: "Use $sayso-click-at to click my visible target once and continue from the actual after-image."
 policy:
   allow_implicit_invocation: true
-
-

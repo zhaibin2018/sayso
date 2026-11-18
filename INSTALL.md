@@ -78,7 +78,7 @@ Reuse the existing owned private Site, database, bucket and canonical plugin. Do
 
 1. Pin this source snapshot and verify its manifest. Compare existing owner configuration; preserve the Site origin, project identity and protected secrets. Do not print/export secrets. A valid existing signing key should be preserved: rotating it also invalidates comparison of existing text-request HMACs. Recover uncertain work by original command ID, never automatically send it again with a new key.
 2. Stop current control before migration. Apply **all unapplied migrations in order through 0027** through the supported Sites database workflow. Migration 0026 removes text in terminal commands. Migration 0027 erases old unkeyed text digests, retains non-replayable request keys, and cancels pending old text commands or marks attempted input uncertain. Do not skip migrations or run a destructive reset.
-3. Replace service code with `mcp/`, retaining actual private bindings and `SAYSO_PUBLIC_ORIGIN`. Configure a valid 64-hex signing key if absent/invalid. Build/test and deploy using the supported Sites workflow; verify the terminal deployment result and authenticated MCP initialization reports **0.13.249**. A repository update alone does not update an existing user Site.
+3. Replace service code with `mcp/`, retaining actual private bindings and `SAYSO_PUBLIC_ORIGIN`. Configure a valid 64-hex signing key if absent/invalid. Build/test and deploy using the supported Sites workflow; verify the terminal deployment result and authenticated MCP initialization reports **0.13.250**. A repository update alone does not update an existing user Site.
 4. Read the existing Site plugin and overlay the versioned companion skills without replacing its private manifests or App binding. Report actual deployed service and skill versions and all remaining phone/firmware setup gaps.
 5. Verify stop and original-result recovery without sending new phone input. No physical control, payment, sending, deletion or firmware flashing is an installation smoke test.
 
@@ -91,3 +91,7 @@ Terminal text is removed by database triggers immediately. Public command respon
 Maintenance is opportunistic on engine-backed MCP calls, device heartbeats, stop and authorization changes, as well as image traffic. Without traffic or an independently configured authorized scheduler, idle abandoned text has **no guaranteed wall-clock deletion deadline**. Account deletion is not implemented. Existing backups may contain old text/digests and require their own retention policy. See `mcp/SELF_HOSTING.md` for protected maintenance configuration; no scheduler is activated by installing this source alone.
 
 文字终态立即清除；过期未完成文字依赖维护清理，七天后压缩详细命令与回执，保留防重放和顺序证据。停止会话清除云端屏幕数据，撤销设备清除关联记录。永久闲置且没有外部调度时，无法保证清理期限；账户删除尚未实现。
+
+## T6 companion guidance
+
+Use service 0.13.250 with skills 1.2.41 for final-step handoff: do not click an irreversible final payment/order/send/delete/cancellation/transfer button; park using move_mouse_to, inspect the actual after-image, name the button and ask the user to tap. Hidden screens require stopping input. This is an AI soft rule, not a code-enforced block or C124 approval feature.

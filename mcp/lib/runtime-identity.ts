@@ -1,2 +1,2 @@
-export const runtimeVersion = "0.13.249";
+export const runtimeVersion = "0.13.250";
 export const runtimeName = "sayso";

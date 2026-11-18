@@ -14,4 +14,3 @@ Apply [shared rules](../sayso-control/references/workflows.md) and [image handof
 5. If the scene unexpectedly changes app/page, stop the planned gesture sequence and reassess that actual after-image. Do not click an unrelated page to continue the old plan. If the intended effect remains unclear or there is no progress after two gestures, report the unresolved outcome instead of success.
 
 Use original image pixels for endpoints. Convert normalized x with `fraction*(image_width-1)` and y with `fraction*(image_height-1)`. Do not use preview dimensions as original coordinates. Stop/timeout/lost authority must release input. Query uncertain input by its original ID; never repeat it to get an image.
-

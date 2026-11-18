@@ -3,8 +3,8 @@
   "snapshot": "SaySo security source 2026-11-18",
   "license": "FSL-1.1-ALv2",
   "licensor": "ZHAI BIN",
-  "mcpRuntime": "0.13.249",
-  "skillSourceVersion": "1.2.40",
+  "mcpRuntime": "0.13.250",
+  "skillSourceVersion": "1.2.41",
   "consumerEndToEndAccepted": false,
   "files": [
     {
@@ -19,8 +19,8 @@
     },
     {
       "path": "INSTALL.md",
-      "bytes": 13504,
-      "sha256": "90d102fd080e702e7cf194e3e3f72e89c0f13bfe3e76db24df96d280f03052d3"
+      "bytes": 13901,
+      "sha256": "79fa1b8603ab96849ba6795a5d1d2b27bd3b4d82735b8ace8c2d1fc36de2ef7e"
     },
     {
       "path": "LICENSE.md",
@@ -74,8 +74,8 @@
     },
     {
       "path": "mcp/README.md",
-      "bytes": 3128,
-      "sha256": "9f681b3340f3fbf319a411f188117a029c752c5dfd05c0da35b7d312c2d49eb5"
+      "bytes": 3305,
+      "sha256": "4d6820e2ac1f57b8ebc2c417fc5ec7dd20046d1934f57376929cc9be0b200ffb"
     },
     {
       "path": "mcp/SELF_HOSTING.md",
@@ -454,13 +454,13 @@
     },
     {
       "path": "mcp/contracts/current-actions.json",
-      "bytes": 67745,
-      "sha256": "c5f54808448cad3aa116954c5f6c288e39bef0a7187507d29e6a418994ab5227"
+      "bytes": 68737,
+      "sha256": "75d30de7b3a994e8198eaf6ec6840228695adda9b4e388bda44703e1fb5ff26d"
     },
     {
       "path": "mcp/contracts/openapi.json",
-      "bytes": 143014,
-      "sha256": "e249b716a47834f53dc08fe590c908871cd032956822f2ef1caccf341244490f"
+      "bytes": 144998,
+      "sha256": "6edd5c4343c80c333b33b461d30c6ee65b5a2b945876c1eaa8a03bb29595ad01"
     },
     {
       "path": "mcp/db/index.ts",
@@ -914,8 +914,8 @@
     },
     {
       "path": "mcp/lib/current-control-guide.ts",
-      "bytes": 5401,
-      "sha256": "29e66c911fd4b67cbfaaebdc4026541e5f273cb673678ab00b6e7ac839550b3f"
+      "bytes": 5517,
+      "sha256": "2ed5256f0af7a0d5dc3258720d2a5c52a952fdc55c2dfc042a268979b893ca32"
     },
     {
       "path": "mcp/lib/current-frame-admission.ts",
@@ -956,6 +956,11 @@
       "path": "mcp/lib/drag-admission-diagnostic.ts",
       "bytes": 3481,
       "sha256": "133abe1391822974aac18b86481d283b225fe9e59d15d7ce8c498d69d72bd263"
+    },
+    {
+      "path": "mcp/lib/final-step-policy.ts",
+      "bytes": 1642,
+      "sha256": "e41fd529d262b28620efa954e777f74a578cfe0e177becab4b9b6b424517ee7d"
     },
     {
       "path": "mcp/lib/focused-field-admission-diagnostic.ts",
@@ -1039,8 +1044,8 @@
     },
     {
       "path": "mcp/lib/mcp-tool-catalog.ts",
-      "bytes": 35263,
-      "sha256": "0893d9e7d38e0eea4663ebc09268fe7a908448c362aca6472da47c16d56b6e8d"
+      "bytes": 35357,
+      "sha256": "5ac8327e7b69666c8dd3726b12d8c58cec0a8d772903e564e656acc0a9d1e2c3"
     },
     {
       "path": "mcp/lib/mouse-control.ts",
@@ -1145,7 +1150,7 @@
     {
       "path": "mcp/lib/runtime-identity.ts",
       "bytes": 78,
-      "sha256": "d90044c5b312f9c2e444bbe54fb031d5953f67afe096e149b0ce010368c681fd"
+      "sha256": "8779ba111722107f750c69a5fd0d35d076d1fe8d48104c85a656af2fde1a26d7"
     },
     {
       "path": "mcp/lib/screen-snapshot-query.ts",
@@ -1404,8 +1409,8 @@
     },
     {
       "path": "mcp/tests/control-guide.test.ts",
-      "bytes": 3021,
-      "sha256": "7d1f9caecb5b4fbcb80a11586e40f81e86491343d3534d2911ac191268486d15"
+      "bytes": 3799,
+      "sha256": "2abeb63d6da04d0ce2f60f0b9c61af012302457b2dc0494d466d64aeb59a8212"
     },
     {
       "path": "mcp/tests/current-frame-reference.test.ts",
@@ -1580,27 +1585,27 @@
     {
       "path": "plugins/sayso/plugin.json",
       "bytes": 744,
-      "sha256": "b846c5eca4bb3d8b21060589224287f3a09114165ae594ae1b2cc7cedf5714de"
+      "sha256": "89387a8d22073231a78b84a0c3cf29753612f137974f33a22d3b1264a0b120dd"
     },
     {
       "path": "plugins/sayso/skills/sayso-click-at/SKILL.md",
-      "bytes": 1509,
-      "sha256": "8222a94c4c3e93d9750273adce19d9c636e067f8a731325ec90a45ad4ca362f0"
+      "bytes": 1992,
+      "sha256": "5b6ef2d659a468f854a986c4404a5a9c254067edfce05fefad2d581797d745c2"
     },
     {
       "path": "plugins/sayso/skills/sayso-click-at/agents/openai.yaml",
-      "bytes": 304,
-      "sha256": "406f96206ead3438fdef5de27da389c0c1271b0bf795d1c3dc6838ed8646571e"
+      "bytes": 302,
+      "sha256": "345965e1d0c7e01fa13cfc77d409e9064fa5b1c58f8a562a83e99f78e9ededeb"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/SKILL.md",
-      "bytes": 1818,
-      "sha256": "c2d80a3c70adeb9a256346c4698f22666d2c871d4f63591dfd8bf435552bebb6"
+      "bytes": 2300,
+      "sha256": "c096ee4f50652632aba462211217960914e7077bc354b187e2f4f0155f5b8d66"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/agents/openai.yaml",
-      "bytes": 304,
-      "sha256": "6b2f1fa101b75d187c21bd102b127d304853ae089d0f9feffd33968e6b9d1320"
+      "bytes": 302,
+      "sha256": "9c4d117d43c54511308559c71e8609573755a22d83a45997950981a4affb9193"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/compatibility.md",
@@ -1609,13 +1614,13 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/google-maps-live.md",
-      "bytes": 1533,
-      "sha256": "bcec7088c79436f5267fb5597407559429819ccb4b0b7a3c16d7d3543e058ccd"
+      "bytes": 1532,
+      "sha256": "656f43bb9d6970043d448811d8964768120dd6f9311f15f0cd88094db5cbfef5"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/image-handoff.md",
-      "bytes": 3048,
-      "sha256": "4ca43ada0893abd18973f4da6aa01632066094c31d5c5fe5fb7525702f495bd8"
+      "bytes": 3047,
+      "sha256": "9804e8df86d9c75828fb7c4ab2a507fd3a17f80cd21e55771fd284110e671854"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/recovery.md",
@@ -1624,58 +1629,58 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/workflows.md",
-      "bytes": 5005,
-      "sha256": "4a387c4dd32e049f7a6c3be279a428dcc22dfb48b73142403084519e7ec73f77"
+      "bytes": 6995,
+      "sha256": "ceee7aff748bddbe62395363257932cad2df1b87224eb64c82c558b35a41e16a"
     },
     {
       "path": "plugins/sayso/skills/sayso-drag-to/SKILL.md",
-      "bytes": 1863,
-      "sha256": "85265b8d941a4bc12c265443f05504e91bda7e3a5d7c3b603e7d1d842b8f3f9a"
+      "bytes": 1862,
+      "sha256": "df9d2c2bf1bfc2f724b467e7387cedf7df9d0875b3c7320cbb3a7444610366cf"
     },
     {
       "path": "plugins/sayso/skills/sayso-drag-to/agents/openai.yaml",
-      "bytes": 341,
-      "sha256": "5b15101034aed97cbe7bc298a4a5b0d19a06760b68fd29f30363cfb1d052c90f"
+      "bytes": 339,
+      "sha256": "f59618f3ea5c71fce516e51d0e6c3c6680db1835d8065072bf14f4ece6533c8e"
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/SKILL.md",
-      "bytes": 1176,
-      "sha256": "368b37e7053a27f2eec70fe13990cc940db7b28fa30ceaad3bc908d380b57425"
+      "bytes": 1174,
+      "sha256": "681f70109e356ab9bbc4bd2a7729e4edf76319adc96eab016437a937c6ff031e"
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/agents/openai.yaml",
-      "bytes": 260,
-      "sha256": "6e769a8245b65eba5562d7c4bc2f687c03cce05ffae9eaaece5819ec34921e8d"
+      "bytes": 258,
+      "sha256": "d1535734569e199c1046e007b764b57dce910b9fdbd43b86e3692d77078b9242"
     },
     {
       "path": "plugins/sayso/skills/sayso-open-app/SKILL.md",
-      "bytes": 2121,
-      "sha256": "2ea18612addaca9be0a6e52e98022fc31eecce4c8702a1618ebc80b1b7da795d"
+      "bytes": 2120,
+      "sha256": "83a594904700bd63f169051f57614663c58a17f69ca2df329661afb3d185fca1"
     },
     {
       "path": "plugins/sayso/skills/sayso-open-app/agents/openai.yaml",
-      "bytes": 308,
-      "sha256": "e2d6b002c45a0883a3e5c3c123697fd331cbe8175fe2a131c85e87e5911127b6"
+      "bytes": 306,
+      "sha256": "1b8e02833ddf872e526c2eab2c5383b9b4df53a3898dd16960cc257498aa84f2"
     },
     {
       "path": "plugins/sayso/skills/sayso-scroll-view/SKILL.md",
-      "bytes": 1769,
-      "sha256": "ce38ec4596cd9d608dd0b98abdd73f887c76d212f6ce9f319f599896f95ee03f"
+      "bytes": 1768,
+      "sha256": "6a95846a724cb315e43421bcb42072508daed295718bc1c66ece949f06fd038f"
     },
     {
       "path": "plugins/sayso/skills/sayso-scroll-view/agents/openai.yaml",
-      "bytes": 293,
-      "sha256": "9d7c3d02c14dd38de9138d2cac32079fc9c54b61a0ae16285e80071f1726cdc6"
+      "bytes": 291,
+      "sha256": "fdf3f9e12066d76f5e4ed038eb7958df380e3d5b20a81f53898006a6902e902e"
     },
     {
       "path": "plugins/sayso/skills/sayso-type-text/SKILL.md",
-      "bytes": 2107,
-      "sha256": "6fd9d26f3b969a07e9c3ba61c6f640084d232ec2249f1bdeb38095a758904beb"
+      "bytes": 2589,
+      "sha256": "e204c18ca14d9c2b6686d5ca802f0acdccbde2a3555a6ceaceaae9bcdbe51f38"
     },
     {
       "path": "plugins/sayso/skills/sayso-type-text/agents/openai.yaml",
-      "bytes": 298,
-      "sha256": "a7cd4c2a32cf542c5d09b7a9412f354f090e2d3c2d2f02e8baba8268f70044a1"
+      "bytes": 296,
+      "sha256": "073fb7f4c8401f701382f60579f7b351414b8b5777f32d0e6f8b810ffec0df8a"
     },
     {
       "path": "scripts/generate-source-manifest.mjs",

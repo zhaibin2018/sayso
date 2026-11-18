@@ -4,5 +4,3 @@ interface:
   default_prompt: "Use $sayso-type-text to enter my text in the intended field and submit only as requested."
 policy:
   allow_implicit_invocation: true
-
-

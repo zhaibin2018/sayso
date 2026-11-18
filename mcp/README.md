@@ -1,6 +1,6 @@
 # SaySo Sites MCP source
 
-Source-available server snapshot based on runtime **0.13.249**, with a separate public-instance origin setting. This is the server source, not the iOS application or ESP firmware.
+Source-available server snapshot based on runtime **0.13.250**, with a separate public-instance origin setting. This is the server source, not the iOS application or ESP firmware.
 
 Use the repository's [installation guide](../INSTALL.md). The current source can be audited and built, but a brand-new user's complete iPhone installation/configuration handoff has not been accepted end to end. Do not report a fully configured phone from a successful server deployment alone.
 
@@ -27,3 +27,5 @@ The service can store images in D1/R2, requested input text and operation/diagno
 Original SaySo code is licensed under FSL-1.1-ALv2; see [LICENSE.md](LICENSE.md). Copyright 2026 ZHAI BIN. Each covered version receives the additional Apache-2.0 license on the second anniversary of its availability. Vendored/upstream material and dependencies retain their own terms; see [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 The 0.13.249 update includes S3/S6 stop handling, strict signing configuration, immediate terminal-text redaction, scoped HMAC text digests and opportunistic maintenance. Apply migrations through 0027; see the root INSTALL.md for safe existing-service updates and retention limits.
+
+Runtime 0.13.250 adds T6 final-step handoff and protected-screen guidance. These are model instructions, not server-enforced transaction blocking. Companion skills are 1.2.41.

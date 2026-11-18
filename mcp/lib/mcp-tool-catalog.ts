@@ -1,3 +1,4 @@
+import { finalStepPolicy } from "./final-step-policy.ts";
 import {
   clickRelookMaxGapMS,
   readRecoveryDefaultMS,
@@ -221,6 +222,8 @@ export const allMcpTools = [
     name: "click_at",
     title: "移动并点击后观察手机",
     description:
+      finalStepPolicy +
+      " " +
       "Click one target selected by Live from the prior actual image. Pass device_id, source_frame_id, original dimensions, orientation and pixel coordinates; forward source_point_proof unchanged when supplied, otherwise the same frame is looked up. Ordinary pixel coordinates need no regions. No old source-age cutoff or pixel comparison. Keep authority, source identity, geometry and idempotency. This one action has distinct durable move/click IDs. Unknown input uses get_mouse_result by original ID/key; never repeat it to obtain a picture. Inspect and reuse its same-call after-image, captured after the acknowledged click with same scope and age strictly below 2000 ms. No parked selector, resume arguments or older workflow is available." +
       imageDelivery,
     inputSchema: object(

@@ -4,5 +4,3 @@ interface:
   default_prompt: "Use $sayso-drag-to to drag the requested visible target. Convert any 0–1 fractions to original image pixels before calling drag_at."
 policy:
   allow_implicit_invocation: true
-
-

@@ -32,4 +32,3 @@ For production screen descriptions, use `read_screen`. The preview-only `read_sc
 An `open_system_search` focus PNG can feed direct typing, with its original action/frame binding. Coordinate-based actions use their actual action image's original geometry. A view-only preview supplies no action proof.
 
 If pixels are absent, report the observed gap accurately in the user's language, for example “The tool reported an image, but this host did not expose it to me” / “工具报告有图，但当前宿主没有把图片交给我”。Use the shared one-read recovery rule where applicable. Never claim to have decoded or seen an image without doing so.
-

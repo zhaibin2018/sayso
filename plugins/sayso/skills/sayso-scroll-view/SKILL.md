@@ -13,4 +13,3 @@ Apply [shared rules](../sayso-control/references/workflows.md) and [image handof
 4. Inspect every same-call after-image. If the user's goal is still visibly incomplete, choose the next bounded movement from that image; do not report completion merely because the board acknowledged. If progress is not visible after two attempts, report the observed blocker and choose a different visible region or suitable navigation action. Never silently turn a wheel request into a drag over clickable content.
 
 For an uncertain result, query its original ID without resending. A confirmed scroll with a missing or transitional image follows the shared one-read recovery rule. No routine extra screen read is needed.
-

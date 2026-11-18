@@ -22,3 +22,16 @@ For `drag_at`, choose visible endpoints and normally omit duration. The current 
 
 Choose the action by the user's goal: scroll page/list content with the wheel; drag an object, slider or panel handle. Wheel direction comes from observed displacement on the current device, not a fixed sign convention. A partial sheet expansion/collapse is an intermediate result: use the returned image to choose the next bounded action until the requested visible state is reached, or accurately report the remaining blocker. An unexpected app/page change invalidates the planned next gesture; reassess its actual after-image before continuing.
 
+## T6 — leave the final step to the user
+
+For the irreversible final button for payment, placing an order, sending a message, deleting, cancelling a subscription or transferring money, **do not use `click_at`**. Call `move_mouse_to` with coordinates from the actual visible image. Inspect its actual after-image; only when it confirms the pointer is on the intended button, say “The pointer is on [exact button text]. Please tap it yourself.” If the image or target is uncertain, stop and report that; do not claim readiness. Do not submit using Return, double-click, drag or a different tool. Ordinary navigation may continue under the existing authorization.
+
+中文：遇到付款、下单、发送、删除、取消订阅、转账等不可撤回的最后一步，不用 `click_at`。先用 `move_mouse_to` 停指针，查看真实后图确认停对，再说：“指针停在【按钮上的文字】上了，请你自己点一下。”看不到后图或不能确认目标时就停下，不能宣称已经停好，也不要用回车或其他输入代替提交。
+
+This is an AI soft rule, not server-enforced blocking. ChatGPT’s tool approval is separate from the user’s final tap. Do not tell the user to press C124 for approval yet: that public workflow is not implemented.
+
+## Hidden screens
+
+When the target screen is black, blank, hidden or shows a screen-sharing warning, stop all clicks and typing. Do not guess coordinates, repeatedly read/retry, or suggest bypassing protection. Explain that the app may be hiding its content, and let the user do that part. If it cannot be used while sharing, ask the user to stop sharing in SaySo and start sharing again after finishing. Resume only from a new visible image.
+
+黑屏、空白或出现屏幕共享警告时，停止点击和输入；不猜位置、不反复读图重试、不绕过保护。说明这个 App 可能在保护内容，请用户自行完成；必要时先在 SaySo 停止共享，完成后重新开启。

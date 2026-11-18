@@ -14,5 +14,3 @@ Reply in the user's language. Use current connected SaySo tools.
 5. After recovery, resume from the current actual image and permission.
 
 The production service is https://sayso.davidzhai2012.chatgpt.site. Plugin version, Sites runtime, iPhone app build and C124 firmware are distinct. Preserve the user's selected physical transport and stop controls.
-
-

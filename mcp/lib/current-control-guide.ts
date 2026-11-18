@@ -1,3 +1,4 @@
+import {finalStepPolicy,protectedScreenPolicy} from "./final-step-policy.ts";
 import {phoneWorkflowInstructions,interactionPolicyVersion} from "./interaction-guidance.ts";
 export const controlWorkflows=["overview","open_app","field_input","pointer","local_plan","search_taobao","scroll","drag","maps","clipboard","stop"] as const;
 export type ControlWorkflow=typeof controlWorkflows[number];
@@ -23,7 +24,7 @@ const guides:Record<ControlWorkflow,Record<string,unknown>>={
 };
 export function controlGuide(workflow:ControlWorkflow){return {
  state:"guidance_only",guide_revision:"2.1.0",interaction_policy_version:interactionPolicyVersion,current_workflow:phoneWorkflowInstructions,
- workflow,device_readiness:"not_checked",...guides[workflow],invariants:[
+ workflow,device_readiness:"not_checked",...guides[workflow],invariants:[finalStepPolicy,protectedScreenPolicy,
  "Inspect actual image blocks, not metadata alone. Ordinary visual reads remain strictly below 2000 ms at Sites release.",
  "Reuse the preceding after-image and its exact device/frame/geometry/proof. No routine extra read_screen or OCR.",
  "Keep owner, device, sharing/control scope, coordinate geometry, command deadline, signed release and idempotency checks.",

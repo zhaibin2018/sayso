@@ -4,5 +4,3 @@ interface:
   default_prompt: "Use $sayso-scroll-view to browse as requested and use its after-image for the next step."
 policy:
   allow_implicit_invocation: true
-
-

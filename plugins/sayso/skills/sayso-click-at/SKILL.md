@@ -15,3 +15,5 @@ There is one current action contract. Do not invoke old visual-review or prepara
 
 
 `source_age_ms` and `screen_changed_since_source` describe the server observation reported with the click. They are informational, not a time limit or a new blocking review. The change flag compares JPEG hashes, not semantic UI meaning. Missing evidence is null, never a guessed zero or false. Continue to judge the actual after-image; the fields do not prove the app effect.
+
+T6: For irreversible final payments, orders, sends, deletions, subscription cancellation or transfers, do not click/submit. Use `move_mouse_to`, inspect the real after-image, then name the button and ask the user to tap it themselves. Missing/uncertain images are not readiness. Follow the shared T6 and hidden-screen rules; ChatGPT approval is not the final tap. 中文：最后一步先停指针、确认真实后图，再请用户自己点；黑屏或共享警告时不操作。

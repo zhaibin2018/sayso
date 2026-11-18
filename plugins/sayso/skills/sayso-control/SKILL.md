@@ -18,3 +18,4 @@ Apply [shared execution rules](references/workflows.md) once per task. Read [ima
 
 Keep voice progress brief and continue the tool call in the same turn. Report the effect visible in the final image. A model-context update alone cannot resume an ended voice turn.
 
+T6: For irreversible final payments, orders, sends, deletions, subscription cancellation or transfers, do not click/submit. Use `move_mouse_to`, inspect the real after-image, then name the button and ask the user to tap it themselves. Missing/uncertain images are not readiness. Follow the shared T6 and hidden-screen rules; ChatGPT approval is not the final tap. 中文：最后一步先停指针、确认真实后图，再请用户自己点；黑屏或共享警告时不操作。

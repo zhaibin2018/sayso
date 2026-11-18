@@ -13,4 +13,4 @@ Reply in the user's language. Use current connected SaySo tools.
 4. If a tool reports an available image but the model sees no pixels, follow [image handoff](../sayso-control/references/image-handoff.md). An image count is a server observation.
 5. After recovery, resume from the current actual image and permission.
 
-The production service is https://sayso.davidzhai2012.chatgpt.site. Plugin version, Sites runtime, iPhone app build and C124 firmware are distinct. Preserve the user's selected physical transport and stop controls.
+Use the private SaySo service bound to this user's installed Site plugin; never substitute another owner's Site URL. Plugin version, Sites runtime, iPhone app build and C124 firmware are distinct. Preserve the user's selected physical transport and stop controls.

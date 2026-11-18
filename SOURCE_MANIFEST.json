@@ -1644,8 +1644,8 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/SKILL.md",
-      "bytes": 1174,
-      "sha256": "681f70109e356ab9bbc4bd2a7729e4edf76319adc96eab016437a937c6ff031e"
+      "bytes": 1223,
+      "sha256": "ad84e047104f5e280be625878a2541f4f73899094244cf95aab37c232db59f89"
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/agents/openai.yaml",
@@ -1681,6 +1681,11 @@
       "path": "plugins/sayso/skills/sayso-type-text/agents/openai.yaml",
       "bytes": 296,
       "sha256": "073fb7f4c8401f701382f60579f7b351414b8b5777f32d0e6f8b810ffec0df8a"
+    },
+    {
+      "path": "scripts/check-public-boundaries.mjs",
+      "bytes": 913,
+      "sha256": "e8c4306f2128e793a0cb8eaeed0a90b05f322d8a4877c774c2c845fc566b7bfd"
     },
     {
       "path": "scripts/generate-source-manifest.mjs",

@@ -1,2 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {requirements,requirementRows} from '../src/requirements.js';import {copy} from '../src/copy.js';
 test('requirements have matching locale fields and one website/installer source',()=>{assert.deepEqual(Object.keys(requirements.en),Object.keys(requirements.zh));assert.equal(readFileSync('src/requirements.js','utf8'),readFileSync('sayso-install/src/requirements.js','utf8'));for(const lang of ['en','zh']){assert.deepEqual(copy[lang].needs,requirementRows(lang));assert.equal(copy[lang].hardware,requirements[lang].hardwareSummary);assert.equal(copy[lang].setupNeed,requirements[lang].setupSummary);assert.equal(copy[lang].free,requirements[lang].fees);}});
+
+import {createServer} from 'vite';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {normalizeConfig} from '../src/config.mjs';
+test('Home and Start render the central requirements in both languages',async()=>{const server=await createServer({server:{middlewareMode:true},appType:'custom'});try{const {Home,Start}=await server.ssrLoadModule('/src/App.jsx');for(const lang of ['en','zh']){const props={t:copy[lang],lang,config:normalizeConfig(),preview:true};const home=renderToStaticMarkup(React.createElement(Home,props));const start=renderToStaticMarkup(React.createElement(Start,props));for(const value of [requirements[lang].hardwareSummary,requirements[lang].setupSummary])assert.ok(home.includes(value.replaceAll("'",'&#x27;')),value);for(const row of requirementRows(lang))for(const value of row)assert.ok(start.includes(value.replaceAll("'",'&#x27;')),value);}}finally{await server.close();}});

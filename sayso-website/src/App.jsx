@@ -365,7 +365,7 @@ function Download({ t, config }) {
     </div>
   );
 }
-function Home({ t, lang, config, preview }) {
+export function Home({ t, lang, config, preview }) {
   const [scene, setScene] = useState("food");
   return (
     <>
@@ -452,7 +452,7 @@ function PortraitVideo({ scene, video, t, lang }) {
     [time, setTime] = useState(0),
     [duration, setDuration] = useState(0);
   const [reduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const [attempt, setAttempt] = useState(0);
   const togglePlay = () => {
@@ -605,7 +605,7 @@ const requirementIcons = [
   Cpu,
   Laptop,
 ];
-function Start({ t, lang, config }) {
+export function Start({ t, lang, config }) {
   return (
     <>
       <PageHeading eyebrow={t.start} title={t.before} subtitle={t.beforeSub} />

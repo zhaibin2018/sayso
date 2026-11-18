@@ -55,7 +55,7 @@ export function HelpDialog({
     download: t("Find your device", "找到你的设备"),
     reinstall: t("Reinstall or update?", "重装还是更新？"),
     screen: t(
-      "Screen sharing, without a control device",
+      "Screen sharing, without a accessory",
       "无需操控设备的屏幕共享",
     ),
     pairing: t("Continue on your iPhone", "在 iPhone 上继续"),

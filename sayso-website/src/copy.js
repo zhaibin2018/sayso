@@ -1,3 +1,4 @@
+// Terminology: Screen guidance=读屏; Tapping=帮你点; Screen sharing=屏幕共享 (iOS feature); accessory=配件; private SaySo service=你的私人服务; approval=批准.
 import {requirements,requirementRows} from "./requirements.js";
 export const copy = {
   "en": {
@@ -48,7 +49,7 @@ export const copy = {
       ],
       [
         "Explain a setting",
-        "Screen guidance, no control accessory"
+        "Screen guidance, no accessory"
       ]
     ],
     "videoPending": "Video asset pending",
@@ -66,7 +67,7 @@ export const copy = {
     "quotaPending": "Planned allowance — task counting is still being verified.",
     "priceNote": "*Official item price checked Nov 16, 2026. Shipping and taxes may apply.",
     "currentPrice": "Check current price",
-    "privacyShort": "Your shared screen is sent to the service you connect and to ChatGPT.",
+    "privacyShort": "Your shared screen is sent to your private SaySo service and to ChatGPT.",
     "privacyLink": "How your data is handled",
     "disclaimer": "Works with ChatGPT. Not affiliated with or endorsed by OpenAI or M5Stack.",
     "preview": "Development preview · Product availability and supporting materials are still being verified.",
@@ -143,7 +144,7 @@ export const copy = {
       "Verified"
     ],
     "screenMode": "Screen guidance",
-    "controlMode": "Phone control",
+    "controlMode": "Tapping",
     "buyTitle": "The right accessory, from the right place.",
     "buySub": "Look for AtomS3 Lite, model C124. Atom Lite, AtomS3 and AtomS3R are different products.",
     "officialShop": "M5Stack official store",
@@ -151,16 +152,16 @@ export const copy = {
     "vendor": "Visit product page",
     "buyNote": "Compare the final checkout total, including shipping and any taxes. Prices and stock can change. Check SaySo compatibility before purchasing.",
     "privacyTitle": "Know where your screen goes.",
-    "privacySub": "Sharing, device control and data deletion are different choices.",
+    "privacySub": "Sharing, tapping and data deletion are different choices.",
     "draft": "Privacy information draft — not a finalized release policy.",
     "privacySections": [
       [
-        "Your screen and the connected service",
+        "Your screen and your private SaySo service",
         "When you start screen sharing, SaySo sends visible screen images to the service you configured and consented to, for the connected ChatGPT functionality. Content visible in other apps may also be shared. The native app does not capture your microphone; ChatGPT handles your voice under its own policies."
       ],
       [
         "Storage is part of the data flow",
-        "The reviewed service can store screenshots in its database or object storage. It also processes requested input text, device and session identifiers, operation receipts and diagnostic records. A private Site does not mean that nothing is stored."
+        "Your private SaySo service can store screenshots in its database or object storage. It also processes requested input text, device and session identifiers, operation receipts and diagnostic records. A private Site does not mean that nothing is stored."
       ],
       [
         "Stopping is not deleting",
@@ -257,7 +258,7 @@ export const copy = {
       ],
       [
         "解释设置",
-        "只读屏，无需操控配件"
+        "读屏，无需配件"
       ]
     ],
     "videoPending": "视频素材待接入",
@@ -352,7 +353,7 @@ export const copy = {
       "验证日期"
     ],
     "screenMode": "读屏",
-    "controlMode": "操控手机",
+    "controlMode": "帮你点",
     "buyTitle": "买对配件，找对渠道。",
     "buySub": "请认准 AtomS3 Lite，型号 C124。Atom Lite、AtomS3 和 AtomS3R 是不同产品。",
     "officialShop": "M5Stack 官方商城",
@@ -369,7 +370,7 @@ export const copy = {
       ],
       [
         "数据流包含存储",
-        "已核查服务可将截图保存在数据库或对象存储中，并处理要求输入的文字、设备与会话标识、操作回执和诊断记录。私人 Site 不意味着完全不存储。"
+        "你的私人服务可将截图保存在数据库或对象存储中，并处理要求输入的文字、设备与会话标识、操作回执和诊断记录。私人 Site 不意味着完全不存储。"
       ],
       [
         "停止不等于删除",

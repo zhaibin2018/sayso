@@ -19,8 +19,8 @@
     },
     {
       "path": "INSTALL.md",
-      "bytes": 14355,
-      "sha256": "f4b9aba33b2f3b9fc6a12d8a26b87b1c32ae9bba8405ec1eda9a32b437df6d5f"
+      "bytes": 15131,
+      "sha256": "c34cca72fbbabc862fd75d92dc1ae52fc4a005dfbe4d31903e692a05b017051b"
     },
     {
       "path": "LICENSE.md",
@@ -1621,11 +1621,6 @@
       "path": "plugins/sayso/skills/sayso-control/agents/openai.yaml",
       "bytes": 302,
       "sha256": "9c4d117d43c54511308559c71e8609573755a22d83a45997950981a4affb9193"
-    },
-    {
-      "path": "plugins/sayso/skills/sayso-control/references/compatibility.md",
-      "bytes": 2922,
-      "sha256": "c9f4ca334130ed97a918e569db813f7bfb4e50997eca4435d1b788a1615d2770"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/image-handoff.md",

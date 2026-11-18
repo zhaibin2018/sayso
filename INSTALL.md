@@ -99,3 +99,9 @@ Use service 0.13.250 with skills 1.2.41 for final-step handoff: do not click an 
 ## Current guidance update
 
 For runtime 0.13.251 use skills 1.2.42. Never interpret placeholder zero coordinates as a region-center selector: click_at accepts actual original-image pixel coordinates only. Omit bridge_session_id in stop_session to stop all owned ongoing sessions. Returned cleanup failures must be reported; cloud stop is not proof that iOS screen sharing ended. The shorter descriptions are offline-tested, not real-phone A/B accepted.
+
+### Remove retired packaged skill references when upgrading
+
+Before declaring the skill update complete, remove the old SaySo-owned files `skills/sayso-control/references/compatibility.md` and `skills/sayso-control/references/google-maps-live.md` from the existing plugin through the supported file-deletion workflow, if present. Verify these are the old packaged files; preserve unrelated user files, manifests and App bindings. An overlay alone does not remove stale files. Read back the resulting source and run the current reference check.
+
+升级时，若旧插件仍包含上述两份SaySo自带参考文件，核对来源后通过支持的删除流程移除；只覆盖新文件不会清理残留。保留用户其他文件、manifest和App绑定，并读回核对。

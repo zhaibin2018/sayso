@@ -1678,3 +1678,9 @@ small {
     scroll-behavior: auto !important;
   }
 }
+
+/* W8: touch targets, responsive scene order and readable examples. */
+.site-footer nav a,.text-link,.link-row a,.developer-details summary {min-height:44px;display:inline-flex;align-items:center;}
+.developer-details {margin:2rem 0;padding:1rem;border:1px solid var(--border);border-radius:16px;}
+.empty-video blockquote {font-size:1.25rem;line-height:1.5;margin:1rem 0;}
+@media(max-width:760px){.demo-section .demo-copy{order:0}.demo-section .portrait-column{order:1}.demo-section{display:flex;flex-direction:column}.demo-copy{width:100%}}

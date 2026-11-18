@@ -90,7 +90,7 @@ function Link({
 export function App() {
   const [lang, setLang] = useState(preferredLanguage);
   const [theme, setTheme] = useState(() =>
-    readPreference("sayso-theme") === "light" ? "light" : "dark",
+    ["light","dark"].includes(readPreference("sayso-theme")) ? readPreference("sayso-theme") : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
   );
   const [route, setRoute] = useState(currentRoute);
   const [menu, setMenu] = useState(false);
@@ -216,8 +216,8 @@ export function App() {
         {t.skip}
       </a>
       <header className="site-header shell">
-        <a className="brand" href="#/home" aria-label="SaySo home">
-          <img src={asset("assets/sayso.png")} alt="" width="44" height="44" />
+        <a className="brand" href="#/home" aria-label={lang === "zh" ? "SaySo 首页" : "SaySo home"}>
+          <img src={asset("assets/sayso-88.png")} alt="" width="44" height="44" />
           <span>SaySo</span>
         </a>
         <span className="header-divider" aria-hidden />
@@ -228,13 +228,6 @@ export function App() {
           {nav}
         </nav>
         <div className="header-tools">
-          <a
-            className="github-link"
-            href={config.repositoryUrl || "#/guides"}
-            {...(config.repositoryUrl ? external : {})}
-          >
-            {t.github}
-          </a>
           <button
             className="language-button"
             onClick={() => setLang(lang === "en" ? "zh" : "en")}
@@ -272,13 +265,7 @@ export function App() {
           aria-label={lang === "en" ? "Mobile navigation" : "手机导航"}
         >
           {nav}
-          <a
-            href={config.repositoryUrl || "#/guides"}
-            {...(config.repositoryUrl ? external : {})}
-            onClick={() => setMenu(false)}
-          >
-            GitHub
-          </a>
+
         </nav>
       )}
       <main
@@ -962,7 +949,7 @@ function Licenses({ t, config }) {
           href="https://github.com/zhaibin2018/sayso/blob/main/TRADEMARK.md"
           {...external}
         >
-          SaySo trademark notice
+          {t.trademarkNotice}
         </a>
       </p>
       <Repository t={t} config={config} />
@@ -979,7 +966,7 @@ function Licenses({ t, config }) {
           className="text-link"
           {...external}
         >
-          Third-party notices <ArrowUpRight />
+          {t.thirdPartyNotices} <ArrowUpRight />
         </a>
       </section>
     </div>

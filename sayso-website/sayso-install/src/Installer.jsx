@@ -72,7 +72,7 @@ export function App() {
     preferredLanguage(readSetting("sayso-language"), navigator.languages),
   );
   const [theme, setTheme] = useState(() =>
-    readSetting("sayso-theme") === "light" ? "light" : "dark",
+    ["light","dark"].includes(readSetting("sayso-theme")) ? readSetting("sayso-theme") : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
   );
   const [siteLinks, setSiteLinks] = useState(() => normalizeSiteLinks());
   useEffect(() => {
@@ -583,7 +583,7 @@ export function App() {
           }}
           aria-label={t("Restart device setup", "重新开始设备安装")}
         >
-          <img src={`${import.meta.env.BASE_URL}assets/sayso.png`} alt="" />
+          <img src={`${import.meta.env.BASE_URL}assets/sayso-88.png`} alt="" />
           <span>SaySo</span>
         </a>
         <span className="header-divider" />

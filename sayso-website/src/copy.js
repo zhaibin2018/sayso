@@ -261,7 +261,9 @@ export const copy = {
     "needHelp": "Need help?",
     "developerTitle": "Developer information",
     "developerVersion": "Service source 0.13.249 includes stop and privacy fixes. Existing private services need an update; see INSTALL.md.",
-    "installGuide": "Read the installation and update guide"
+    "installGuide": "Read the installation and update guide",
+    "trademarkNotice": "SaySo trademark notice",
+    "thirdPartyNotices": "Third-party notices"
   },
   "zh": {
     "home": "首页",
@@ -523,7 +525,9 @@ export const copy = {
     "needHelp": "遇到问题？",
     "developerTitle": "开发者资料",
     "developerVersion": "服务源码0.13.249已包含停止和隐私修复。已有私人服务需要自行更新，方法见INSTALL.md。",
-    "installGuide": "查看安装与更新指南"
+    "installGuide": "查看安装与更新指南",
+    "trademarkNotice": "SaySo 商标说明",
+    "thirdPartyNotices": "第三方许可说明"
   }
 };
 for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, compatPending:requirements[lang].compatibilityNote, noAccessory:requirements[lang].screenSummary});

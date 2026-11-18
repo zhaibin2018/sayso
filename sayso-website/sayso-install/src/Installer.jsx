@@ -515,8 +515,8 @@ export function App() {
       "首个 DIY 固件正在验证中。固件与兼容性检查完成后，将开放安装。",
     ),
     unverified: t(
-      "This model has not been verified with this release. Explore screen sharing while device support is being checked.",
-      "此机型尚未通过本版本验证。设备支持确认前，可以先了解屏幕共享。",
+      "This model has not been verified with this release. Explore screen guidance while device support is being checked.",
+      "此机型尚未通过本版本验证。设备支持确认前，可以先了解读屏。",
     ),
     "update-ios": t(
       "Check your iOS version in Settings → General → About. Available updates are in Software Update.",
@@ -746,7 +746,7 @@ export function App() {
                 )}
               </p>
               <button className="text-link" onClick={() => setModal("screen")}>
-                {t("Learn about screen sharing", "了解屏幕共享")}
+                {t("Learn about screen guidance", "了解读屏")}
               </button>
             </div>
           </section>
@@ -763,8 +763,8 @@ export function App() {
                   </h1>
                   <p className="lead">
                     {t(
-                      "Start on your computer.\nUpdate from the SaySo app later.",
-                      "首次在电脑完成安装。\n之后通过 SaySo App 更新。",
+                      "Install the accessory firmware on your computer.\nFollow the release guide for future updates.",
+                      "在电脑上安装配件固件。\n以后更新请按对应版本说明操作。",
                     )}
                   </p>
                   <ul className="requirements">
@@ -779,18 +779,18 @@ export function App() {
                       </span>
                     </li>
                   </ul>
-                  <div className="secondary-copy">
+                  <div className="secondary-copy" hidden={match.kind === "lightning"}>
                     <p>
                       {t(
-                        "No device yet? Explore screen sharing.",
-                        "还没有设备？先了解屏幕共享。",
+                        "No device yet? Explore screen guidance.",
+                        "还没有设备？先了解读屏。",
                       )}
                     </p>
                     <button
                       className="text-link"
                       onClick={() => setModal("screen")}
                     >
-                      {t("Learn about screen sharing", "了解屏幕共享")}
+                      {t("Learn about screen guidance", "了解读屏")}
                     </button>
                   </div>
                 </div>
@@ -916,7 +916,7 @@ export function App() {
                             className="text-link"
                             onClick={() => setModal("screen")}
                           >
-                            {t("Explore screen sharing", "了解屏幕共享")}
+                            {t("Explore screen guidance", "了解读屏")}
                           </button>
                         )}
                         {decision === "unavailable" && (
@@ -1421,7 +1421,7 @@ export function App() {
                   <Info size={24} />
                   <span>
                     {t(
-                      "Future updates happen in the SaySo app.",
+                      "Follow the release guide for future firmware updates.",
                       "后续更新在 SaySo App 中完成。",
                     )}
                   </span>

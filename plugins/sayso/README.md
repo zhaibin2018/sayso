@@ -1,6 +1,6 @@
 # SaySo plugin and skill source
 
-Seven skills are provided: sayso-control, sayso-onboarding, sayso-open-app, sayso-click-at, sayso-type-text, sayso-scroll-view and sayso-drag-to. Their source is based on the owned 1.2.37 package. The developer-instance URL was removed; the instructions use only the service connected to the current user's plugin.
+Seven skills are provided: sayso-control, sayso-onboarding, sayso-open-app, sayso-click-at, sayso-type-text, sayso-scroll-view and sayso-drag-to. Their source is based on the owned 1.2.41 package. The developer-instance URL was removed; the instructions use only the service connected to the current user's plugin.
 
 The portable plugin.json describes a **skills-only bundle**. It contains no developer App ID, MCP URL, account binding or token. It does not install or connect the MCP server itself.
 

@@ -628,7 +628,7 @@ function Start({ t, lang, config }) {
           <h3 className="group-label">{t.screenGroup}</h3>
           {t.needs.slice(0, 4).map((r, i) => (
             <Requirement key={i} row={r} Icon={requirementIcons[i]}>
-              {i === 0 && <Link to="firmware">{t.viewCompat}</Link>}
+              {i === 0 && <a className="text-link" href="#compatibility" onClick={e => {e.preventDefault(); document.getElementById("compatibility")?.scrollIntoView({behavior:"smooth"});}}>{t.viewCompat}</a>}
             </Requirement>
           ))}
           <h3 className="group-label control-group">{t.controlGroup}</h3>
@@ -638,7 +638,7 @@ function Start({ t, lang, config }) {
             </Requirement>
           ))}
           <Link className="button-secondary" to="firmware">
-            {t.checkAll}
+            {t.firmware}
           </Link>
           <p className="small-note">{t.noAccessory}</p>
         </section>
@@ -687,6 +687,7 @@ function Start({ t, lang, config }) {
           <Link to="support">{t.resume}</Link>
         </section>
       </div>
+      <Compatibility t={t} config={config} />
       <aside className="approval-band">
         <HandTap aria-hidden />
         <div>
@@ -695,7 +696,7 @@ function Start({ t, lang, config }) {
         </div>
       </aside>
       <div className="start-bottom">
-        <p>{t.free}</p>
+        <p>{t.free}</p><p>{t.quotaPending}</p>
         <p>{t.costs}</p>
         <small>{t.priceNote}</small>
       </div>
@@ -770,6 +771,45 @@ function Guides({ t, config }) {
     </div>
   );
 }
+function Compatibility({t,config,mode}) {
+  const rows=config.compatibility.filter(row => !mode || row.mode===mode);
+  return (      <section className="document-sections" id="compatibility">
+        <h2>{t.compatTitle}</h2>
+        {rows.length ? (
+          <div className="table-scroll" tabIndex={0}>
+            <table>
+              <thead>
+                <tr>
+                  {t.compatColumns.map((c) => (
+                    <th key={c}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td>
+                      {r.mode === "screen" ? t.screenMode : t.controlMode}
+                    </td>
+                    <td>{r.model}</td>
+                    <td>{r.ios}</td>
+                    <td>{r.appVersion}</td>
+                    <td>
+                      {r.mode === "control"
+                        ? `${r.accessory} / ${r.firmware}`
+                        : "—"}
+                    </td>
+                    <td>{r.testedAt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p>{t.compatPending}</p>
+        )}
+      </section>);
+}
 function Firmware({ t, config }) {
   return (
     <div className="document">
@@ -794,42 +834,7 @@ function Firmware({ t, config }) {
           {t.installerPending}
         </p>
       )}
-      <section className="document-sections" id="compatibility">
-        <h2>{t.compatTitle}</h2>
-        {config.compatibility.length ? (
-          <div className="table-scroll" tabIndex={0}>
-            <table>
-              <thead>
-                <tr>
-                  {t.compatColumns.map((c) => (
-                    <th key={c}>{c}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {config.compatibility.map((r, i) => (
-                  <tr key={i}>
-                    <td>
-                      {r.mode === "screen" ? t.screenMode : t.controlMode}
-                    </td>
-                    <td>{r.model}</td>
-                    <td>{r.ios}</td>
-                    <td>{r.appVersion}</td>
-                    <td>
-                      {r.mode === "control"
-                        ? `${r.accessory} / ${r.firmware}`
-                        : "—"}
-                    </td>
-                    <td>{r.testedAt}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>{t.compatPending}</p>
-        )}
-      </section>
+      <Compatibility t={t} config={config} mode="control" />
       <div className="link-row">
         <Link to="start">{t.checkAll}</Link>
         <Link to="buy">{t.buy}</Link>

@@ -63,7 +63,7 @@ export const copy = {
     "replay": "Replay video",
     "mediaError": "This video could not be loaded. Try again or choose another scene.",
     "retry": "Try again",
-    "task": "One task can include multiple taps. Failed tasks do not count. More tasks are available in the app.",
+    "task": "One task may include multiple taps. Task counting and paid upgrades are planned; more tasks will be available in the app (planned).",
     "quotaPending": "Planned allowance — task counting is still being verified.",
     "priceNote": "*Official item price checked Nov 16, 2026. Shipping and taxes may apply.",
     "currentPrice": "Check current price",
@@ -74,8 +74,8 @@ export const copy = {
     "before": "Before you start.",
     "beforeSub": "Setting this up for someone else? Use their iPhone and their ChatGPT account.",
     "need": "What you’ll need",
-    "screenGroup": "For screen guidance",
-    "controlGroup": "To let SaySo tap",
+    "screenGroup": "Everyone needs",
+    "controlGroup": "To let SaySo tap, also add",
     "viewCompat": "View compatibility",
     "threeSteps": "Three steps to connect",
     "steps": [
@@ -101,9 +101,9 @@ export const copy = {
     "resume": "Resume setup or get help",
     "approve": "When approval appears, tap the screen.",
     "approveSub": "Use the on-screen approval controls in ChatGPT. Saying “yes” will not approve the action.",
-    "connectedNote": "Being connected does not mean your screen is being shared.",
+    "connectedNote": "Connecting your account doesn't share your screen. Tap Start Sharing in SaySo.",
     "guidesTitle": "A little guidance, when you need it.",
-    "guidesSub": "One setup route. Clear choices. You stay in control.",
+    "guidesSub": "Start from Connect ChatGPT in SaySo. Developer setup instructions are also available.",
     "guideSections": [
       [
         "One installation entry",
@@ -272,7 +272,7 @@ export const copy = {
     "replay": "重播视频",
     "mediaError": "视频加载失败，请重试或选择其他场景。",
     "retry": "重试",
-    "task": "一个任务可以包含多次点击。失败不扣次数，更多任务额度可在 App 内升级。",
+    "task": "一个任务可以包含多次点击。任务计数和付费升级均为计划中；更多任务额度将可在 App 内升级（计划中）。",
     "quotaPending": "计划权益，任务计数仍待验证。",
     "priceNote": "*官方单件标价核对于 2026 年 11 月 16 日，运费和税费可能另计。",
     "currentPrice": "查看当前价格",
@@ -283,8 +283,8 @@ export const copy = {
     "before": "开始前，先准备好。",
     "beforeSub": "帮家人安装？请使用对方的 iPhone 和 ChatGPT 账号。",
     "need": "你需要准备什么",
-    "screenGroup": "如果只需要读屏",
-    "controlGroup": "如果需要 SaySo 帮你点",
+    "screenGroup": "所有人都需要",
+    "controlGroup": "想让 SaySo 帮你点，还需要",
     "viewCompat": "查看兼容性",
     "threeSteps": "三个步骤，完成连接",
     "steps": [
@@ -310,9 +310,9 @@ export const copy = {
     "resume": "继续安装或获取帮助",
     "approve": "出现批准请求时，请在屏幕上点击。",
     "approveSub": "请使用 ChatGPT 屏幕上的批准或拒绝控件。说“同意”不会批准这项操作。",
-    "connectedNote": "账号已连接，不代表正在共享屏幕。",
+    "connectedNote": "连接账号不会自动共享屏幕，请在 SaySo 里点“开始共享”。",
     "guidesTitle": "需要的时候，有清楚的指引。",
-    "guidesSub": "统一的安装入口，明确的选择，由你保持控制。",
+    "guidesSub": "推荐从 SaySo 的“连接 ChatGPT”开始；开发者也可使用安装指令。",
     "guideSections": [
       [
         "统一安装入口",

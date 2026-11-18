@@ -293,6 +293,7 @@ export function App() {
             {t.configError}
           </p>
         )}
+        {preview && <p className="notice preview-banner">{t.preview}</p>}
         {page}
       </main>
       <footer className="site-footer shell">
@@ -312,7 +313,7 @@ export function App() {
           </nav>
           <p>{t.disclaimer}</p>
         </div>
-        {preview && <p className="preview-note">{t.preview}</p>}
+
       </footer>
     </>
   );
@@ -551,12 +552,11 @@ function PortraitVideo({ scene, video, t, lang }) {
               </>
             ) : (
               <>
-                <div className="play-symbol">
-                  <Play weight="fill" aria-hidden />
-                </div>
-                <h3>{t.portrait}</h3>
-                <p>1080 × 1920</p>
-                <small>{t.videoPending}</small>
+                <h3>{t.exampleLabel}</h3>
+                <blockquote>“{t.sceneExamples[scene][0]}”</blockquote>
+                <p>{t.sceneExamples[scene][1]}</p>
+                <p>{t.sceneExamples[scene][2]}</p>
+                <small>{t.scenePending}</small>
               </>
             )}
           </div>
@@ -602,7 +602,7 @@ function PortraitVideo({ scene, video, t, lang }) {
         ) : (
           <div className="empty-media-note">
             <ClosedCaptioning aria-hidden />
-            <span>{t.videoPending}</span>
+            <span>{t.exampleLabel}</span>
           </div>
         )}
       </div>

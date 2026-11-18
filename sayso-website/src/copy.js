@@ -54,7 +54,7 @@ export const copy = {
     ],
     "videoPending": "Video asset pending",
     "portrait": "Portrait demo",
-    "scenePending": "This scene will play here when the video is available.",
+    "scenePending": "Example, not a recorded demonstration.",
     "playback": "Muted by default · Captions on · Pause anytime",
     "play": "Play video",
     "pause": "Pause video",
@@ -70,7 +70,7 @@ export const copy = {
     "privacyShort": "Your shared screen is sent to your private SaySo service and to ChatGPT.",
     "privacyLink": "How your data is handled",
     "disclaimer": "Works with ChatGPT. Not affiliated with or endorsed by OpenAI or M5Stack.",
-    "preview": "Development preview · Product availability and supporting materials are still being verified.",
+    "preview": "Development preview — SaySo isn't available yet.",
     "before": "Before you start.",
     "beforeSub": "Setting this up for someone else? Use their iPhone and their ChatGPT account.",
     "need": "What you’ll need",
@@ -208,7 +208,30 @@ export const copy = {
     "repoOpen": "Open GitHub repository",
     "notFound": "This page is not here.",
     "backHome": "Back to SaySo",
-    "configError": "Site configuration could not be loaded. Downloads and media remain unavailable."
+    "configError": "Site configuration could not be loaded. Downloads and media remain unavailable.",
+    "sceneExamples": {
+      "bus": [
+        "When is the next bus home?",
+        "SaySo opens the map and checks the route.",
+        "It tells you when the next bus arrives."
+      ],
+      "food": [
+        "Help me order from my usual place.",
+        "SaySo opens the food app and helps choose dishes.",
+        "It parks the pointer on the final order button; you make the final tap."
+      ],
+      "subscription": [
+        "Help me cancel this subscription.",
+        "SaySo finds the subscription page.",
+        "It parks the pointer on the final cancellation button; you make the final tap."
+      ],
+      "setting": [
+        "What does this switch do?",
+        "SaySo reads the shared screen and explains it.",
+        "It does not tap anything."
+      ]
+    },
+    "exampleLabel": "Illustrative conversation"
   },
   "zh": {
     "home": "首页",
@@ -263,7 +286,7 @@ export const copy = {
     ],
     "videoPending": "视频素材待接入",
     "portrait": "竖屏演示",
-    "scenePending": "素材就绪后，此处将播放对应场景。",
+    "scenePending": "这是用法示例，不是真实操作录像。",
     "playback": "默认静音 · 显示字幕 · 随时暂停",
     "play": "播放视频",
     "pause": "暂停视频",
@@ -279,7 +302,7 @@ export const copy = {
     "privacyShort": "你共享的画面会发送至所连接的服务及 ChatGPT。",
     "privacyLink": "了解数据如何处理",
     "disclaimer": "适配 ChatGPT。与 OpenAI 或 M5Stack 无关联，亦未获其背书。",
-    "preview": "开发预览 · 产品可用性与配套资料仍在核验。",
+    "preview": "开发预览：SaySo 尚未开放使用。",
     "before": "开始前，先准备好。",
     "beforeSub": "帮家人安装？请使用对方的 iPhone 和 ChatGPT 账号。",
     "need": "你需要准备什么",
@@ -417,7 +440,30 @@ export const copy = {
     "repoOpen": "打开 GitHub 仓库",
     "notFound": "没有找到这个页面。",
     "backHome": "返回 SaySo",
-    "configError": "网站配置加载失败，下载和媒体保持不可用。"
+    "configError": "网站配置加载失败，下载和媒体保持不可用。",
+    "sceneExamples": {
+      "bus": [
+        "回家的公交还有多久到？",
+        "SaySo 打开地图查询路线。",
+        "告诉你下一班车几点到。"
+      ],
+      "food": [
+        "帮我点常吃的那家。",
+        "SaySo 打开外卖 App，帮忙选好菜。",
+        "把指针停在最后的下单按钮上，最后一下由你自己点。"
+      ],
+      "subscription": [
+        "帮我取消这个订阅。",
+        "SaySo 找到订阅页面。",
+        "把指针停在最后的取消确认按钮上，最后一下由你自己点。"
+      ],
+      "setting": [
+        "这个开关是干什么的？",
+        "SaySo 读屏并解释开关。",
+        "不点击任何东西。"
+      ]
+    },
+    "exampleLabel": "对话示例"
   }
 };
 for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, compatPending:requirements[lang].compatibilityNote, noAccessory:requirements[lang].screenSummary});

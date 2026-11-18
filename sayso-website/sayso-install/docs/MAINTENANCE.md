@@ -42,3 +42,9 @@ Prettier is fixed at 3.10.1 in both applications and their lockfile roots. Tool 
 Use a dedicated domain support address approved for publication, not a personal mailbox. Keep supportEmail null until it exists. Public GitHub visibility does not grant an open-source license; GitHub's own view/fork rights and third-party dependency licenses remain separate.
 
 Sites/Worker packaging is retained and tested as a build contract. It is not yet a verified backup deployment, failover mechanism or custom-domain configuration. Validate top-level HTTPS, Web Serial availability, policy headers, same-origin artifacts and navigation on any actual alternate host before advertising it as ready.
+
+## Release signing key custody and rotation
+
+The release-manifest signing key is separate from MCU secure-boot keys. Keep private material offline in encrypted storage, with a separately stored encrypted recovery backup and access limited to the release owner. Never place it in Git, Pages, a browser, logs, or chat; CI should verify signatures and hashes without possessing this private key. Record only key IDs and public keys in release records.
+
+Before rotating, verify an installer update trusts the new public key and rejects unknown signers. Sign a bounded-lifetime manifest with the new offline key, verify the exact artifact hashes independently, and publish only after the normal hardware acceptance gate. Remove the old trusted key in a reviewed installer update after migration; if compromised, disable the channel, revoke trust in that key, and re-verify releases before reopening. Test recovery from the backup offline. No keys or available release channel are introduced by this documentation update.

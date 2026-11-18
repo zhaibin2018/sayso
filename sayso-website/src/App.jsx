@@ -412,7 +412,7 @@ function Home({ t, lang, config, preview }) {
               </button>
             ))}
           </div>
-          <p className="playback-note">{t.playback}</p>
+          {config.videos[scene] && <p className="playback-note">{t.playback}</p>}
         </div>
       </section>
       <section

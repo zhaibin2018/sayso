@@ -1,3 +1,4 @@
+import {requirements} from "./requirements.js";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -886,8 +887,8 @@ export function App() {
                   ) : (
                     <p className="context-copy">
                       {t(
-                        "We'll check the connector and show the iOS requirement for your model.",
-                        "我们会检查接口，并显示对应机型的 iOS 要求。",
+                        requirements.en.compatibilityNote,
+                        requirements.zh.compatibilityNote,
                       )}
                     </p>
                   )}
@@ -1143,7 +1144,7 @@ export function App() {
                       </summary>
                       <p>
                         {t(
-                          "Pairing keys are stored in ordinary NVS. Someone with physical flash access may copy them; this is not a tamper-proof manufacturer identity.",
+                          "Pairing information stays on the accessory. Someone with physical access may be able to copy it. Keep the accessory safe and remove its pairing if it is lost.",
                           "配对密钥存于普通 NVS。有物理闪存访问能力的人可能复制它，不能将其视为不可克隆的厂商身份。",
                         )}
                       </p>

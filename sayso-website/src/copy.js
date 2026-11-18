@@ -17,7 +17,7 @@ export const copy = {
     language: "切换到中文",
     headline: ["Tell ChatGPT.", "Let SaySo do the tapping."],
     subtitle:
-      "Speak in ChatGPT Voice. You tap the final step on anything sensitive.",
+      "For payments, orders, messages and deletions, SaySo stops with the pointer on the button and lets you make the final tap.",
     download: "Download SaySo",
     downloadPending: "App Store link pending",
     downloadNote: "Downloads are not open yet.",
@@ -256,7 +256,7 @@ export const copy = {
     theme: "切换外观",
     language: "Switch to English",
     headline: ["对 ChatGPT 说一句，", "让 SaySo 帮你点。"],
-    subtitle: "用 ChatGPT 语音说出需求。敏感操作的最后一步，由你亲手确认。",
+    subtitle: "用 ChatGPT 语音说出需求。遇到付款、下单、发送、删除这类操作，SaySo 会把指针停在按钮上，最后一下由你自己点。",
     download: "下载 SaySo",
     downloadPending: "App Store 链接待接入",
     downloadNote: "目前尚未开放下载。",

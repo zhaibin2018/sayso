@@ -71,7 +71,7 @@ export const copy = {
     "disclaimer": "Works with ChatGPT. Not affiliated with or endorsed by OpenAI or M5Stack.",
     "preview": "Development preview · Product availability and supporting materials are still being verified.",
     "before": "Before you start.",
-    "beforeSub": "Check what you need, then follow the three steps.",
+    "beforeSub": "Setting this up for someone else? Use their iPhone and their ChatGPT account.",
     "need": "What you’ll need",
     "screenGroup": "For screen guidance",
     "controlGroup": "To let SaySo tap",
@@ -85,7 +85,7 @@ export const copy = {
       ],
       [
         "Confirm in ChatGPT",
-        "Send the message. Follow the sign-in and permission prompts.",
+        "The intended flow continues in ChatGPT on the iPhone. Follow sign-in and approval prompts. Complete mobile deployment is still being verified; see developer instructions for the current Work setup.",
         "Setup message and approval"
       ],
       [
@@ -280,7 +280,7 @@ export const copy = {
     "disclaimer": "适配 ChatGPT。与 OpenAI 或 M5Stack 无关联，亦未获其背书。",
     "preview": "开发预览 · 产品可用性与配套资料仍在核验。",
     "before": "开始前，先准备好。",
-    "beforeSub": "确认使用条件，再按三个步骤完成连接。",
+    "beforeSub": "帮家人安装？请使用对方的 iPhone 和 ChatGPT 账号。",
     "need": "你需要准备什么",
     "screenGroup": "如果只需要读屏",
     "controlGroup": "如果需要 SaySo 帮你点",
@@ -294,7 +294,7 @@ export const copy = {
       ],
       [
         "在 ChatGPT 中确认",
-        "发送消息，按提示登录并确认必要权限。",
+        "目标是在 iPhone 的 ChatGPT 中继续，按提示登录和批准。手机完整部署尚待验证；当前 Work 安装方法见开发者资料。",
         "安装消息与批准界面"
       ],
       [

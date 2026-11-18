@@ -502,8 +502,8 @@ export function App() {
       "此固件发行清单已过期。重新签名的版本发布前暂停安装，尚未写入设备。",
     ),
     lightning: t(
-      "This iPhone does not support device control in this release. You can still learn about screen sharing without a control device.",
-      "此机型暂不支持本版本的设备操控。你仍可了解无需操控设备的屏幕共享功能。",
+      "Lightning iPhones aren't supported in this release — neither screen guidance nor tapping.",
+      "本版本暂不支持 Lightning 接口的 iPhone，读屏和帮你点都不支持。",
     ),
     unknown: t(
       "Check your model in Settings → General → About. Unlisted models need verification before installation.",
@@ -910,7 +910,7 @@ export function App() {
                       <Info size={24} />
                       <div>
                         <p>{decisionText[decision]}</p>
-                        {["lightning", "unverified"].includes(decision) && (
+                        {decision === "unverified" && (
                           <button
                             className="text-link"
                             onClick={() => setModal("screen")}

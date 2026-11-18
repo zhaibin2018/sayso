@@ -391,6 +391,7 @@ function Home({ t, lang, config, preview }) {
         <div className="hero-requirements">
           <p>{t.hardware}</p>
           <p>{t.setupNeed}</p>
+          <p>{t.needs[2].join(" — ")}</p>
           <Link to="start">{t.checkAll}</Link>
         </div>
       </section>

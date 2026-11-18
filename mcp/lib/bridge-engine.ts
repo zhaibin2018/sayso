@@ -1,3 +1,7 @@
+import {deleteImagePrefix} from "./image-retention.ts";
+import {metadataRetentionStatements,revokedDeviceData} from "./private-data-retention.ts";
+import {stoppedInputStatements} from "./control-stop.ts";
+import {currentFrameReferenceRetentionMS} from "./current-frame-reference.ts";
 import {livePairedClickShadow,type PairedClickShadowRegistry} from "./paired-click-shadow.ts";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
@@ -20,7 +24,6 @@ import {advancingReadDelayMS,beforeImageObservationDeadline,type AdvancingReadFr
 import { liveFrames, screenViewReference, screenViewMatches, type FrameCommitBarrier, type LiveFrameCache } from "./live-frame-cache.ts";
 import { PrivatePixelCache, type PixelEntry } from "./private-pixel-cache.ts";
 import {workerFetchStartedUTC} from "./bridge-context.ts";
-
 export class BridgeError extends Error {
   code: string; status: number;
   constructor(code: string, status = 409) { super(code); this.code = code; this.status = status; }
@@ -57,7 +60,6 @@ export function probeCaptureLower(meta: Record<string, unknown>, createdAt: numb
 const randomToken = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const codeAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 export const normalizeCode = (value: string) => value.toUpperCase().replace(/[\s-]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
-
 export type User = { id: string; label: string };
 export type Device = { id: string; owner_id: string; name: string; token_hash: string; token_expires: number; revoked: number; confirmed_at: number | null; created_at: number; current_session: string | null; lease_epoch: number; worker_id: string | null; worker_expires: number; last_seen: number; blocked_broadcast: string | null };
 export type Session = { id: string; owner_id: string; device_id: string; broadcast_id: string; request_id: string; body_hash: string; state: string; capture_state: string; created_at: number; mode: string; diagnostic_enabled: number; control_epoch: number; mouse_enabled: number; mouse_until: number; mouse_grant_request: string | null };
@@ -203,7 +205,7 @@ function visualPointSource(frame:Frame,scopeJSON:string|null|undefined,metadata:
   return {reason:"eligible",source:{device:frame.device_id,session:frame.session_id,broadcast:scope.broadcast,worker:metadata.worker_id,
     lease:frame.lease_epoch,control:scope.control,frame:frame.frame_id,frameSeq:frame.frame_seq,
     sourceSeq:metadata.source_seq,captureMono:metadata.capture_mono_ms,captureLower:frame.capture_lower,
-    sha256:frame.sha256,hardware:scope.hardware,boot:scope.boot}};
+    sha256:frame.sha256,hardware:scope.hardware,boot:scope.boot,geometry:screenGeometry(metadata)}};
 }
 type ScreenScope = {device:string;session:string;lease:number};
 type ScreenSuccessor = {frame:string;frameSeq:number;sourceSeq:unknown;captureMono:number;worker:string;broadcast:string;control:number;geometry:string;afterAck?:number;input?:LiveInputScope};
@@ -229,7 +231,6 @@ type InitialScreenSnapshot={readonly [screenSnapshotSeal]:true;owner:string;rows
 export type Dependencies = { db: D1Database; bucket: R2Bucket; now?: () => number; schedule?: (delay: number, job: () => Promise<void>) => void; cache?: LiveFrameCache; pairedShadow?:PairedClickShadowRegistry|false; privatePixels?: PrivatePixelCache; framePermits?:FrameUploadPermits;
   frameUploadTraceDevice?:string; frameUploadTraceLog?:(event:FrameUploadAttemptEvent)=>void;
   browseEnabled?: boolean; readTiming?:{now:()=>number;sleep:(ms:number)=>Promise<void>} };
-
 export class BridgeEngine {
   db: D1Database; bucket: R2Bucket; now: () => number;
   readonly browseEnabled: boolean;
@@ -286,6 +287,7 @@ export class BridgeEngine {
     return {...view,scopeBoundPoint:true};
   }
   get releasedFieldViewProofAvailable() { return this.framePermits?.sourceViewProofAvailable===true; }
+  async textRequestDigest(owner:string,device:string,key:string,request:string) { need(this.framePermits?.sourceViewProofAvailable,"SIGNING_CONFIGURATION_INVALID",503);return this.framePermits!.textRequestDigest(owner,device,key,request); }
   async issueReleasedFieldViewProof(user:User,view:ReleasedFieldViewProof) {
     return await this.framePermits?.issueReleasedFieldViewProof(user.id,view).catch(()=>undefined);
   }
@@ -309,7 +311,7 @@ export class BridgeEngine {
     const issued=this.now();
     if(issued-source.captureLower>=visualReadAgeLimitMS)return {reason:"aged_before_sign"};
     const view:VisualReadPointProof={...source,origin:"visual_read",command:visualReadPointLedgerKey,issued,
-      expires:issued+visualReadPointLifetimeMS};
+      expires:issued+currentFrameReferenceRetentionMS};
     const proof=await this.framePermits?.issueVisualReadPointProof(user.id,view).catch(()=>undefined);
     return {proof,reason:proof?"issued":"signing_rejected"};
   }
@@ -320,50 +322,32 @@ export class BridgeEngine {
     return {reason:result[0]?.meta.changes===1?"stored":"insert_skipped",
       rows_pruned:result[1]?.meta.changes??0};
   }
-  async resolveVisualReadPointProof(user:User,device:string,frame:string,explicit?:string,signal?:AbortSignal):
+  async resolveVisualReadPointProof(user:User,device:string,frame:string,explicit?:string,_signal?:AbortSignal):
     Promise<{proof:VisualReadPointProof|null;reason:string;sourceAgeMS?:number}> {
-    const miss=(reason:string,sourceAgeMS?:number)=>({proof:null,reason,sourceAgeMS});
+    const miss=(reason:string)=>({proof:null,reason});
     if(!this.releasedFieldViewProofAvailable)return miss("signer_unavailable");
-    const readLedger=()=>this.stmt(`SELECT p.proof,p.expires_at,max(?,${databaseNowSQL}) AS checked_at,
-      (json_type(h.metadata,'$.capabilities."${scopeBoundLinkedPointCapability}"')='true' AND
-       json_type(h.metadata,'$.capabilities."${visualReadPointCapability}"')='true') AS supported
+    if(explicit){
+      const view=await this.framePermits?.verifyVisualReadPointProof(user.id,explicit,this.now()).catch(()=>null);
+      if(!view)return miss("signature_or_envelope_invalid");
+      if(view.device!==device||view.frame!==frame)return miss("signed_source_mismatch");
+      // This signature identifies pixels; it is not a control grant. Current
+      // scope, hardware, authorization and geometry are checked at admission.
+      return {proof:view,reason:"resolved_signed_reference",sourceAgeMS:this.now()-view.captureLower};
+    }
+    const row=await this.stmt(`SELECT p.proof,p.expires_at,
+      json_type(h.metadata,'$.capabilities."${visualReadPointCapability}"')='true' AS supported
       FROM sb_hardware h LEFT JOIN sb_released_system_search_field_proofs p
       ON p.owner_id=h.owner_id AND p.device_id=h.device_id AND p.command_id=? AND p.frame_id=?
-      WHERE h.owner_id=? AND h.device_id=?`,this.now(),visualReadPointLedgerKey,frame,user.id,device)
-      .first<{proof:string|null;expires_at:number|null;checked_at:number;supported:number|null}>();
-    let row=await readLedger(),waited=false;
-    if(row?.supported===1&&(!row.proof||row.expires_at===null)&&explicit){
-      const authentic=await this.framePermits?.verifyVisualReadPointProof(user.id,explicit,this.now()).catch(()=>null);
-      if(!authentic)return miss("signature_or_envelope_invalid");
-      if(authentic.device!==device||authentic.frame!==frame)return miss("signed_source_mismatch");
-      // The normal release callback writes the ledger asynchronously. Give an
-      // authentic, matching token one read while that write may be in flight.
-      const deadline=this.readNow()+350;
-      const observed=await beforeImageObservationDeadline({remainingMS:()=>deadline-this.readNow(),signal,expire:()=>{}},async bounded=>{
-        await this.readSleep(75);
-        if(!bounded.aborted)return readLedger();
-      }).catch(()=>undefined);
-      if(observed!==undefined)row=observed;
-      waited=true;
-    }
+      WHERE h.owner_id=? AND h.device_id=?`,visualReadPointLedgerKey,frame,user.id,device)
+      .first<{proof:string|null;expires_at:number|null;supported:number|null}>();
     if(!row)return miss("hardware_not_found");
     if(row.supported!==1)return miss("capability_missing");
     if(!row.proof||row.expires_at===null)return miss("released_frame_not_found");
-    if(row.expires_at<=row.checked_at)return miss("released_frame_expired");
-    const now=this.now(),token=explicit??row.proof;
-    const view=await this.framePermits?.verifyVisualReadPointProof(user.id,token,now).catch(()=>null);
+    const view=await this.framePermits?.verifyVisualReadPointProof(user.id,row.proof,this.now()).catch(()=>null);
     if(!view)return miss("signature_or_envelope_invalid");
-    const sourceAgeMS=now-view.captureLower;
-    if(view.device!==device||view.frame!==frame)return miss("signed_source_mismatch",sourceAgeMS);
-    const resolved={proof:view,reason:waited?"resolved_after_ledger_wait":"resolved",sourceAgeMS};
-    if(token===row.proof)return view.expires===row.expires_at?resolved:miss("ledger_binding_mismatch",sourceAgeMS);
-    // Reissuing the same frame cannot invalidate an authentic token that the
-    // host already received, but the new retained proof must describe it too.
-    const retained=await this.framePermits?.verifyVisualReadPointProof(user.id,row.proof,now).catch(()=>null);
-    if(!retained||retained.expires!==row.expires_at)return miss("ledger_binding_mismatch",sourceAgeMS);
-    const {issued:_i,expires:_e,...scope}=view;
-    const {issued:_ri,expires:_re,...saved}=retained;
-    return JSON.stringify(scope)===JSON.stringify(saved)?resolved:miss("ledger_binding_mismatch",sourceAgeMS);
+    if(view.device!==device||view.frame!==frame)return miss("signed_source_mismatch");
+    if(view.expires!==row.expires_at)return miss("ledger_binding_mismatch");
+    return {proof:view,reason:"resolved",sourceAgeMS:this.now()-view.captureLower};
   }
   async issueParkedMovePointProof(user:User,source:Omit<ParkedMovePointProof,"origin"|"issued"|"expires"|"sha256">,pixels:string) {
     if(!this.releasedFieldViewProofAvailable)return undefined;
@@ -688,7 +672,6 @@ export class BridgeEngine {
     return this.sessionReply(created);
   }
   sessionReply(session: Session) { return { bridge_session_id: session.id, broadcast_id: session.broadcast_id, mode: "broadcast", state: session.state, control_enabled: false, server_time: iso(this.now()) }; }
-
   liveSessionStatement(device:Device,id:string,withClock=false) {
     return this.stmt("SELECT s.*,d.worker_id AS live_worker,d.lease_epoch AS live_epoch,d.worker_expires AS live_expires"+
       (withClock?","+databaseNowSQL+" AS checked_at_ms":"")+
@@ -787,12 +770,12 @@ export class BridgeEngine {
       this.stmt("DELETE FROM sb_frames WHERE device_id=? AND session_id=?", device.id, session.id),
       this.stmt("DELETE FROM sb_screen_texts WHERE device_id=? AND session_id=?", device.id, session.id),
       this.stmt("DELETE FROM sb_refreshes WHERE device_id=? AND session_id=?", device.id, session.id),
+      ...stoppedInputStatements(this,device.owner_id,device.id,session.id,reason),
       this.stmt("UPDATE sb_led_commands SET state=CASE WHEN state='executing' THEN 'outcome_unknown' ELSE 'cancelled' END WHERE device_id=? AND session_id=? AND state IN ('queued','claimed','executing')", device.id, session.id),
     ]);
     if(this.privatePixels){const pixels=this.privatePixels,job=()=>pixels.clear(device.owner_id,device.id,session.id);if(!this.scheduleBackground(0,job))await job();}
     if (frame) await this.bucket.delete(frame.image_key);
-    const remaining = await this.bucket.list({ prefix: `screens/${device.owner_id}/${device.id}/${session.id}/`, limit: 200 });
-    if (remaining.objects.length) await this.bucket.delete(remaining.objects.map(item => item.key));
+    await deleteImagePrefix(this.bucket,`screens/${device.owner_id}/${device.id}/${session.id}/`);
     return { stopped: true, cloud_image_cleared: true, system_broadcast_stop_confirmed: false, input_control_enabled: false };
   }
   async clockProbe(device: Device, framePermitScope?: unknown) {
@@ -2206,17 +2189,9 @@ export class BridgeEngine {
       await sleep(125);
     } while (true);
   }
-  async pruneMetadata(source:"frame"|"observation"|"other"="other") {
-    const now = this.now(); if (this.schedule && now < nextPruneAt) return; if (this.schedule) nextPruneAt = now + 60000;
-    const statements=[
-      this.stmt("DELETE FROM sb_clock_probes WHERE expires_at<?", now), this.stmt("DELETE FROM sb_rate_windows WHERE expires_at<?", now),
-      this.stmt("DELETE FROM sb_observations WHERE created_at<?", now - 86400000), this.stmt("DELETE FROM sb_metrics WHERE created_at<?", now - 86400000),
-      this.stmt("DELETE FROM sb_voice_bench WHERE created_at<?", now - 86400000), this.stmt("DELETE FROM sb_refreshes WHERE expires_at<?", now - 60000), this.stmt("UPDATE sb_devices SET revoked=1 WHERE confirmed_at IS NULL AND created_at<?", now - 300000),
-      this.stmt("DELETE FROM sb_led_commands WHERE expires_at<?", now - 86400000),
-      this.stmt("DELETE FROM sb_screen_texts WHERE expires_at<?", now),
-      this.stmt(`DELETE FROM sb_released_system_search_field_proofs AS p WHERE NOT EXISTS(
-        SELECT 1 FROM sb_devices d WHERE d.id=p.device_id AND d.owner_id=p.owner_id AND d.revoked=0)`),
-    ];
+  async pruneMetadata(source:"frame"|"observation"|"other"|"maintenance"="other") {
+    const now = this.now(); if (source!=="maintenance" && this.schedule && now < nextPruneAt) return; if (this.schedule) nextPruneAt = now + 60000;
+    const statements=metadataRetentionStatements(this,now);
     const context={prune_id:uid(),source:source==="frame"||source==="observation"?source:"other",
       scheduled:this.schedule!==undefined,statement_count:statements.length,started_at_utc_ms:this.now()};
     const emit=(event:()=>Record<string,unknown>)=>{
@@ -2237,11 +2212,11 @@ export class BridgeEngine {
     return { request_id: id, state: "awaiting_user", notification_status: "not_configured", expires_at: iso(now + 120_000) };
   }
   async revoke(user: User, deviceID: string) {
-    const device = await this.owned(user, deviceID);
+    const device=await this.stmt("SELECT * FROM sb_devices WHERE id=? AND owner_id=?",uuid(deviceID),user.id).first<Device>();need(device,"NOT_FOUND",404);
     if (device.current_session) await this.stop(device, device.current_session, true);
-    await this.stmt("UPDATE sb_devices SET revoked=1,worker_expires=0,lease_epoch=lease_epoch+1 WHERE id=? AND owner_id=?", device.id, user.id).run();
-    const images = await this.bucket.list({ prefix: `screens/${user.id}/${device.id}/`, limit: 200 });
-    if (images.objects.length) await this.bucket.delete(images.objects.map(item => item.key));
+    await this.stmt("UPDATE sb_devices SET revoked=1,worker_expires=0,lease_epoch=lease_epoch+1 WHERE id=? AND owner_id=? AND revoked=0", device.id, user.id).run();
+    await this.db.batch(revokedDeviceData(this,user.id,device.id));
+    await deleteImagePrefix(this.bucket,`screens/${user.id}/${device.id}/`);
     return { revoked: true, device_id: device.id, cloud_image_cleared: true };
   }
   async metricsFor(user: User, deviceID: string) {

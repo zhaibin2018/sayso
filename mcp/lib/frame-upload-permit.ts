@@ -1,3 +1,5 @@
+import {validSigningSecret,SigningConfigurationError} from "./signing-configuration.ts";
+import {currentFrameReferenceContract,currentFrameReferenceDomain,validCurrentFrameReference} from "./current-frame-reference.ts";
 import {validSourceViewProof,type SourceViewProof} from "./source-view-proof.ts";
 import {validCompoundQueryViewProof,validParkedMovePointProof,validReleasedFieldViewProof,validVisualReadPointProof,type CompoundQueryViewProof,type ParkedMovePointProof,type ReleasedFieldViewProof,type VisualReadPointProof} from "./compound-query-view-proof.ts";
 import {makePointReceiptProof,pointReceiptProofJSON,readPointReceiptProof,pointReceiptProofMaximum,type PreparedPointReceipt} from "./point-receipt-proof.ts";
@@ -29,17 +31,15 @@ export class FrameUploadPermits {
 
   constructor(secret?: unknown) {
     // Optional Site secret: exactly 32 random bytes encoded as hex. Never trim
-    // or repair configuration; invalid/missing values keep the existing key.
-    if (typeof secret === "string" && secret.length === 64 && /^[0-9a-f]{64}$/i.test(secret)) {
+    // or repair configuration. Missing/invalid keys cannot sign permits.
+    if (validSigningSecret(secret)) {
       this.configuredKey = Uint8Array.from(Buffer.from(secret,"hex")).buffer;
     }
   }
 
   private signingKey() {
-    // Lazy crypto keeps module initialization free of asynchronous work.
-    return this.key ??= this.configuredKey
-      ? crypto.subtle.importKey("raw",this.configuredKey,{name:"HMAC",hash:"SHA-256"},false,["sign","verify"])
-      : crypto.subtle.generateKey({name:"HMAC",hash:"SHA-256"},false,["sign","verify"]);
+    if(!this.configuredKey)throw new SigningConfigurationError();
+    return this.key ??= crypto.subtle.importKey("raw",this.configuredKey,{name:"HMAC",hash:"SHA-256"},false,["sign","verify"]);
   }
 
   private message(tokenHash:string, payload:string) {
@@ -62,6 +62,10 @@ export class FrameUploadPermits {
   }
 
   get sourceViewProofAvailable() { return this.configuredKey!==undefined; }
+  async textRequestDigest(owner:string,device:string,key:string,request:string) {
+    const message=new TextEncoder().encode(JSON.stringify(["sayso.text-idempotency.v1",owner,device,key,request]));
+    return "hmac-v1:"+Buffer.from(await crypto.subtle.sign("HMAC",await this.signingKey(),message)).toString("hex");
+  }
   private sourceViewMessage(owner:string,payload:string) {
     return new TextEncoder().encode(JSON.stringify(["sayso.screen-input-view.v1",owner,payload]));
   }
@@ -114,12 +118,13 @@ export class FrameUploadPermits {
       this.issueReleasedActionView("sayso.field-after-input.v1",owner,view):undefined;
   }
   async issueVisualReadPointProof(owner:string,view:VisualReadPointProof) {
-    return validVisualReadPointProof(view,view.issued)?
-      this.issueReleasedActionView("sayso.visual-read-point.v1",owner,view):undefined;
+    const reference={...view,contract:currentFrameReferenceContract};
+    return validCurrentFrameReference(reference,reference.issued)?
+      this.issueReleasedActionView(currentFrameReferenceDomain,owner,reference):undefined;
   }
   async verifyVisualReadPointProof(owner:string,encoded:string,now:number):Promise<VisualReadPointProof|null> {
-    const view=await this.verifyReleasedActionView("sayso.visual-read-point.v1",owner,encoded);
-    return validVisualReadPointProof(view,now)?view:null;
+    const view=await this.verifyReleasedActionView(currentFrameReferenceDomain,owner,encoded);
+    return validCurrentFrameReference(view,now)?view:null;
   }
   async issueParkedMovePointProof(owner:string,view:ParkedMovePointProof) {
     return validParkedMovePointProof(view,view.issued)?

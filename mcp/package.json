@@ -13,10 +13,13 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test": "node scripts/test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "contracts:generate": "node --experimental-strip-types scripts/generate-contracts.mjs",
+    "contracts:check": "node --experimental-strip-types scripts/generate-contracts.mjs --check",
+    "source:check": "node scripts/check-source-budgets.mjs",
+    "format:check": "prettier --check lib/device-*.ts lib/contract-validation.ts lib/mcp-tool-catalog.ts lib/runtime-identity.ts lib/current-action-capabilities.ts scripts/generate-contracts.mjs tests/architecture-contract.test.ts \"app/v1/device/[...path]/route.ts\" app/mcp/development/route.ts"
   },
   "dependencies": {
-    "jpeg-js": "0.4.4",
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
@@ -27,6 +30,7 @@
     "drizzle-orm": "0.45.2",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
+    "jpeg-js": "0.4.4",
     "lucide-react": "^1.31.0",
     "next": "16.3.4",
     "next-themes": "^0.4.6",
@@ -55,6 +59,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.4",
     "json-rpc-2.0": "1.7.1",
+    "prettier": "3.10.1",
     "raw-body": "3.0.2",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",

@@ -1,3 +1,7 @@
+> **Security source update: MCP 0.13.249 (2026-11-18).** Versions before this snapshot have known stop and text-retention issues. Update before real control. Offline verification is complete; new-account/mobile setup and physical-phone acceptance are not established by this source release.
+>
+> **安全源码更新：MCP 0.13.249。** 更早的公开快照存在已知停止及文字留存问题；真实控制前请先更新。离线通过不等于手机安装或真机验收通过。
+
 # Install your private SaySo service
 
 **One entry, not silent authorization.** This guide is for ChatGPT Work to deploy the supplied MCP source into the user's own private Site and attach the supplied skills to that Site's existing plugin. It does not install the iOS app, flash firmware or approve phone control. New-account/iPhone end-to-end setup and automatic configuration handoff are not yet accepted.
@@ -67,3 +71,23 @@ Use concrete states: `needs_sign_in`, `needs_platform_permission`, `deploying`, 
 On retry, reconcile the existing Site, deployment and plugin release before creating anything. Resume the last uncompleted phase. Reissue an expired one-time code only when needed; preserve a still-valid installation identity. Unknown responses require checking the original operation, not automatically duplicating it. Explicit Stop/Cancel wins over recovery.
 
 Public test status: this source snapshot and packaging can be checked offline. A clean new account's complete iPhone flow, real credential handoff and voice skill activation still require independent end-to-end acceptance. No fixed “one tap completes everything” promise is made.
+
+## Update an existing private service / 更新已有私人服务
+
+Reuse the existing owned private Site, database, bucket and canonical plugin. Do not redeem a new pairing code, recreate the Site, change device identity, replace a plugin binding or erase user data as part of a code update. Record the old and new source commit and deployed runtime privately.
+
+1. Pin this source snapshot and verify its manifest. Compare existing owner configuration; preserve the Site origin, project identity and protected secrets. Do not print/export secrets. A valid existing signing key should be preserved: rotating it also invalidates comparison of existing text-request HMACs. Recover uncertain work by original command ID, never automatically send it again with a new key.
+2. Stop current control before migration. Apply **all unapplied migrations in order through 0027** through the supported Sites database workflow. Migration 0026 removes text in terminal commands. Migration 0027 erases old unkeyed text digests, retains non-replayable request keys, and cancels pending old text commands or marks attempted input uncertain. Do not skip migrations or run a destructive reset.
+3. Replace service code with `mcp/`, retaining actual private bindings and `SAYSO_PUBLIC_ORIGIN`. Configure a valid 64-hex signing key if absent/invalid. Build/test and deploy using the supported Sites workflow; verify the terminal deployment result and authenticated MCP initialization reports **0.13.249**. A repository update alone does not update an existing user Site.
+4. Read the existing Site plugin and overlay the versioned companion skills without replacing its private manifests or App binding. Report actual deployed service and skill versions and all remaining phone/firmware setup gaps.
+5. Verify stop and original-result recovery without sending new phone input. No physical control, payment, sending, deletion or firmware flashing is an installation smoke test.
+
+中文：复用已有私人服务及其数据库、截图存储和原插件；保留私人配置和有效签名密钥。先停止控制，顺序执行尚未应用的迁移直到0027，再更新代码、部署并核对实际服务版本。不要重建配对或清空数据库。旧请求与换密钥后的请求不能自动换新键重发，应查原命令ID。仓库更新不会自动更新每位用户的私人服务。
+
+### Retention in this snapshot / 本版数据保留
+
+Terminal text is removed by database triggers immediately. Public command responses omit pending text. Expired pending text is ended/redacted by maintenance once over five minutes past its deadline; detailed command payloads/receipts are compacted after seven days. Minimal HMAC/idempotency/scope/order records remain; this is not full record deletion. Session stop removes cloud screen data, and device revocation removes associated records and all image-prefix pages.
+
+Maintenance is opportunistic on engine-backed MCP calls, device heartbeats, stop and authorization changes, as well as image traffic. Without traffic or an independently configured authorized scheduler, idle abandoned text has **no guaranteed wall-clock deletion deadline**. Account deletion is not implemented. Existing backups may contain old text/digests and require their own retention policy. See `mcp/SELF_HOSTING.md` for protected maintenance configuration; no scheduler is activated by installing this source alone.
+
+文字终态立即清除；过期未完成文字依赖维护清理，七天后压缩详细命令与回执，保留防重放和顺序证据。停止会话清除云端屏幕数据，撤销设备清除关联记录。永久闲置且没有外部调度时，无法保证清理期限；账户删除尚未实现。

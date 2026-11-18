@@ -6,47 +6,28 @@ import {BridgeError,type BridgeEngine} from "../lib/bridge-engine.ts";
 import {focusedTextPayload,spotlightPayload} from "../lib/spotlight-command.ts";
 
 const cue={text:"GoogleMaps",region:{x:.04,y:.62,width:.39,height:.09},wait_ms:500};
-const base={x:7,y:15,image_width:16,image_height:32,orientation_epoch:0,idempotency_key:"schema-fixture",wait_ms:0};
+const base={device_id:"11111111-1111-4111-8111-111111111111",source_frame_id:"22222222-2222-4222-8222-222222222222",x:7,y:15,image_width:16,image_height:32,orientation_epoch:0,idempotency_key:"schema-fixture",wait_ms:0};
 async function invoke(method:string,params:Record<string,unknown>){
   const response=await handleMcp(new Request("https://fixture.invalid/mcp",{
     method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method,params}),
-  }),{engine:()=>({browseEnabled:false} as BridgeEngine),caller:()=>({id:"fixture-owner",label:"fixture"}),
+  }),{retention:false,engine:()=>({browseEnabled:false} as BridgeEngine),caller:()=>({id:"fixture-owner",label:"fixture"}),
     origin:"https://fixture.invalid",performance:{log:()=>{}}});
   return await response.json() as {result:{isError?:boolean;structuredContent:{error?:string};
     tools?:{name:string;inputSchema:{properties:{after_ready_cue:{properties:{mode:{enum:string[]}}}}}}[]}};
 }
 
-test("MCP click_at rejects undeclared ready-cue modes before any input admission",async t=>{
+test("MCP click accepts only current explicit source coordinates and rejects all ready cues",async t=>{
   let admitted=0;
-  t.mock.method(MouseControl.prototype,"enqueue",async()=>{
-    admitted++;throw new BridgeError("READ_ONLY_PROBE_REACHED_ENQUEUE",422);
-  });
+  t.mock.method(MouseControl.prototype,"clickAt",async()=>{admitted++;throw new BridgeError("CURRENT_CLICK_REACHED",422);});
   const catalogue=await invoke("tools/list",{});
-  assert.deepEqual(catalogue.result.tools!.find(x=>x.name==="click_at")!.inputSchema.properties.after_ready_cue.properties.mode.enum,
-    ["loader_disappears"]);
-  for(const mode of ["maps_tiles","unadvertised_future_mode",null,1]){
+  assert.equal(catalogue.result.tools!.find(x=>x.name==="click_at")!.inputSchema.properties.after_ready_cue,undefined);
+  for(const mode of [undefined,"loader_disappears","maps_tiles",null,1]){
     const response=await invoke("tools/call",{name:"click_at",arguments:{...base,after_ready_cue:{...cue,mode}}});
-    assert.equal(response.result.isError,true);
-    assert.equal(response.result.structuredContent.error,"INVALID_READY_CUE",String(mode));
-    assert.equal(admitted,0,String(mode));
+    assert.equal(response.result.structuredContent.error,"INVALID_ARGUMENTS");assert.equal(admitted,0);
   }
-});
-
-test("MCP click_at preserves default clicks and declared generic ready-cue modes",async t=>{
-  const admissions:unknown[]=[];
-  t.mock.method(MouseControl.prototype,"enqueue",async(...args:unknown[])=>{
-    admissions.push(args[5]);throw new BridgeError("READ_ONLY_PROBE_REACHED_ENQUEUE",422);
-  });
-  for(const after_ready_cue of [undefined,{...cue,text:"Page ready"},{...cue,text:"Loading",mode:"loader_disappears"}]){
-    const response=await invoke("tools/call",{name:"click_at",arguments:{...base,...(after_ready_cue?{after_ready_cue}:{})}});
-    assert.equal(response.result.structuredContent.error,"READ_ONLY_PROBE_REACHED_ENQUEUE");
-  }
-  assert.equal(admissions.length,3);
-  assert.equal((admissions[0] as {readyCue?:unknown}).readyCue,undefined);
-  assert.equal((admissions[1] as {readyCue:{text:string;mode?:string}}).readyCue.text,"Pageready");
-  assert.equal((admissions[1] as {readyCue:{mode?:string}}).readyCue.mode,undefined);
-  assert.equal((admissions[2] as {readyCue:{mode:string}}).readyCue.mode,"loader_disappears");
+  assert.equal((await invoke("tools/call",{name:"click_at",arguments:base})).result.structuredContent.error,"CURRENT_CLICK_REACHED");
+  assert.equal(admitted,1);
 });
 
 test("MCP original-ID after-image lookup advertises and enforces its exclusive selector",async t=>{
@@ -71,54 +52,10 @@ test("MCP original-ID after-image lookup advertises and enforces its exclusive s
   assert.deepEqual(seen,[command]);
 });
 
-test("MCP layout verification is limited to the pinned iPhone 11 and the exact test string",async t=>{
-  const device="347e31cf-5d17-4cba-bc87-9360b4e24d39",source="6f8d8638-69fc-4bd9-8f6c-973d1f6d1f02";
-  const field={x:.1,y:.55,width:.65,height:.07},landmark={text:"Siri Suggestions",region:{x:.04,y:.17,width:.78,height:.06}};
-  const probe={device_id:device,source_frame_id:source,field,landmark,verify_layout:true,text:"Google mapq",idempotency_key:"layout",wait_ms:2000};
-  const admissions:{focused:boolean;payload:ReturnType<typeof focusedTextPayload>|ReturnType<typeof spotlightPayload>}[]=[];
-  const direct=t.mock.method(MouseControl.prototype,"enqueueAuthorizedFieldObserved",async(
-    _user:unknown,_args:Record<string,unknown>)=>null);
-  t.mock.method(MouseControl.prototype,"enqueueSpotlightObserved",async(_user:unknown,args:Record<string,unknown>,_requestID:unknown,focused:boolean)=>{
-    const payload=focused?focusedTextPayload(args):spotlightPayload(args);
-    admissions.push({focused,payload});
-    throw new BridgeError("FIXTURE_ADMISSION_REACHED",422);
-  });
-  const invokeText=(arguments_:Record<string,unknown>)=>invoke("tools/call",{name:"type_text_in_field",arguments:arguments_});
-  const catalogue=await invoke("tools/list",{}),properties=catalogue.result.tools!.find(tool=>tool.name==="type_text_in_field")!.inputSchema.properties;
-  const schema=properties as unknown as {verify_layout:{type:string},clear_before_input:{description:string}};
-  assert.equal(schema.verify_layout.type,"boolean");
-  assert.match(schema.clear_before_input.description,/Defaults to selecting and deleting/);
-  for(const [patch,error] of [
-    [{verify_layout:"true"},"INVALID_LAYOUT_PROBE"],
-    [{verify_layout:null},"INVALID_LAYOUT_PROBE"],
-    [{device_id:"c00a407b-77fd-4afc-b633-61c818165947"},"LAYOUT_PROBE_DEVICE_UNAVAILABLE"],
-    [{text:"Google Maps"},"INVALID_LAYOUT_PROBE"],
-    [{submit:"enter"},"INVALID_LAYOUT_PROBE"],
-    [{submit_enter:true},"INVALID_ARGUMENTS"],
-    [{clear_before_input:true},"INVALID_LAYOUT_PROBE"],
-    [{clear_before_input:false},"INVALID_LAYOUT_PROBE"],
-    [{placeholder:"Search"},"INVALID_LAYOUT_PROBE"],
-    [{landmark:{...landmark,text:" unrelated scene"}},"INVALID_SPOTLIGHT_FOCUS"],
-    [{landmark:{...landmark,region:field}},"SPOTLIGHT_REGIONS_OVERLAP"],
-  ] as const){
-    const result=(await invokeText({...probe,...patch})).result;
-    assert.equal(result.isError,true);
-    assert.equal(result.structuredContent.error,error,JSON.stringify(patch));
-    assert.equal(admissions.length,0);
-  }
-  const layout=(await invokeText(probe)).result;
-  assert.equal(layout.structuredContent.error,"FIXTURE_ADMISSION_REACHED");
-  assert.equal(direct.mock.callCount(),0);
-  assert.deepEqual(admissions[0],{focused:false,payload:{source_frame_id:source,field,landmark,probe_keyboard:true}});
-  const args={...probe,text:"changi airport",verify_layout:false,submit:"enter"};
-  const unsupported=(await invokeText(args)).result;
-  assert.equal(unsupported.structuredContent.error,"FOCUSED_TEXT_CLEAR_NOT_READY");
-  assert.equal(direct.mock.calls[0].arguments[1]?.clear_before_input,true);
-  assert.equal(admissions.length,1);
-  const ordinary=(await invokeText({...args,clear_before_input:false})).result;
-  assert.equal(ordinary.structuredContent.error,"FIXTURE_ADMISSION_REACHED");
-  assert.equal(direct.mock.callCount(),2);
-  assert.deepEqual(admissions[1],{focused:true,payload:{source_frame_id:source,field,landmark,text:"changi airport",submit_enter:true}});
+test("MCP current input rejects the removed layout probe before admission",async t=>{
+  let admitted=0;t.mock.method(MouseControl.prototype,"enqueueAuthorizedFieldObserved",async()=>{admitted++;throw new Error("must not admit");});
+  const value=await invoke("tools/call",{name:"type_text_in_field",arguments:{device_id:"347e31cf-5d17-4cba-bc87-9360b4e24d39",text:"hello",idempotency_key:"no-old-probe",verify_layout:true}});
+  assert.equal(value.result.isError,true);assert.equal(admitted,0);
 });
 
 test("MCP point refusal returns bounded original diagnostic in modern image-only hosts",async t=>{
@@ -132,7 +69,7 @@ test("MCP point refusal returns bounded original diagnostic in modern image-only
   const response=await handleMcp(new Request("https://fixture.invalid/mcp",{
     method:"POST",headers:{"Content-Type":"application/json","mcp-protocol-version":"2026-07-28"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"click_at",arguments:base}}),
-  }),{engine:()=>({browseEnabled:false} as BridgeEngine),caller:()=>({id:"fixture-owner",label:"fixture"}),
+  }),{retention:false,engine:()=>({browseEnabled:false} as BridgeEngine),caller:()=>({id:"fixture-owner",label:"fixture"}),
     origin:"https://fixture.invalid",performance:{log:()=>{}}});
   const {result}=await response.json() as {result:{isError:boolean;structuredContent:Record<string,unknown>;content:{type:string;text:string}[]}};
   assert.equal(result.isError,true);

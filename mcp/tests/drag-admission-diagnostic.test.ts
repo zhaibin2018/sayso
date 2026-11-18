@@ -9,7 +9,7 @@ const now=1794419810000;
 const scope={device:"device",owner:"owner",session:"session",broadcast:"broadcast",worker:"worker"};
 const privateSHA="PRIVATE_SHA_NEVER_LOG";
 const privateJPEG="PRIVATE_JPEG_NEVER_LOG";
-const capabilities=["hid.mouse.absolute","hid.mouse.drag_absolute","sayso.drag_at"] as const;
+const capabilities=["hid.mouse.absolute","hid.mouse.drag_absolute","sayso.drag_at","sayso.action_geometry.v1"] as const;
 const authority=(at:string)=>`d.revoked=0 AND d.worker_expires>${at} AND s.state='active' AND s.mode='broadcast' AND s.capture_state='active' AND s.mouse_enabled=1 AND s.mouse_until>${at} AND h.usb_connected=1`;
 const pending="NOT EXISTS(SELECT 1 FROM sb_mouse_commands c WHERE c.device_id=d.id AND c.state IN ('queued','claimed','executing','embedded'))";
 const sql=dragAdmissionRejectionSQL(String(now),authority,capabilities,{pending_input_clear:pending});
@@ -45,11 +45,11 @@ test("drag admission rejection diagnoses exact source and each successor proof w
   const {db,frame,read}=fixture();
   t.after(()=>db.close());
   frame("reviewed",1,1794419807911.5403,216560356.29375002);
-  frame("new-head",2,1794419809499.5403,216560756.29375002,privateSHA,false);
+  frame("new-head",2,1794419809499.5403,216560756.29375002,privateSHA,true);
   const exact=JSON.parse(read("new-head")!.diagnostic_json);
   assert.equal(exact.view.eligible,1);
   assert.equal(exact.view.exact_source_frame,1);
-  assert.equal(exact.view.head_proof.proof_present,0);
+  assert.equal(exact.view.head_proof.proof_present,1);
 
   frame("verified-head",3,1794419809501.5403,216560756.29375002);
   const row=read("reviewed")!;
@@ -100,7 +100,7 @@ test("drag rejection reports authority and stale view separately and skips accep
   assert.equal(denied.admission.authority_eligible,0);
   assert.equal(denied.admission.admission_time_remaining,0);
   assert.equal(denied.view.head.fresh_age,0);
-  assert.equal(denied.view.source.retained_age,0);
+  assert.equal(denied.view.source.retained_age,1);
   assert.equal(denied.view.eligible,0);
   const otherOwner=read("reviewed","other-owner")!;
   assert.equal(otherOwner.ready,0);

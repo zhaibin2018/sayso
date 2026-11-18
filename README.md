@@ -1,3 +1,7 @@
+> **Security update available: MCP 0.13.249.** Earlier public snapshots contain known stop and text-retention defects. Existing private services do not update automatically: follow [Update an existing private service](INSTALL.md#update-an-existing-private-service--更新已有私人服务). This is an offline-verified source preview, not physical-device acceptance.
+>
+> **安全更新：MCP 0.13.249。** 旧版公开快照存在停止与文字留存问题。已安装用户请复用原私人服务并按 INSTALL.md 更新，不要重新配对或清库。
+
 # SaySo
 
 **Talk to ChatGPT. Let SaySo help with your iPhone.**
@@ -55,7 +59,7 @@ Some apps restrict screen capture. Do not assume all banking or sensitive apps a
 - `sayso-website/`: React/Vite product website, bilingual guides and public link configuration.
 - `sayso-website/sayso-install/`: independent installer, production release validation and Web Serial frontend.
 - `.github/workflows/pages.yml`: verifies source integrity, MCP and both web applications, then publishes one integrated Pages artifact when manually requested.
-- `mcp/`: Sites MCP source based on runtime 0.13.242, with per-instance configuration and no developer account binding.
+- `mcp/`: Sites MCP source based on runtime 0.13.249, with per-instance configuration and no developer account binding.
 - `plugins/sayso/`: the source-available skills-only plugin bundle; the normal Sites route adds its skills to the existing Site plugin.
 - `INSTALL.md` and `SOURCE_MANIFEST.json`: guided installation procedure and verifiable source inventory.
 

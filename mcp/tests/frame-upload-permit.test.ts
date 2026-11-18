@@ -27,12 +27,11 @@ test("shared frame permit: different keys, tokens and modified payloads do not v
   assert.equal(await verifier.verify("token-hash", changed + "." + proof, 999), null);
 });
 
-test("shared frame permit: absent or malformed configuration preserves per-instance random keys", async () => {
+test("shared frame permit: absent or malformed configuration explicitly refuses signing", async () => {
   for (const invalid of [undefined, null, 7, {}, "", "a".repeat(63), "a".repeat(65), "g".repeat(64), " " + key, key + "\n"]) {
     const issuer = new FrameUploadPermits(invalid), verifier = new FrameUploadPermits(invalid);
-    const encoded = await issuer.issue("token-hash", permit);
-    assert.deepEqual(await issuer.verify("token-hash", encoded, 999), permit);
-    assert.equal(await verifier.verify("token-hash", encoded, 999), null);
+    await assert.rejects(issuer.issue("token-hash",permit),/SIGNING_CONFIGURATION_INVALID/);
+    await assert.rejects(verifier.issue("token-hash",permit),/SIGNING_CONFIGURATION_INVALID/);
   }
 });
 

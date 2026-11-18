@@ -195,25 +195,36 @@ function reviewedScreenHeadSQL(at:string,intent:string,storedGeometry:boolean,pi
 
 const dragPixelFence=(intent:string)=>"("+dragSameSHA+" OR "+dragStatusMaskCandidateSQL(intent)+" OR "+dragModelDecisionSupported+")";
 export function dragReviewedHeadSQL(at:string,intent:string,storedGeometry=false) {
-  return reviewedScreenHeadSQL(at,intent,storedGeometry,dragPixelFence(intent),dragReferenceAgeSQL);
+  return allOf(reviewedScreenHeadSQL(at,intent,storedGeometry,"1",undefined,"1"),acceptedScopeSQL("a"),acceptedHeadMatchSQL(),
+    "a.frame_id="+dragSourceFrame(intent),
+    accepted("a","metadata.provenance")+"='device_capture'",
+    "json_type(h.metadata,'$.capabilities.\"sayso.action_geometry.v1\"')='true'");
 }
 
 export const reviewedPointSourceHashSQL=dragSourceSHA;
-export function reviewedPointHeadSQL(at:string,intent:string,storedGeometry=false,cropReview?:string,compoundReview?:string,scopeBoundReview?:string,geometryOnlyReview?:string) {
+/** A verified signed source remains usable after its metadata cache is pruned.
+ * Current authority and current accepted geometry are still checked atomically. */
+export function signedPointHeadSQL(at:string,intent:string,proof:string,storedGeometry=false) {
+  const v=(key:string)=>`json_extract(${proof},'$.${key}')`;
+  const p=(key:string)=>`json_extract(${intent},'$.${key}')`;
+  return allOf(freshHeadViewSQL(at,2000),acceptedHeadMatchSQL(),
+    captured("provenance")+"='device_capture'",
+    v("frame")+"="+p("source_frame_id"),
+    v("geometry")+"="+viewGeometrySQL("f.metadata"),
+    captured("width")+"="+p("source_width"),captured("height")+"="+p("source_height"),
+    captured("orientation_epoch")+"="+p("orientation_epoch"),
+    `((f.frame_id=${v("frame")} AND f.sha256=${v("sha256")} AND f.frame_seq=${v("frameSeq")}
+       AND ${captured("source_seq")}=${v("sourceSeq")} AND ${captured("capture_mono_ms")}=${v("captureMono")}) OR
+      (f.frame_id<>${v("frame")} AND f.frame_seq>${v("frameSeq")} AND ${captured("source_seq")}>${v("sourceSeq")}
+       AND ${captured("capture_mono_ms")}>${v("captureMono")} AND f.capture_lower>${v("captureLower")}))`,
+    ...(storedGeometry?[v("sha256")+"="+p("point_source.content_sha256"),
+      captured("native_width_px")+"="+p("capture_width"),captured("native_height_px")+"="+p("capture_height"),
+      captured("orientation")+"="+p("orientation")]:[]));
+}
+export function reviewedPointHeadSQL(at:string,intent:string,storedGeometry=false,_cropReview?:string,_compoundReview?:string,_scopeBoundReview?:string,_geometryOnlyReview?:string) {
   const savedHash="json_extract("+intent+",'$.point_source.content_sha256')";
-  const pixelRelaxations=[cropReview,geometryOnlyReview].filter((v):v is string=>v!==undefined);
-  const pixelFence=pixelRelaxations.length?"("+dragSameSHA+" OR ("+pixelRelaxations.join(" OR ")+"))":dragSameSHA;
-  // A crop-capable phone can compare the decoded regions when the JPEG differs.
-  // Preserve the verified original JPEG hash and scope in its wire proof.
-  const realOriginal=pixelRelaxations.length?["(NOT ("+pixelRelaxations.join(" OR ")+") OR "+accepted("a","metadata.provenance")+"='device_capture')"]:[];
-  const maximumAge=compoundReview?"CASE WHEN ("+compoundReview+") THEN "+compoundQueryViewLifetimeMS+" ELSE "+dragReviewedAncestorAgeMS+" END":undefined;
-  // Geometry-only ordinary clicks retain the original scoped acceptance and
-  // ordered fresh head, but neither whole-JPEG equality nor a 4s ancestor TTL.
-  // Signature/ledger expiry, when supplied, remains enforced by the origin gate.
-  const ageRelaxations=[scopeBoundReview,geometryOnlyReview].filter((v):v is string=>v!==undefined);
-  const scopeBoundAge=ageRelaxations.length?"("+ageRelaxations.join(" OR ")+")":undefined;
-  return allOf(reviewedScreenHeadSQL(at,intent,storedGeometry,pixelFence,maximumAge,scopeBoundAge),acceptedHeadMatchSQL(),
-    dragSHAFormat("f.sha256"),dragSHAFormat(reviewedPointSourceHashSQL),...realOriginal,
+  return allOf(reviewedScreenHeadSQL(at,intent,storedGeometry,"1",undefined,"1"),acceptedHeadMatchSQL(),
+    accepted("a","metadata.provenance")+"='device_capture'",dragSHAFormat("f.sha256"),dragSHAFormat(reviewedPointSourceHashSQL),
     ...(storedGeometry?[reviewedPointSourceHashSQL+"="+savedHash]:[]));
 }
 
@@ -266,9 +277,9 @@ export function dragReviewedDiagnosticsSQL(at:string,intent:string) {
     fresh_scope:freshHeadViewSQL(at,dragHeadAgeMS),
   });
   const source=diagnosticJSONSQL({frame_seq:"CASE WHEN json_type(a.acceptance_json,'$.frame_seq')='integer' THEN "+
-      accepted("a","frame_seq")+" END",age_ms:at+"-"+sourceLower,maximum_age_ms:dragReferenceAgeSQL},{
+      accepted("a","frame_seq")+" END",age_ms:at+"-"+sourceLower,maximum_age_ms:"NULL"},{
     ...proofScopeFlags("a"),frame_id_matches:"a.frame_id="+reviewed,
-    retained_age:sourceLower+">"+at+"-("+dragReferenceAgeSQL+")",
+    retained_age:sourceLower+"<="+at,
   });
   const successor=diagnosticJSONSQL({},{
     distinct_frame:"f.frame_id<>"+reviewed,
@@ -284,7 +295,8 @@ export function dragReviewedDiagnosticsSQL(at:string,intent:string) {
     to_below_status_mask:dragBelowStatusMask(intent,"source_to_y"),
     both_sha_formats_valid:allOf(dragSHAFormat("f.sha256"),dragSHAFormat(dragSourceSHA)),
     local_status_mask_review_available:dragStatusMaskCandidateSQL(intent),
-    eligible:reviewedSuccessorSQL(at,reviewed,dragPixelFence(intent),dragReferenceAgeSQL),
+    eligible:reviewedSuccessorSQL(at,reviewed,"1",undefined,"1"),
+    original_age_limit_required:"0",whole_image_equality_required:"0",
   });
   const headProof=diagnosticJSONSQL({},{
     ...proofScopeFlags("n"),frame_id_matches:"n.frame_id=f.frame_id",

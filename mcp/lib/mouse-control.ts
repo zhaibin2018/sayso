@@ -1,3 +1,8 @@
+import {visualReadPointOriginFences,visualReadPointOriginSQL} from "./current-frame-admission.ts";
+import {publicCommandPayload,privacyStorageReadySQL} from "./private-data-retention.ts";
+import {sourceObservationSQL,sourceObservationFields} from "./source-observation.ts";
+import {stoppedInputStatements} from "./control-stop.ts";
+import {signedPointHeadSQL} from "./source-view-proof.ts";
 import {pairedClickShadow,type ShadowTicket,type ShadowProjection} from "./paired-click-shadow.ts";
 import {background} from "./bridge-context.ts";
 import { absoluteMouseRequest } from "./absolute-mouse.ts";
@@ -14,6 +19,7 @@ import type { McpPerformance } from "./mcp-performance.ts";
 import {APP_SEARCH_KIND,APP_SEARCH_CLAIM,APP_SEARCH_CAPABILITY} from "./app-search-contract.ts";
 import { authorizedFieldText, extendedModelReviewedFieldAgeMS, extendedModelReviewedFieldCapability, extendedModelReviewedFieldProtocol, focusedTextCapability, focusedTextClearCapabilities, focusedTextClearMaxLength, focusedTextEnterCapabilities, focusedTextLinkedAfterEnterCapabilities, focusedTextLinkedAfterEnterCapability, focusedTextKind, focusedTextPayload, modelReviewedFieldCapability, modelReviewedFieldProtocol, noVisualFieldCapability, noVisualFieldProtocol, spotlightCapability, spotlightKind, spotlightPayload, spotlightProbeCapability, spotlightReceipt, spotlightStableCapability, stableASCIICapability } from "./spotlight-command.ts";
 import {DRAG_MODEL_DECISION_CAPABILITY,DRAG_MODEL_DECISION_MODE,allOf,confirmedSystemSearchReceiptSQL,diagnosticJSONSQL,dispatchViewFenceSQL,dragDispatchViewFenceSQL,dragReviewedHeadSQL,dragReviewJoinsSQL,reviewedPointHeadAcceptanceSQL,reviewedPointHeadSQL,reviewedPointSourceHashSQL,freshHeadViewSQL,noLaterSearchInputSQL,sourceViewMatchesHeadSQL,sourceViewSuccessorSQL} from "./source-view-proof.ts";
+import {DRAG_DIRECT_CAPABILITY} from "./absolute-drag.ts";
 import {logPairedClickDiagnostic,PairedClickPhaseTiming,pairedClickTiming} from "./paired-click-timing.ts";
 import {d1Timing} from "./d1-timing.ts";
 import {dragAdmissionRejectionSQL,logDragAdmissionRejection,type DragAdmissionRejection} from "./drag-admission-diagnostic.ts";
@@ -23,7 +29,6 @@ import {extendedRawClaimTTLMS,ordinaryRawClaimTTLMS,reviewedPointTTLCapability,r
   scopedSearchTTLCapability,scopedSearchTTLProfile} from "./raw-claim-ttl.ts";
 import {failedReviewedPairSQL,isParkedPressSelector,reviewedPressCapability,reviewedPressLandingTolerancePX,
   reviewedPressKeyPrefix,reviewedPressOriginalLifetimeMS,reviewedPressProtocol} from "./reviewed-press.ts";
-
 export class InputAdmissionError extends BridgeError {
   readonly diagnostic: Record<string,unknown>;
   constructor(code:string,diagnostic:Record<string,unknown>) {
@@ -31,7 +36,6 @@ export class InputAdmissionError extends BridgeError {
     this.diagnostic=diagnostic;
   }
 }
-
 export const SYSTEM_SEARCH_KIND="keyboard.open_search";
 export const POINTER_SCROLL_KIND="pointer.scroll";
 export const SYSTEM_SEARCH_BOARD_CAPABILITY="hid.keyboard.system_search";
@@ -50,6 +54,7 @@ const legacyScrollAfterGapMS = 300;
 const reviewedPointProtocol = "reviewed_point.v1";
 const reviewedPointCropProtocol = "reviewed_point_crop.v2";
 const reviewedPointCompoundProtocol = "reviewed_point_crop.v3";
+const currentPointProtocol = "action_geometry.v1";
 const ordinaryPointMotionPolicy = "geometry_only.v1";
 const exactHeadCenterPolicy = "exact_head.v1";
 export const REVIEWED_POINT_CAPABILITY = "sayso.reviewed_point.v1";
@@ -66,22 +71,19 @@ const mouseAdmissionJoin = " FROM sb_devices d JOIN sb_sessions s ON s.id=d.curr
 const mouseAdmissionAuthority = (clock="?") => "d.revoked=0 AND d.worker_expires>"+clock+" AND s.state='active' AND s.mode='broadcast' AND s.capture_state='active' AND s.mouse_enabled=1 AND s.mouse_until>"+clock+" AND h.usb_connected=1";
 const mouseAdmissionFences={
   pending_input_clear:"NOT EXISTS(SELECT 1 FROM sb_mouse_commands c WHERE c.device_id=d.id AND c.state IN ('queued','claimed','executing','embedded'))",
-  browse_lock_clear:"NOT EXISTS(SELECT 1 FROM sb_browse_runs b WHERE b.device_id=d.id AND b.session_id=s.id AND b.control_epoch=s.control_epoch AND b.state IN ('active','outcome_unknown','halted'))",
   unresolved_input_clear:`NOT EXISTS(SELECT 1 FROM sb_mouse_commands c WHERE c.device_id=d.id AND c.owner_id=d.owner_id AND c.session_id=s.id AND c.control_epoch=s.control_epoch AND c.board_boot_id=h.board_boot_id AND c.state='outcome_unknown' AND (c.kind IN ('app.search_prepare','pointer.drag_absolute') OR (c.kind='${focusedTextKind}' AND json_extract(c.precondition,'$.field_input_validation')='${noVisualFieldProtocol}')))`,
-  keyboard_restore_clear:"((json_extract(h.metadata,'$.capabilities.\"sayso.spotlight_wired\"') IS NOT 1 AND json_extract(h.metadata,'$.capabilities.\"sayso.spotlight_wired_probe\"') IS NOT 1 AND json_extract(h.metadata,'$.capabilities.\"sayso.focused_text\"') IS NOT 1) OR NOT EXISTS(SELECT 1 FROM sb_mouse_commands c WHERE c.device_id=d.id AND c.owner_id=d.owner_id AND c.session_id=s.id AND c.control_epoch=s.control_epoch AND c.hardware_id=h.hardware_id AND c.board_boot_id=h.board_boot_id AND c.kind IN ('spotlight.type_google_map','keyboard.type_text') AND c.state='board_acked' AND c.expires_at>"+databaseNowSQL+" AND json_extract(c.receipt,'$.spotlight.mouse_mode_confirmed')=1 AND json_extract(c.receipt,'$.spotlight.transport') IS NOT 'stable_usb'))",
 };
 const mouseAdmissionAvailable=Object.values(mouseAdmissionFences).map(fence=>" AND "+fence).join("");
 const pairedAdmission = "EXISTS(SELECT 1 FROM sb_mouse_point_ready q WHERE q.device_id=d.id AND q.owner_id=d.owner_id AND q.session_id=s.id AND q.worker_id=d.worker_id AND q.lease_epoch=d.lease_epoch AND q.control_epoch=s.control_epoch AND q.protocol=?) AND json_type(h.metadata,'$.capabilities.\"hid.mouse.click\"')='true'";
 const geometryRows = (owner:string,device:string,session:string,lease:string,clock=["?","?","?"]) =>
-  "SELECT metadata,capture_lower FROM (SELECT metadata,capture_lower,expires_at,owner_id,device_id,session_id,lease_epoch FROM sb_screen_texts UNION ALL SELECT metadata,capture_lower,expires_at,owner_id,device_id,session_id,lease_epoch FROM sb_frames) WHERE owner_id="+owner+" AND device_id="+device+" AND session_id="+session+" AND lease_epoch="+lease+" AND expires_at>"+clock[0]+" AND capture_lower BETWEEN "+clock[1]+" AND "+clock[2]+" ORDER BY capture_lower DESC LIMIT 2";
+  "SELECT metadata,capture_lower FROM sb_frames WHERE owner_id="+owner+" AND device_id="+device+" AND session_id="+session+" AND lease_epoch="+lease+" AND expires_at>"+clock[0]+" AND capture_lower BETWEEN "+clock[1]+" AND "+clock[2]+" ORDER BY capture_lower DESC LIMIT 2";
 const latestGeometry = (rows:string) => "SELECT metadata FROM ("+rows+") ORDER BY CAST(json_extract(metadata,'$.orientation_epoch') AS INTEGER) DESC,capture_lower DESC LIMIT 1";
 const systemSearchLiveCapabilities=" AND json_extract(h.metadata,'$.capabilities.\"hid.keyboard.system_search\"')=1 AND json_extract(h.metadata,'$.capabilities.\"sayso.system_search\"')=1";
 const systemSearchScopeOnlyCapabilitySQL="json_extract(h.metadata,'$.capabilities.\""+SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY+"\"')=1";
 const systemSearchDispatchGate=(command:string)=>{
   const mode="json_extract("+command+".precondition,'$.system_search_mode')";
-  return "(("+mode+"='"+systemSearchScopeOnlyMode+"' AND "+systemSearchScopeOnlyCapabilitySQL+
-    " AND "+command+".worker_id=d.worker_id AND "+command+".lease_epoch=d.lease_epoch) OR ("+
-    mode+" IS NULL AND "+dispatchViewFenceSQL(command,databaseNowSQL)+"))";
+  return "("+mode+"='"+systemSearchScopeOnlyMode+"' AND "+systemSearchScopeOnlyCapabilitySQL+
+    " AND "+command+".worker_id=d.worker_id AND "+command+".lease_epoch=d.lease_epoch)";
 };
 function rawClaimTTLProjection(profiles:ReadonlySet<unknown>,paired:boolean) {
   const search=profiles.has(scopedSearchTTLProfile);
@@ -120,7 +122,7 @@ function rawClaimTTLProjection(profiles:ReadonlySet<unknown>,paired:boolean) {
       AND h.hardware_id=${command}.hardware_id AND h.board_boot_id=${command}.board_boot_id AND h.usb_connected=1
   ) END AS raw_claim_ttl_grant`;
 }
-const dragCapabilities=["hid.mouse.absolute",DRAG_CAPABILITY,DRAG_APP_CAPABILITY] as const;
+const dragCapabilities=["hid.mouse.absolute",DRAG_CAPABILITY,DRAG_APP_CAPABILITY,DRAG_DIRECT_CAPABILITY,"sayso.action_geometry.v1"] as const;
 const dragReady=(board:Record<string,unknown>)=>dragCapabilities.every(capability=>board[capability]===true);
 const dragLiveCapabilities=dragCapabilities
   .map(capability=>`json_extract(h.metadata,'$.capabilities."${capability}"')=1`).join(" AND ");
@@ -147,33 +149,16 @@ const noVisualFieldReady=(board:Record<string,unknown>)=>
 const textClearReady=(board:Record<string,unknown>)=>
   noVisualFieldReady(board)&&focusedTextClearCapabilities.every(capability=>board[capability]===true);
 const fieldDispatchCapabilitiesSQL=(command:string,metadata:string)=>{
-  const typeOnly=`json_extract(${command}.payload,'$.submit_enter') IS NOT 1`;
   const advertised=(capability:string)=>`json_type(${metadata},'$.capabilities."${capability}"')='true'`;
-  return allOf(
-    `(${command}.kind!='${focusedTextKind}' OR json_extract(${command}.payload,'$.clear_before_input') IS NOT 1 OR (
-      json_extract(${command}.precondition,'$.field_input_validation')='${noVisualFieldProtocol}'
-      AND length(json_extract(${command}.payload,'$.text')) BETWEEN 1 AND ${focusedTextClearMaxLength}
-      AND ${focusedTextClearCapabilities.map(advertised).join(" AND ")}))`,
-    `(${command}.kind!='${focusedTextKind}' OR ${typeOnly} OR (${textEnterCapabilitiesSQL(metadata)}))`,
-    `(json_type(${command}.precondition,'$.field_input_validation') IS NULL OR (
-      ${command}.kind='${focusedTextKind}' AND json_extract(${command}.precondition,'$.field_input_validation')='${noVisualFieldProtocol}'
-      AND json_extract(${command}.precondition,'$.spotlight_transport')='stable_usb'
-      AND json_type(${command}.precondition,'$.focus_source') IS NULL
-      AND ${advertised(noVisualFieldCapability)} AND ${advertised(focusedTextCapability)} AND ${advertised(stableASCIICapability)}))`,
-    `(json_type(${command}.precondition,'$.focus_source') IS NULL OR
-      CASE json_extract(${command}.precondition,'$.focus_source.protocol')
-        WHEN '${modelReviewedFieldProtocol}' THEN ${advertised(modelReviewedFieldCapability)} AND ${typeOnly}
-        WHEN '${extendedModelReviewedFieldProtocol}' THEN ${advertised(extendedModelReviewedFieldCapability)}
-          AND (${typeOnly} OR ${advertised(focusedTextLinkedAfterEnterCapability)})
-        WHEN '${scopeBoundSystemSearchFieldProtocol}' THEN ${advertised(scopeBoundSystemSearchFieldCapability)}
-          AND ${typeOnly} AND json_extract(${command}.precondition,'$.focus_source.origin')='system_search'
-        WHEN '${scopeBoundFieldProtocol}' THEN ${advertised(scopeBoundFieldCapability)} AND (
-          (json_extract(${command}.precondition,'$.focus_source.origin')='system_search' AND ${typeOnly}) OR
-          (json_extract(${command}.precondition,'$.focus_source.origin')='paired_click'
-            AND (${typeOnly} OR ${advertised(focusedTextLinkedAfterEnterCapability)})) OR
-          (json_extract(${command}.precondition,'$.focus_source.origin')='parked_press' AND ${advertised(reviewedPressCapability)}
-            AND (${typeOnly} OR ${advertised(focusedTextLinkedAfterEnterCapability)})))
-        ELSE 0 END)`);
+  return `(${command}.kind!='${focusedTextKind}' OR (
+    json_extract(${command}.precondition,'$.field_input_validation')='${noVisualFieldProtocol}'
+    AND json_extract(${command}.precondition,'$.spotlight_transport')='stable_usb'
+    AND json_type(${command}.precondition,'$.focus_source') IS NULL
+    AND ${[focusedTextCapability,stableASCIICapability,noVisualFieldCapability].map(advertised).join(" AND ")}
+    AND (json_extract(${command}.payload,'$.submit_enter') IS NOT 1 OR ${focusedTextEnterCapabilities.map(advertised).join(" AND ")})
+    AND (json_extract(${command}.payload,'$.clear_before_input') IS NOT 1 OR
+      (length(json_extract(${command}.payload,'$.text')) BETWEEN 1 AND ${focusedTextClearMaxLength}
+        AND ${focusedTextClearCapabilities.map(advertised).join(" AND ")}))))`;
 };
 const reviewedPointCapSQL=(capability:string)=>"json_type(h.metadata,'$.capabilities."+JSON.stringify(capability)+"')='true'";
 function pointSearchOriginSQL(id:string,excluding:string[]=[],checkCapture=true){
@@ -234,36 +219,6 @@ function compoundQueryOriginSQL(origin:string,clock:string,excluding:string[]=[]
     "EXISTS(SELECT 1 FROM sb_mouse_commands "+c+" LEFT JOIN sb_app_search_queries q ON q.id="+v("preparation")+
     " AND q.owner_id=d.owner_id WHERE "+originGate+")");
 }
-function visualReadPointOriginFences(origin:string,clock:string,excluding:string[]=[]) {
-  const v=(key:string)=>"json_extract("+origin+",'$."+key+"')";
-  const accepted=(key:string)=>"json_extract(a.acceptance_json,'$."+key+"')";
-  const exceptions=excluding.length?" AND later.id NOT IN ("+excluding.join(",")+")":"";
-  return {
-    visual_capability:allOf(reviewedPointCapSQL(scopeBoundLinkedPointCapability),reviewedPointCapSQL(visualReadPointCapability)),
-    original_scope:allOf(v("origin")+"='visual_read'",v("command")+"='"+visualReadPointLedgerKey+"'",
-      v("device")+"=d.id",v("session")+"=s.id",v("broadcast")+"=s.broadcast_id",v("worker")+"=d.worker_id",
-      v("lease")+"=d.lease_epoch",v("control")+"=s.control_epoch",v("hardware")+"=h.hardware_id",v("boot")+"=h.board_boot_id"),
-    original_expiry:allOf(v("issued")+"<="+clock,v("expires")+">"+clock),
-    original_jpeg:allOf(v("frame")+"=a.frame_id",v("frameSeq")+"="+accepted("frame_seq"),v("sourceSeq")+"="+accepted("metadata.source_seq"),
-      v("captureMono")+"="+accepted("metadata.capture_mono_ms"),v("captureLower")+"="+accepted("capture_lower_ms"),
-      v("sha256")+"="+reviewedPointSourceHashSQL),
-    released_frame:`EXISTS(SELECT 1 FROM sb_released_system_search_field_proofs p
-      WHERE p.owner_id=d.owner_id AND p.device_id=d.id AND p.command_id='${visualReadPointLedgerKey}'
-      AND p.frame_id=${v("frame")} AND p.expires_at>=${v("expires")})`,
-    no_later_input:`NOT EXISTS(SELECT 1 FROM sb_mouse_commands later WHERE later.owner_id=d.owner_id AND later.device_id=d.id
-      AND later.session_id=s.id AND later.control_epoch=s.control_epoch
-      AND (CASE WHEN later.worker_id=d.worker_id AND later.lease_epoch=d.lease_epoch AND later.phone_ack_mono_ms>=0
-        THEN later.phone_ack_mono_ms>=${v("captureMono")} ELSE later.created_at>=${v("captureLower")} END)${exceptions}
-      AND (later.input_attempted=1 OR later.state IN ('queued','claimed','executing','embedded','board_acked','outcome_unknown','succeeded')))`,
-    no_later_browse_input:`NOT EXISTS(SELECT 1 FROM sb_browse_runs later JOIN sb_browse_leases lease ON lease.run_id=later.id
-      WHERE later.owner_id=d.owner_id AND later.device_id=d.id AND later.session_id=s.id AND later.broadcast_id=s.broadcast_id
-      AND later.worker_id=d.worker_id AND later.lease_epoch=d.lease_epoch AND later.control_epoch=s.control_epoch
-      AND later.hardware_id=h.hardware_id AND later.board_boot_id=h.board_boot_id AND lease.expires_at>=${v("captureLower")})`,
-  };
-}
-function visualReadPointOriginSQL(origin:string,clock:string,excluding:string[]=[]) {
-  return allOf(...Object.values(visualReadPointOriginFences(origin,clock,excluding)));
-}
 function pointProofCapability(proof:ReviewedPointProof|undefined) {
   if(proof?.origin==="visual_read")return visualReadPointCapability;
   if(proof&&proof.origin!=="retained"&&proof.scopeBoundPoint===true)return scopeBoundLinkedPointCapability;
@@ -313,50 +268,27 @@ function reviewedPressOriginSQL(origin:string,clock:string,excluding:string[]=[]
       AND r.device_id=d.id AND r.session_id=s.id AND r.control_epoch=s.control_epoch AND l.expires_at>=m.created_at)`);
 }
 function reviewedPointDispatchCTE(caller:string){
-  const intent="c.precondition",point="json_extract("+intent+",'$.point_source.protocol')";
-  const frame="json_extract("+intent+",'$.point_source.frame_id')";
-  const origin="json_extract("+intent+",'$.point_search_origin')";
-  const child="json_extract("+intent+",'$.point.click_command_id')";
-  const scopeBoundReview=point+"='"+scopeBoundLinkedPointProtocol+"'";
-  const compoundReview=point+" IN ('"+reviewedPointCompoundProtocol+"','"+scopeBoundLinkedPointProtocol+"')";
-  const compoundOrigin="json_extract("+intent+",'$.point_query_origin')";
-  const visualOrigin=`json_extract(${compoundOrigin},'$.origin')='visual_read'`;
-  const cropReview=point+" IN ('"+reviewedPointCropProtocol+"','"+reviewedPointCompoundProtocol+"','"+scopeBoundLinkedPointProtocol+"')";
-  const geometryOnlyReview="json_extract("+intent+",'$.point_motion_policy')='"+ordinaryPointMotionPolicy+"'";
-  const scope=`JOIN sb_devices d ON d.id=c.device_id AND d.owner_id=c.owner_id
+  const intent="c.precondition";
+  const child="json_extract(c.precondition,'$.point.click_command_id')";
+  return `WITH reviewed_point_dispatch AS MATERIALIZED (
+    SELECT c.id FROM sb_mouse_commands c
+    JOIN sb_devices d ON d.id=c.device_id AND d.owner_id=c.owner_id
     JOIN sb_sessions s ON s.id=d.current_session AND s.owner_id=d.owner_id
-    JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id`;
-  // Materialize origin and image proofs separately. The main D1 claim
-  // joins the exact admitted IDs without inheriting their expression depth.
-  return `WITH reviewed_point_claims AS MATERIALIZED (
-    SELECT c.* FROM sb_mouse_commands c ${scope}
+    JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id
+    JOIN sb_frames f ON f.device_id=d.id
+    ${dragReviewJoinsSQL(intent)}
     WHERE ${caller} AND c.session_id=s.id AND s.id=? AND s.broadcast_id=?
       AND c.worker_id=d.worker_id AND d.worker_id=? AND c.lease_epoch=d.lease_epoch AND d.lease_epoch=?
       AND c.control_epoch=s.control_epoch AND s.control_epoch=? AND d.revoked=0
-      AND c.kind='pointer.move_absolute' AND c.state='queued' AND json_type(c.precondition,'$.point_source')='object'
-  ), reviewed_compound_query_dispatch AS MATERIALIZED (
-    SELECT c.id FROM reviewed_point_claims c ${scope}
-    JOIN sb_observations a ON a.id=d.id||':'||json_extract(${intent},'$.source_frame_id')
-    WHERE ${compoundReview} AND CASE WHEN ${visualOrigin}
-      THEN ${scopeBoundReview} AND ${visualReadPointOriginSQL(compoundOrigin,databaseNowSQL,["c.id",child])}
-      ELSE ${compoundQueryOriginSQL(compoundOrigin,databaseNowSQL,["c.id",child],scopeBoundReview)} END
-  ), reviewed_point_dispatch AS MATERIALIZED (
-    SELECT c.id FROM reviewed_point_claims c ${scope}
-    JOIN sb_frames f ON f.device_id=d.id
-    ${dragReviewJoinsSQL(intent)}
-    LEFT JOIN reviewed_compound_query_dispatch compound ON compound.id=c.id
-    WHERE CASE ${point} WHEN '${reviewedPointProtocol}' THEN ${reviewedPointCapSQL(REVIEWED_POINT_CAPABILITY)}
-        WHEN '${reviewedPointCropProtocol}' THEN ${reviewedPointCapSQL(REVIEWED_POINT_CROP_CAPABILITY)}
-        WHEN '${reviewedPointCompoundProtocol}' THEN ${reviewedPointCapSQL(REVIEWED_POINT_COMPOUND_CAPABILITY)}
-        WHEN '${scopeBoundLinkedPointProtocol}' THEN ${reviewedPointCapSQL(scopeBoundLinkedPointCapability)}
-          AND json_extract(${intent},'$.point_source.origin')=json_extract(${compoundOrigin},'$.origin') ELSE 0 END
+      AND c.kind='pointer.move_absolute' AND c.state='queued'
+      AND json_extract(${intent},'$.point_source.protocol')='${currentPointProtocol}'
+      AND json_extract(${intent},'$.point_motion_policy')='${ordinaryPointMotionPolicy}'
+      AND ${reviewedPointCapSQL(visualReadPointCapability)}
       AND json_extract(${intent},'$.point.protocol')='${PAIRED_MOUSE_POINT}'
-      AND ${frame}=json_extract(${intent},'$.source_frame_id')
-      AND (${geometryOnlyReview} OR json_extract(${intent},'$.point_center_policy') IS NOT '${exactHeadCenterPolicy}' OR
-        f.frame_id=${frame} OR f.sha256=json_extract(${intent},'$.point_source.content_sha256'))
-      AND ${reviewedPointHeadSQL(databaseNowSQL,intent,true,cropReview,compoundReview,scopeBoundReview,geometryOnlyReview)}
-      AND CASE WHEN ${compoundReview} THEN compound.id IS NOT NULL
-        ELSE (${origin} IS NULL OR ${pointSearchOriginSQL(origin,["c.id",child])}) END
+      AND json_extract(${intent},'$.point_source.frame_id')=json_extract(${intent},'$.source_frame_id')
+      AND (CASE WHEN json_type(c.precondition,'$.point_query_origin')='object' THEN ${signedPointHeadSQL(databaseNowSQL,intent,"json_extract(c.precondition,'$.point_query_origin')",true)} ELSE ${reviewedPointHeadSQL(databaseNowSQL,intent,true)} END)
+      AND (json_type(${intent},'$.point_query_origin') IS NULL OR
+        ${visualReadPointOriginSQL("json_extract(c.precondition,'$.point_query_origin')",databaseNowSQL,["c.id",child])})
   ) `;
 }
 const sourceClock="(SELECT now FROM source_clock)";
@@ -492,7 +424,7 @@ const systemSearchSourceGate=" AND "+freshHeadViewSQL(sourceClock)+
   " AND ("+sourceView+" IS NULL OR json_extract("+sourceView+",'$.expires')>"+sourceClock+") AND ((f.frame_id=? AND ("+
   sourceView+" IS NULL OR ("+sourceViewMatchesHeadSQL(sourceView)+"))) OR ("+sourceViewSuccessorSQL(sourceClock,sourceView)+"))";
 type Ready = Device & { session_id: string; session_state: string; capture_state: string; mode: string; broadcast_id: string; mouse_enabled: number; mouse_until: number; mouse_grant_request: string | null; control_epoch: number; hardware_id: string; board_boot_id: string; metadata: string; usb_connected: number; geometry_rows?: string; prior_id?: string | null; prior_digest?: string | null; point_protocol?:string|null };
-type Command = { id: string; owner_id: string; device_id: string; session_id: string; hardware_id: string; board_boot_id: string; kind: string; payload: string; precondition: string | null; digest: string; state: string; worker_id: string; lease_epoch: number; control_epoch: number; created_at: number; expires_at: number; receipt: string | null; result_digest: string | null; error: string | null;phone_ack_mono_ms:number|null;predecessor_id:string|null;input_attempted:number|null;paired_dispatch_probe_id?:string|null;raw_claim_ttl_grant?:string|null };
+type Command = { id: string; owner_id: string; device_id: string; session_id: string; hardware_id: string; board_boot_id: string; kind: string; payload: string; precondition: string | null; digest: string; state: string; worker_id: string; lease_epoch: number; control_epoch: number; created_at: number; expires_at: number; receipt: string | null; result_digest: string | null; error: string | null;phone_ack_mono_ms:number|null;predecessor_id:string|null;input_attempted:number|null;paired_dispatch_probe_id?:string|null;raw_claim_ttl_grant?:string|null;source_observation_json?:string|null };
 type Admission = Command & {point_child_json?:string|null;queued_worker?:string|null;queued_lease?:number};
 type ReadyCue = {text:string;region:{x:number;y:number;width:number;height:number};wait_ms:number;mode?:"loader_disappears"|"maps_tiles"};
 export type ReviewedPointOrigin={systemSearchCommandID:string};
@@ -527,7 +459,6 @@ type ClaimedReceipt = {move:Command;click:Command;broadcast:string;expires:numbe
 type ReceiptPreparationSource = "same_isolate_hint"|"signed_receipt_proof";
 type ValidatedPair = {move:Command;click:Command;parts:ReturnType<typeof validatePointResult>};
 type AfterImageRead = (waitMS:number,requestID:string,report:boolean,signal?:AbortSignal)=>ReturnType<BridgeEngine["readScreen"]>;
-
 // A completed enqueue can move one existing claim query earlier in this
 // process. Keep timing data only. The normal D1 claim still grants authority.
 export class PointClaimHints {
@@ -618,18 +549,16 @@ export class MouseControl {
   private waitSleep:(milliseconds:number)=>Promise<void>;
   private claimHints?:PointClaimHints;
   private receiptHints?:PointReceiptHints;
-  private readonly ordinaryClickGeometryOnly:boolean;
   private shadowEnabled=false;
   private shadowSignal?:AbortSignal;
   private shadowTicket?:ShadowTicket;
   constructor(engine: BridgeEngine, timing:{now?:()=>number;sleep?:(milliseconds:number)=>Promise<void>;
-    claimHints?:PointClaimHints;receiptHints?:PointReceiptHints;ordinaryClickGeometryOnly?:true}={}) {
+    claimHints?:PointClaimHints;receiptHints?:PointReceiptHints}={}) {
     this.e=engine;
     this.waitNow=timing.now??(()=>performance.now());
     this.waitSleep=timing.sleep??delay;
     this.claimHints=timing.claimHints;
     this.receiptHints=timing.receiptHints;
-    this.ordinaryClickGeometryOnly=timing.ordinaryClickGeometryOnly===true;
   }
   private readyStatement(user:User,device:string|null,includeGeometry:boolean,key?:string,onlyIfNoCommand=false,now=this.e.now()) {
     const geometry = includeGeometry ? ",(SELECT json_group_array(json_object('metadata',g.metadata,'capture_lower',g.capture_lower)) FROM ("+geometryRows("d.owner_id","d.id","s.id","d.lease_epoch")+") g) AS geometry_rows" : "";
@@ -637,7 +566,7 @@ export class MouseControl {
     const join = key === undefined ? "" : " LEFT JOIN sb_mouse_commands c ON c.owner_id=d.owner_id AND c.device_id=d.id AND c.idempotency_key=?";
     const point=",(SELECT p.protocol FROM sb_mouse_point_ready p WHERE p.device_id=d.id AND p.owner_id=d.owner_id AND p.session_id=s.id AND p.worker_id=d.worker_id AND p.lease_epoch=d.lease_epoch AND p.control_epoch=s.control_epoch) AS point_protocol";
     const skipSaved=onlyIfNoCommand&&key!==undefined?" AND c.id IS NULL":"";
-    return this.e.stmt("SELECT d.*,s.id AS session_id,s.state AS session_state,s.capture_state,s.mode,s.broadcast_id,s.mouse_enabled,s.mouse_until,s.mouse_grant_request,s.control_epoch,h.hardware_id,h.board_boot_id,h.metadata,h.usb_connected" + geometry + prior + point + " FROM sb_devices d JOIN sb_sessions s ON s.id=d.current_session AND s.owner_id=d.owner_id JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id" + join + " WHERE d.owner_id=? AND d.revoked=0 AND (? IS NULL OR d.id=?) AND s.state='active'" + skipSaved + " ORDER BY d.created_at DESC LIMIT 2", ...(includeGeometry ? [now,now-2000,now+100] : []), ...(key === undefined ? [] : [key]), user.id, device, device);
+    return this.e.stmt("SELECT "+privacyStorageReadySQL+" AS privacy_storage_ready,d.*,s.id AS session_id,s.state AS session_state,s.capture_state,s.mode,s.broadcast_id,s.mouse_enabled,s.mouse_until,s.mouse_grant_request,s.control_epoch,h.hardware_id,h.board_boot_id,h.metadata,h.usb_connected" + geometry + prior + point + " FROM sb_devices d JOIN sb_sessions s ON s.id=d.current_session AND s.owner_id=d.owner_id JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id" + join + " WHERE d.owner_id=? AND d.revoked=0 AND (? IS NULL OR d.id=?) AND s.state='active'" + skipSaved + " ORDER BY d.created_at DESC LIMIT 2", ...(includeGeometry ? [now,now-2000,now+100] : []), ...(key === undefined ? [] : [key]), user.id, device, device);
   }
   private async ready(user: User, deviceID?: unknown, includeGeometry = false, key?: string) {
     const device=deviceID==null?null:uuid(deviceID);
@@ -651,46 +580,23 @@ export class MouseControl {
     const epoch = Math.max(...candidates.map(row => Number(row.meta.orientation_epoch)));
     const current = candidates.find(row => row.meta.orientation_epoch === epoch)!;
     const m = current.meta;
-    return { frame_id:m.frame_id,image_width:m.width,image_height:m.height,capture_width:m.native_width_px,capture_height:m.native_height_px,orientation_epoch:m.orientation_epoch,orientation:m.orientation,age_ms:current.age,
-      ...(m.ready_cue_supported===true?{ready_cue_supported:true}:{}),...(m.loading_cue_supported===true?{loading_cue_supported:true}:{}),
-      ...(m.maps_tiles_cue_supported===true?{maps_tiles_cue_supported:true}:{}) };
+    return { frame_id:m.frame_id,image_width:m.width,image_height:m.height,capture_width:m.native_width_px,capture_height:m.native_height_px,orientation_epoch:m.orientation_epoch,orientation:m.orientation,age_ms:current.age };
   }
   async status(user: User, args: Record<string, unknown>) {
     const r = await this.ready(user, args.device_id, true), now = this.e.now(), board = JSON.parse(r.metadata);
     const allowed = r.mode === "broadcast" && r.capture_state === "active" && r.worker_expires > now && r.usb_connected === 1 && r.mouse_enabled === 1 && r.mouse_until > now;
     const systemSearchReady=allowed&&board.capabilities[SYSTEM_SEARCH_BOARD_CAPABILITY]===true&&board.capabilities[SYSTEM_SEARCH_CAPABILITY]===true;
-    const focusedTextReady=allowed&&board.capabilities[focusedTextCapability]===true;
-    return { device_id: r.id, bridge_session_id: r.session_id, enabled: allowed, control_epoch: r.control_epoch, usb_connected: r.worker_expires > now && r.usb_connected === 1, last_reported_usb_connected: r.usb_connected === 1, online: r.worker_expires > now, grant_remaining_ms: allowed ? r.mouse_until - now : 0, capabilities: board.capabilities, descriptor_version: board.descriptor_version, control_scope: allowed ? Object.values(capabilities).filter(x => board.capabilities[x] === true) : [], point_protocol: allowed ? r.point_protocol??null:null, absolute_supported: board.capabilities["hid.mouse.absolute"] === true, screen_geometry: this.geometrySnapshot(JSON.parse(r.geometry_rows ?? "[]")),
-      ...(allowed && board.capabilities[spotlightCapability]===true ? {spotlight_wired_ready:true,board_boot_id:r.board_boot_id} : {}),
-      ...(systemSearchReady?{system_search_ready:true,board_boot_id:r.board_boot_id}:{}),
-      ...(systemSearchReady&&board.capabilities[SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY]===true?{system_search_scope_only_ready:true}:{}),
-      ...(allowed&&board.capabilities[APP_SEARCH_CAPABILITY]===true&&board.capabilities[SYSTEM_SEARCH_BOARD_CAPABILITY]===true&&board.capabilities[stableASCIICapability]===true
-        ?{app_search_preparation_ready:true,board_boot_id:r.board_boot_id}:{}),
-      ...(focusedTextReady ? {focused_text_ready:true,board_boot_id:r.board_boot_id,
-        focused_text_transport:board.capabilities[stableASCIICapability]===true?"stable_usb":"keyboard_window"} : {}),
-      ...(allowed&&noVisualFieldReady(board.capabilities)?{focused_text_no_visual_ready:true}:{}),
-      ...(focusedTextReady&&systemSearchReady?{focused_text_system_search_handoff_ready:true}:{}),
-      ...(focusedTextReady&&this.e.releasedFieldViewProofAvailable&&board.capabilities[stableASCIICapability]===true&&
-        board.capabilities[extendedModelReviewedFieldCapability]===true?{focused_text_linked_after_ready:true}:{}),
-      ...(focusedTextReady&&this.e.releasedFieldViewProofAvailable&&board.capabilities[stableASCIICapability]===true&&
-        board.capabilities[scopeBoundSystemSearchFieldCapability]===true?{focused_text_scope_bound_after_ready:true}:{}),
-      ...(focusedTextReady&&this.e.releasedFieldViewProofAvailable&&board.capabilities[stableASCIICapability]===true&&
-        board.capabilities[scopeBoundFieldCapability]===true?{focused_text_scope_bound_field_ready:true}:{}),
-      ...(allowed&&textEnterReady(board.capabilities)?{focused_text_submit_enter_ready:true}:{}),
-      ...(allowed&&textClearReady(board.capabilities)?{focused_text_clear_before_input_ready:true}:{}),
-      ...(allowed&&this.e.releasedFieldViewProofAvailable&&linkedAfterEnterReady(board.capabilities)?
-        {focused_text_linked_after_enter_ready:true}:{}),
-      ...(allowed&&dragReady(board.capabilities)?{drag_at_ready:true,board_boot_id:r.board_boot_id,
-        ...(board.capabilities[DRAG_RELATIVE_APP_CAPABILITY]===true&&board.capabilities[DRAG_RELATIVE_CAPABILITY]===true?
-          {drag_calibrated_duration_ms:DRAG_CALIBRATED_DURATION_MS}:{} )}:{}),
-      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[REVIEWED_POINT_CAPABILITY]===true?{reviewed_point_ready:true}:{}),
-      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[REVIEWED_POINT_CROP_CAPABILITY]===true?{reviewed_point_crops_ready:true}:{}),
-      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[REVIEWED_POINT_COMPOUND_CAPABILITY]===true?{reviewed_point_compound_ready:true}:{}),
-      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[scopeBoundLinkedPointCapability]===true?{reviewed_point_scope_bound_ready:true}:{}),
-      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[scopeBoundLinkedPointCapability]===true&&
-        board.capabilities[visualReadPointCapability]===true?{reviewed_point_visual_read_ready:true}:{}),
-      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[reviewedPressCapability]===true?{reviewed_press_after_move_ready:true}:{}),
-      ...(allowed && board.capabilities[spotlightProbeCapability]===true ? {spotlight_wired_probe_ready:true,board_boot_id:r.board_boot_id} : {}) };
+    const focusedTextReady=allowed&&noVisualFieldReady(board.capabilities);
+    return { privacy_storage_ready:(r as Ready&{privacy_storage_ready?:number}).privacy_storage_ready===1,signing_available:this.e.releasedFieldViewProofAvailable,device_id: r.id, bridge_session_id: r.session_id, enabled: allowed, control_epoch: r.control_epoch, usb_connected: r.worker_expires > now && r.usb_connected === 1, last_reported_usb_connected: r.usb_connected === 1, online: r.worker_expires > now, grant_remaining_ms: allowed ? r.mouse_until - now : 0, capabilities: board.capabilities, descriptor_version: board.descriptor_version, control_scope: allowed ? Object.values(capabilities).filter(x => board.capabilities[x] === true) : [], point_protocol: allowed ? r.point_protocol??null:null, absolute_supported: board.capabilities["hid.mouse.absolute"] === true, screen_geometry: this.geometrySnapshot(JSON.parse(r.geometry_rows ?? "[]")),
+      ...(systemSearchReady&&board.capabilities[SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY]===true?
+        {system_search_ready:true,system_search_scope_only_ready:true,board_boot_id:r.board_boot_id}:{}),
+      ...(focusedTextReady?{focused_text_ready:true,focused_text_no_visual_ready:true,
+        focused_text_transport:"stable_usb",board_boot_id:r.board_boot_id}:{}),
+      ...(focusedTextReady&&textEnterReady(board.capabilities)?{focused_text_submit_enter_ready:true}:{}),
+      ...(focusedTextReady&&textClearReady(board.capabilities)?{focused_text_clear_before_input_ready:true}:{}),
+      ...(allowed&&dragReady(board.capabilities)?{drag_at_ready:true,board_boot_id:r.board_boot_id}:{}),
+      ...(allowed&&r.point_protocol===PAIRED_MOUSE_POINT&&board.capabilities[visualReadPointCapability]===true?
+        {action_geometry_ready:true}:{} ) };
   }
   async grant(device: Device, body: Record<string, unknown>) {
     if (body.control_enabled === false) {
@@ -741,16 +647,17 @@ export class MouseControl {
     const noInput=c.input_attempted===0||(c.state==="failed"&&c.error==="MOUSE_DISPATCH_BUDGET_EXPIRED"&&receipt!==null&&!Array.isArray(receipt)&&Object.keys(receipt).length===0);
     const mono=typeof c.phone_ack_mono_ms==="number"&&Number.isFinite(c.phone_ack_mono_ms)&&c.phone_ack_mono_ms>=0&&c.phone_ack_mono_ms<=Number.MAX_SAFE_INTEGER?c.phone_ack_mono_ms:null;
     const clockScopeKnown=typeof c.worker_id==="string"&&c.worker_id.length>0&&Number.isSafeInteger(c.lease_epoch)&&c.lease_epoch>0;
-    return { command_id: c.id, device_id: c.device_id, bridge_session_id: c.session_id, hardware_id: c.hardware_id, board_boot_id: c.board_boot_id, kind: c.kind, payload: JSON.parse(c.payload), precondition: c.precondition ? JSON.parse(c.precondition) : null, state: c.state, control_epoch: c.control_epoch, expires_at: iso(c.expires_at), board_receipt: receipt, error: c.error, input_not_submitted:noInput, verification: c.state === "board_acked" ? "phone_verified_board_ack" : "not_confirmed", app_effect_observed: false,
-      ...(point?{point_protocol:point.protocol,paired_click_command_id:point.click_command_id}:{}),
+    return { command_id: c.id, device_id: c.device_id, bridge_session_id: c.session_id, hardware_id: c.hardware_id, board_boot_id: c.board_boot_id, kind: c.kind, retention_details_redacted:JSON.parse(c.payload).details_redacted===true,payload: publicCommandPayload(c.kind,c.payload), precondition: c.precondition ? JSON.parse(c.precondition) : null, state: c.state, control_epoch: c.control_epoch, expires_at: iso(c.expires_at), board_receipt: receipt, error: c.error, input_not_submitted:noInput, verification: JSON.parse(c.payload).details_redacted===true?"retained_outcome_only":c.state === "board_acked" ? "phone_verified_board_ack" : "not_confirmed", app_effect_observed: false,
+      ...(point?{...sourceObservationFields(c.source_observation_json),point_protocol:point.protocol,paired_click_command_id:point.click_command_id}:{}),
       ...(c.kind===spotlightKind?{spotlight:receipt?.spotlight??null}:{}),
       ...(c.kind===focusedTextKind?{text_input:receipt?.spotlight??null}:{}),
       ...(c.predecessor_id?{predecessor_command_id:c.predecessor_id}:{}),...(c.input_attempted==null?{}:{input_attempted:c.input_attempted===1}),
-      receipt_observation:{phone_clock:"iphone_system_uptime_ms",phone_ack_mono_ms:mono,valid_for_capture_order:c.state==="board_acked"&&mono!==null&&clockScopeKnown,
+      receipt_observation:{phone_clock:"iphone_system_uptime_ms",phone_ack_mono_ms:mono,valid_for_capture_order:c.state==="board_acked"&&c.receipt!==null&&mono!==null&&clockScopeKnown,
         scope:{device_id:c.device_id,bridge_session_id:c.session_id,worker_id:c.worker_id,lease_epoch:c.lease_epoch},app_effect_observed:false}};
   }
   private dispatchOutput(command:Command) {
-    const result=this.output(command);
+    const {source_age_ms,screen_changed_since_source,source_observed_at_server_utc_ms,...wire}=this.output(command);
+    const result={...wire,payload:JSON.parse(command.payload)};
     const siteOnly=command.kind===focusedTextKind?["capture_min_gap_ms","linked_field_click"]:
       ["point_search_origin","point_query_origin","reviewed_press_origin","reviewed_press_geometry","point_motion_policy","point_center_policy"];
     if(command.kind==="pointer.move_absolute"&&result.point_protocol===PAIRED_MOUSE_POINT&&
@@ -758,7 +665,7 @@ export class MouseControl {
     if(result.precondition?.reviewed_press)siteOnly.push("capture_min_gap_ms");
     if(!siteOnly.some(key=>result.precondition?.[key]!==undefined))return result;
     // These saved values only qualify Sites admission or image observation.
-    // In particular older Apps expect the exact stable field wire precondition.
+    // The phone receives only the current command and its execution scope.
     const precondition={...result.precondition};
     for(const key of siteOnly)delete precondition[key];
     return {...result,precondition:Object.keys(precondition).length?precondition:null};
@@ -802,186 +709,6 @@ export class MouseControl {
       click_submitted:stillPending?null:saved.input_attempted??(saved.input_not_submitted?false:null),
       ...(stillPending?{input_attempted:null,input_not_submitted:null}:{})};
   }
-  async enqueueSpotlight(user: User, args: Record<string, unknown>, waitDeadline?:number,focused=false,
-    requireOriginalSystemSearch?:true,strictSignal?:AbortSignal,requireOriginalSearchClear?:{shortcutID:string},
-    modelReviewedFieldSource?:ModelReviewedFieldSource,linkedFieldSource?:ReleasedFieldViewProof,requestID=uid()) {
-    const clearShortcutID=requireOriginalSearchClear===undefined?undefined:uuid(requireOriginalSearchClear.shortcutID);
-    need(!(clearShortcutID!==undefined&&requireOriginalSystemSearch)&&
-      !(linkedFieldSource&&(clearShortcutID!==undefined||requireOriginalSystemSearch||modelReviewedFieldSource)),"INVALID_ARGUMENTS",422);
-    const strictSearchSource=requireOriginalSystemSearch===true||clearShortcutID!==undefined||linkedFieldSource!==undefined;
-    if(strictSearchSource)need(focused&&(linkedFieldSource!==undefined||args.submit===undefined)&&args.source_after_command_id!==undefined,
-      linkedFieldSource?"FIELD_AFTER_HANDOFF_REQUIRED":"SYSTEM_SEARCH_FIELD_HANDOFF_REQUIRED",422);
-    const payload=focused?focusedTextPayload(args):spotlightPayload(args),serialized=JSON.stringify(payload);
-    const sourceAction=focused&&args.source_after_command_id!==undefined?uuid(args.source_after_command_id):null;
-    const device=uuid(args.device_id);
-    if(linkedFieldSource){
-      need(linkedFieldSource.device===device&&linkedFieldSource.frame===payload.source_frame_id&&linkedFieldSource.command===sourceAction,
-        "FIELD_AFTER_IMAGE_PROOF_INVALID");
-      modelReviewedFieldSource={frameID:linkedFieldSource.frame,contentSHA256:linkedFieldSource.sha256};
-    }
-    if(modelReviewedFieldSource)need(strictSearchSource&&modelReviewedFieldSource.frameID===payload.source_frame_id&&
-      /^[0-9a-f]{64}$/.test(modelReviewedFieldSource.contentSHA256),"MODEL_REVIEWED_FIELD_SOURCE_INVALID",422);
-    const submitEnter=focused&&"submit_enter" in payload&&payload.submit_enter===true;
-    const v4=linkedFieldSource?.scopeBoundField===true;
-    const scopeBoundSource=linkedFieldSource?.scopeBound===true&&(v4||linkedFieldSource.origin==="system_search");
-    need(!scopeBoundSource||linkedFieldSource?.origin!=="system_search"||!submitEnter,"INVALID_ARGUMENTS",422);
-    const linkedEnter=linkedFieldSource!==undefined&&submitEnter;
-    const kind=focused?focusedTextKind:spotlightKind;
-    const key = text(args.idempotency_key,120), wait = integer(args.wait_ms ?? (focused?8000:2000),0,focused?12000:3000);
-    const deadline = waitDeadline??this.waitNow()+wait;
-    const defaultSettle = strictSearchSource?systemSearchTextAfterGapMS:submitEnter?textEnterSettleMS:0;
-    const settle = focused&&args.settle_ms!==undefined?Math.max(defaultSettle,integer(args.settle_ms,0,2000)):defaultSettle;
-    const raisesSettle = settle>defaultSettle;
-    const searchDigest=linkedFieldSource?":field-after:"+linkedFieldSource.origin+":"+sourceAction:
-      clearShortcutID!==undefined?":search-clear:"+clearShortcutID+":"+sourceAction:
-      requireOriginalSystemSearch?":system-search:"+sourceAction:"";
-    const modelFocusDigest=modelReviewedFieldSource?":focus-sha:"+modelReviewedFieldSource.contentSHA256:"";
-    const digest = await hash(kind+":"+serialized+searchDigest+modelFocusDigest+(raisesSettle?":settle:"+settle:""));
-    const now=this.e.now(),id=uid();
-    const probe="probe_keyboard" in payload&&payload.probe_keyboard===true;
-    const capability = focused?focusedTextCapability:probe?spotlightProbeCapability:spotlightCapability;
-    const at="clock.now";
-    const transportPrecondition="CASE WHEN json_extract(h.metadata,?)=1 THEN '{\"spotlight_transport\":\"stable_usb\"}' END";
-    const settlePrecondition=strictSearchSource||raisesSettle?
-      "json_set(COALESCE("+transportPrecondition+",'{}'),'$.capture_min_gap_ms',"+settle+")":
-      transportPrecondition;
-    const modelFocusProof=modelReviewedFieldSource&&JSON.stringify({
-      frame_id:modelReviewedFieldSource.frameID,content_sha256:modelReviewedFieldSource.contentSHA256,
-    });
-    const stableASCII=reviewedPointCapSQL(stableASCIICapability);
-    const extendedModelField=allOf(stableASCII,reviewedPointCapSQL(extendedModelReviewedFieldCapability));
-    const scopeBoundCapability=v4?scopeBoundFieldCapability:scopeBoundSystemSearchFieldCapability;
-    const scopeBoundProtocol=v4?scopeBoundFieldProtocol:scopeBoundSystemSearchFieldProtocol;
-    const scopeBoundModelField=allOf(stableASCII,reviewedPointCapSQL(scopeBoundCapability));
-    const legacyModelField=allOf(stableASCII,reviewedPointCapSQL(modelReviewedFieldCapability));
-    const sourceAge=scopeBoundSource?null:linkedFieldSource?String(extendedModelReviewedFieldAgeMS):
-      modelFocusProof?`(CASE WHEN ${extendedModelField} THEN ${extendedModelReviewedFieldAgeMS} ELSE 4000 END)`:"4000";
-    const modelPrecondition=scopeBoundSource?
-      `json_patch(${settlePrecondition},json_object('focus_source',json_set(json(?),'$.protocol',
-        '${scopeBoundProtocol}','$.origin','${linkedFieldSource?.origin}')))`:modelFocusProof?
-      `json_patch(${settlePrecondition},CASE WHEN ${extendedModelField} OR ${legacyModelField}
-        THEN json_object('focus_source',json_set(json(?),'$.protocol',
-          CASE WHEN ${extendedModelField} THEN '${extendedModelReviewedFieldProtocol}' ELSE '${modelReviewedFieldProtocol}' END))
-        ELSE '{}' END)`:
-      settlePrecondition;
-    const typedPrecondition=linkedFieldSource&&!submitEnter?
-      "json_set("+modelPrecondition+",'$.linked_field_click',json('true'))":modelPrecondition;
-    const reviewedJPEGFence=modelFocusProof?
-      " AND json_extract(a.acceptance_json,'$.metadata.provenance')='device_capture'"+
-      " AND json_extract(a.acceptance_json,'$.metadata.content_sha256')=?":"";
-    const currentFrameAge=focused?"f.capture_lower>"+at+"-2000 AND f.capture_lower<="+at+"+100":
-      "f.capture_lower BETWEEN "+at+"-2000 AND "+at+"+100";
-    // Materialize the receipt chain and frame proof separately in the same
-    // INSERT snapshot. Nested SELECT expressions inherit D1's depth limit.
-    const clearProof=clearShortcutID===undefined?"":`, reviewed_clear_chain AS MATERIALIZED (
-      SELECT c.* ${mouseAdmissionJoin}
-      JOIN reviewed_field_original c ON c.owner_id=d.owner_id AND c.device_id=d.id AND c.session_id=s.id
-        AND c.worker_id=d.worker_id AND c.lease_epoch=d.lease_epoch AND c.control_epoch=s.control_epoch
-        AND c.hardware_id=h.hardware_id AND c.board_boot_id=h.board_boot_id
-      WHERE d.id=? AND d.owner_id=? AND ${strictSearchClearSQL()}
-    )`;
-    const linkedProof=linkedFieldSource?`, released_field_view AS (SELECT ? AS view), released_field_anchor AS MATERIALIZED (
-      SELECT a.id ${mouseAdmissionJoin}
-      JOIN sb_observations a ON a.id=d.id||':'||json_extract((SELECT view FROM released_field_view),'$.frame')
-      CROSS JOIN clock WHERE d.id=? AND d.owner_id=? AND ${releasedFieldAnchorSQL(at,scopeBoundSource)}
-    ), released_field_origin AS MATERIALIZED (
-      SELECT c.* FROM reviewed_field_original c WHERE ${linkedFieldSource.origin==="paired_click"?strictPairedFieldReceiptSQL():
-        linkedFieldSource.origin==="parked_press"?"json_extract(c.precondition,'$.reviewed_press.protocol')='"+reviewedPressProtocol+"'":"c.kind='keyboard.open_search'"}
-    )`:"";
-    const originalSource=linkedFieldSource?"released_field_origin":clearShortcutID===undefined?"reviewed_field_original":"reviewed_clear_chain";
-    const protectedSource=sourceAction?`${clearShortcutID===undefined?"":", reviewed_clear_shortcut AS (SELECT ? AS shortcut)"}, ${reviewedFieldOriginalCTE}${clearProof}${linkedProof}, protected_field_source AS MATERIALIZED (
-      SELECT a.id AS reviewed_id,f.frame_id AS head_id ${mouseAdmissionJoin}
-      JOIN sb_frames f ON f.device_id=d.id
-      JOIN sb_observations a ON a.id=d.id||':'||?
-      ${linkedFieldSource?"JOIN released_field_anchor anchor ON anchor.id=a.id":""}
-      ${strictSearchSource?"JOIN sb_observations n ON n.id=d.id||':'||f.frame_id":""}
-      JOIN ${originalSource} c ON c.owner_id=d.owner_id AND c.device_id=d.id AND c.session_id=s.id
-        AND c.worker_id=d.worker_id AND c.lease_epoch=d.lease_epoch AND c.control_epoch=s.control_epoch
-        AND c.hardware_id=h.hardware_id AND c.board_boot_id=h.board_boot_id
-      CROSS JOIN clock
-      WHERE d.id=? AND d.owner_id=? AND ${strictSearchSource?strictSystemSearchFieldSQL(at,clearShortcutID!==undefined,sourceAge,linkedFieldSource):reviewedFieldAfterActionSQL(at)}${reviewedJPEGFence}
-    )`:"";
-    const ancestorJoin=sourceAction?" LEFT JOIN protected_field_source p ON p.reviewed_id=a.id AND p.head_id=f.frame_id":"";
-    const ancestorAge="("+fieldAncestorCapture+" BETWEEN "+at+"-2000 AND f.capture_lower"+
-      (sourceAction?" OR p.reviewed_id IS NOT NULL":"")+")";
-    const strictHeadJoin=strictSearchSource?" JOIN protected_field_source p ON p.head_id=f.frame_id":"";
-    const ordinarySource=(frame:string)=>
-      "(f.frame_id="+frame+" OR EXISTS(SELECT 1 FROM sb_observations a"+ancestorJoin+" WHERE a.id=d.id||':'||"+frame+
-      " AND "+ancestorAge+
-      " AND json_extract(a.acceptance_json,'$.metadata.bridge_session_id')=s.id"+
-      " AND json_extract(a.acceptance_json,'$.metadata.broadcast_id')=s.broadcast_id"+
-      " AND json_extract(a.acceptance_json,'$.metadata.worker_id')=d.worker_id"+
-      " AND json_extract(a.acceptance_json,'$.metadata.lease_epoch')=d.lease_epoch"+
-      " AND json_extract(a.acceptance_json,'$.metadata.orientation_epoch')=json_extract(f.metadata,'$.orientation_epoch')"+
-      " AND json_extract(a.acceptance_json,'$.metadata.width')=json_extract(f.metadata,'$.width')"+
-      " AND json_extract(a.acceptance_json,'$.metadata.height')=json_extract(f.metadata,'$.height')))";
-    const reviewedSourceGate=strictSearchSource?"":" AND "+ordinarySource("?");
-    const headEligible=allOf("f.device_id=d.id","f.owner_id=d.owner_id","f.session_id=s.id","f.lease_epoch=d.lease_epoch",
-      "f.expires_at>"+at,"json_extract(f.metadata,'$.worker_id')=d.worker_id","json_extract(f.metadata,'$.broadcast_id')=s.broadcast_id",
-      currentFrameAge,"(f.storage_ready=1 OR length(f.inline_jpeg)>0)");
-    const capabilityEligible=allOf("json_extract(h.metadata,'$.capabilities.\""+capability+"\"')=1",
-      ...(submitEnter?[textEnterCapabilitiesSQL("h.metadata")]:[]),
-      ...(linkedFieldSource?[scopeBoundSource?scopeBoundModelField:extendedModelField]:[]),
-      ...(linkedFieldSource?.origin==="parked_press"?[reviewedPointCapSQL(reviewedPressCapability)]:[]),
-      ...(linkedEnter?[reviewedPointCapSQL(focusedTextLinkedAfterEnterCapability)]:[]));
-    const protectedBindings=[
-      ...(clearShortcutID===undefined?[]:[clearShortcutID]),...(sourceAction?[sourceAction]:[]),
-      ...(clearShortcutID===undefined?[]:[device,user.id]),...(linkedFieldSource?[JSON.stringify(linkedFieldSource),device,user.id]:[]),
-      ...(sourceAction?[payload.source_frame_id,device,user.id]:[]),
-      ...(modelReviewedFieldSource?[modelReviewedFieldSource.contentSHA256]:[]),
-    ];
-    const rejection=focused?this.e.stmt(focusedFieldAdmissionRejectionSQL(databaseNowSQL,{
-      authority:mouseAdmissionAuthority(at),head:headEligible,headFresh:currentFrameAge,
-      source:strictSearchSource?"EXISTS(SELECT 1 FROM protected_field_source p WHERE p.head_id=f.frame_id)":ordinarySource("r.source_frame_id"),
-      protectedSourceCTE:protectedSource,capabilities:capabilityEligible,fences:mouseAdmissionFences,
-    }),now,...protectedBindings,device,user.id,key,payload.source_frame_id):
-      this.readyStatement(user,device,false,key,true,now);
-    if(strictSearchSource)need(!strictSignal?.aborted,"APP_SEARCH_QUERY_CANCELLED",409);
-    const saved=await this.e.db.batch<Admission|Ready|FocusedFieldAdmissionRejection>([
-      this.expiration({device,owner:user.id},now),
-      this.e.stmt("WITH clock AS MATERIALIZED (SELECT max(?, "+databaseNowSQL+") AS now)"+protectedSource+" "+
-        "INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,precondition,state,control_epoch,created_at,expires_at,worker_id,lease_epoch) " +
-        "SELECT ?,d.owner_id,d.id,s.id,h.hardware_id,h.board_boot_id,?,?,?,?,"+typedPrecondition+",'queued',s.control_epoch,"+at+",min("+at+"+15000,s.mouse_until),"+
-        (clearShortcutID===undefined&&!modelFocusProof?"NULL,NULL":"d.worker_id,d.lease_epoch")+mouseAdmissionJoin+" CROSS JOIN clock"+
-        " WHERE d.id=? AND d.owner_id=? AND "+mouseAdmissionAuthority(at)+" AND "+capabilityEligible+
-        " AND EXISTS(SELECT 1 FROM sb_frames f"+strictHeadJoin+" WHERE "+headEligible+reviewedSourceGate+")"+
-        mouseAdmissionAvailable+" ON CONFLICT(owner_id,device_id,idempotency_key) DO NOTHING",
-        now,...protectedBindings,
-        id,kind,serialized,digest,key,'$.capabilities."'+(focused?stableASCIICapability:spotlightStableCapability)+'"',
-        ...(modelFocusProof?[modelFocusProof]:[]),device,user.id,
-        ...(strictSearchSource?[]:[payload.source_frame_id,payload.source_frame_id])),
-      this.admissionReadback(user,device,key,false,true),
-      rejection,
-    ]);
-    const command=saved[2].results[0] as Admission|undefined;
-    if(!command) {
-      const missed=saved[3].results[0] as FocusedFieldAdmissionRejection|Ready|undefined;
-      if(focused&&missed&&"diagnostic_json" in missed)
-        logFocusedFieldAdmissionRejection(requestID,payload.source_frame_id,missed.diagnostic_json);
-      const ready=missed&&(!("ready" in missed)||missed.ready===1)?missed:undefined;
-      need(ready&&typeof ready.metadata==="string","START_MOUSE_SHARING");
-      const advertised=JSON.parse(ready.metadata).capabilities;
-      if(linkedEnter)need(linkedAfterEnterReady(advertised),"FOCUSED_TEXT_LINKED_AFTER_ENTER_NOT_READY");
-      else if(submitEnter)need(textEnterReady(advertised),"FOCUSED_TEXT_ENTER_NOT_READY");
-      need(advertised[capability]===true,
-        focused?"FOCUSED_TEXT_NOT_READY":probe?"SPOTLIGHT_WIRED_PROBE_NOT_READY":"SPOTLIGHT_WIRED_NOT_READY");
-      if(linkedFieldSource)need(advertised[scopeBoundSource?scopeBoundCapability:extendedModelReviewedFieldCapability]===true&&advertised[stableASCIICapability]===true,
-        "FOCUSED_TEXT_LINKED_AFTER_NOT_READY");
-      throw new BridgeError(focused?"FIELD_FRAME_OR_CONTROL_CHANGED":"SPOTLIGHT_FRAME_OR_CONTROL_CHANGED");
-    }
-    need(command.digest===digest,"IDEMPOTENCY_CONFLICT");
-    return command.id===id?this.awaitNewCommand(user,command,deadline):this.output(command);
-  }
-  async enqueueSpotlightObserved(user:User,args:Record<string,unknown>,requestID=uid(),focused=false,options:ObservationRequestOptions={}) {
-    const requested=args.observe_after===undefined?true:args.observe_after;
-    need(typeof requested==="boolean","INVALID_ARGUMENTS",422);
-    const wait=integer(args.wait_ms??(focused?8000:2000),0,focused?12000:3000),deadline=this.waitNow()+wait;
-    const result=await this.enqueueSpotlight(user,args,deadline,focused,options.requireOriginalSystemSearch,options.signal,
-      options.requireOriginalSearchClear,options.modelReviewedFieldSource,options.linkedFieldSource,requestID);
-    const independent=focused&&args.wait_ms===undefined&&this.waitNow()<deadline;
-    return this.observeSpotlight(user,result,requested,deadline,requestID,{...options,independent});
-  }
-
   async enqueueAuthorizedFieldObserved(user:User,args:Record<string,unknown>,requestID=uid(),options:ObservationRequestOptions={}) {
     const device=uuid(args.device_id),key=text(args.idempotency_key,120),payload=authorizedFieldText(args);
     const requested=args.observe_after===undefined?true:args.observe_after;
@@ -991,7 +718,7 @@ export class MouseControl {
     const serialized=JSON.stringify(payload),precondition=JSON.stringify({spotlight_transport:"stable_usb",
       field_input_validation:noVisualFieldProtocol,capture_min_gap_ms:settle});
     const search=options.authorizedSearch;
-    const digest=await hash(focusedTextKind+":"+serialized+":"+precondition+(search?":"+search.shortcutID:""));
+    const digest=await this.e.textRequestDigest(user.id,device,key,focusedTextKind+":"+serialized+":"+precondition+(search?":"+search.shortcutID:""));
     const now=this.e.now(),id=uid(),at="clock.now";
     const supported=[focusedTextCapability,stableASCIICapability,noVisualFieldCapability,
       ...(payload.clear_before_input?focusedTextClearCapabilities:[])].map(reviewedPointCapSQL).join(" AND ");
@@ -1010,7 +737,7 @@ export class MouseControl {
         INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,precondition,state,control_epoch,created_at,expires_at,worker_id,lease_epoch)
         SELECT ?,d.owner_id,d.id,s.id,h.hardware_id,h.board_boot_id,?,?,?,?,?,'queued',s.control_epoch,${at},min(${at}+15000,s.mouse_until),d.worker_id,d.lease_epoch
         ${mouseAdmissionJoin} CROSS JOIN authorized_field_clock AS clock
-        WHERE d.id=? AND d.owner_id=? AND ${mouseAdmissionAuthority(at)} AND ${supported}
+        WHERE d.id=? AND d.owner_id=? AND ${mouseAdmissionAuthority(at)} AND ${privacyStorageReadySQL} AND ${supported}
         ${payload.submit_enter?"AND "+textEnterCapabilitiesSQL("h.metadata"):""}${mouseAdmissionAvailable} ${searchFence}
         ON CONFLICT(owner_id,device_id,idempotency_key) DO NOTHING`,now,id,focusedTextKind,serialized,digest,key,precondition,device,user.id,
         ...(search?[search.until,search.preparationID,search.shortcutID]:[])),
@@ -1020,6 +747,7 @@ export class MouseControl {
     const command=saved[2].results[0] as Command|undefined;
     if(!command){
       const ready=saved[3].results[0] as Ready|undefined;
+      need((ready as (Ready&{privacy_storage_ready?:number})|undefined)?.privacy_storage_ready!==0,"PRIVACY_STORAGE_NOT_READY");
       const caps=ready?JSON.parse(ready.metadata).capabilities:undefined;
       if(payload.clear_before_input)need(caps&&textClearReady(caps),"FOCUSED_TEXT_CLEAR_NOT_READY");
       if(!caps||!noVisualFieldReady(caps))return null;
@@ -1036,26 +764,19 @@ export class MouseControl {
     const deadline=this.waitNow()+850;
     // Confirmed-click observation is strictly read-only. The old status
     // lookup can expire pending commands, so do not call it on this path.
-    const original=await this.e.stmt(`SELECT c.*,m.precondition AS click_parent_precondition,
-        (SELECT r.id FROM sb_mouse_commands r WHERE c.kind='pointer.click' AND c.state='failed' AND c.input_attempted=0
-          AND c.error='MOUSE_PRECONDITION_FAILED' AND r.predecessor_id=c.id AND r.owner_id=c.owner_id AND r.device_id=c.device_id
-          AND r.idempotency_key=?||c.id AND json_extract(r.precondition,'$.reviewed_press.protocol')=?) AS recovery_click_command_id
+    const original=await this.e.stmt(`SELECT c.*,m.precondition AS click_parent_precondition
       FROM sb_mouse_commands c JOIN sb_devices d ON d.id=c.device_id AND d.owner_id=c.owner_id
       LEFT JOIN sb_mouse_commands m ON c.kind='pointer.click' AND m.id=c.predecessor_id
         AND m.kind='pointer.move_absolute' AND m.state='board_acked' AND m.result_digest=c.result_digest
         AND m.owner_id=c.owner_id AND m.device_id=c.device_id AND m.session_id=c.session_id
         AND m.worker_id=c.worker_id AND m.lease_epoch=c.lease_epoch AND m.control_epoch=c.control_epoch
         AND m.hardware_id=c.hardware_id AND m.board_boot_id=c.board_boot_id
-      WHERE c.id=? AND c.owner_id=? AND d.revoked=0`,reviewedPressKeyPrefix,reviewedPressProtocol,uuid(id),user.id)
-      .first<Command&{click_parent_precondition:string|null;recovery_click_command_id:string|null}>();
+      WHERE c.id=? AND c.owner_id=? AND d.revoked=0`,uuid(id),user.id)
+      .first<Command&{click_parent_precondition:string|null}>();
     need(original,"NOT_FOUND",404);
     need(!options.searchFocusOnly||original.kind===SYSTEM_SEARCH_KIND,"INVALID_ARGUMENTS",422);
     if(original.kind==="pointer.click"){
-      if(original.recovery_click_command_id)return {...this.output(original),recovery_click_command_id:original.recovery_click_command_id,
-        observation_state:"unavailable",after_screen:{state:"unavailable",reason:"REVIEWED_PRESS_ALREADY_RESERVED",app_effect_observed:false},
-        image:undefined};
-      const parked=await this.observeFailedReviewedPair(user,this.output(original),requestID,options);
-      return parked??this.observeOriginalClick(user,original,requestID,options);
+      return this.observeOriginalClick(user,original,requestID,options);
     }
     if(original.kind===SYSTEM_SEARCH_KIND){
       const result=this.output(original);
@@ -1081,71 +802,6 @@ export class MouseControl {
     const independent=result.kind===focusedTextKind||result.kind===DRAG_KIND;
     if(result.kind===DRAG_KIND)return this.observeDrag(user,result,true,deadline,requestID,{...options,independent});
     return this.observeSpotlight(user,result,true,deadline,requestID,{...options,independent});
-  }
-  async readUnsubmittedPointReview(user:User,id:string,requestID:string,signal:AbortSignal) {
-    // A failed preflight can leave the selected pixels obsolete without any
-    // device input. Reuse the ordinary live view and its standard proof gate.
-    const previous=await this.e.stmt(`SELECT m.*,s.broadcast_id FROM sb_mouse_commands k
-      JOIN sb_mouse_commands m ON m.id=k.predecessor_id
-      JOIN sb_devices d ON d.id=m.device_id AND d.owner_id=m.owner_id
-      JOIN sb_sessions s ON s.id=d.current_session AND s.owner_id=d.owner_id AND s.device_id=d.id
-      JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id
-      WHERE k.id=? AND k.owner_id=? AND k.kind='pointer.click' AND m.kind='pointer.move_absolute'
-        AND k.state='failed' AND k.error='POINT_CLICK_NOT_SUBMITTED' AND k.input_attempted=0
-        AND m.state='failed' AND m.error='MOUSE_PRECONDITION_FAILED' AND m.input_attempted=0
-        AND k.result_digest=m.result_digest AND m.result_digest IS NOT NULL
-        AND k.owner_id=m.owner_id AND k.device_id=m.device_id AND k.session_id=m.session_id
-        AND k.worker_id=m.worker_id AND k.lease_epoch=m.lease_epoch AND k.control_epoch=m.control_epoch
-        AND k.hardware_id=m.hardware_id AND k.board_boot_id=m.board_boot_id
-        AND json_extract(m.precondition,'$.point.protocol')='${PAIRED_MOUSE_POINT}'
-        AND json_extract(m.precondition,'$.point.click_command_id')=k.id
-        AND json_extract(m.precondition,'$.point_source.protocol')='${scopeBoundLinkedPointProtocol}'
-        AND json_extract(m.precondition,'$.point_source.origin') IN ('visual_read','linked_text','typed')
-        AND m.created_at>max(?,${databaseNowSQL})-${reviewedPressOriginalLifetimeMS}
-        AND ${mouseAdmissionAuthority(databaseNowSQL)} AND ${reviewedPointCapSQL(visualReadPointCapability)}
-        AND m.session_id=s.id AND m.control_epoch=s.control_epoch
-        AND m.worker_id=d.worker_id AND m.lease_epoch=d.lease_epoch
-        AND m.hardware_id=h.hardware_id AND m.board_boot_id=h.board_boot_id
-        AND ${noLaterSearchInputSQL("m",["k.id"])}`,id,user.id,this.e.now()).first<Command&{broadcast_id:string}>();
-    if(!previous||signal.aborted)return;
-    const request=record(JSON.parse(previous.precondition!)),origin=record(request.point_query_origin??{});
-    if(typeof origin.frame!=="string"||typeof origin.captureLower!=="number"||typeof origin.sourceSeq!=="number")return;
-    const {result}=await this.e.readScreenWithReleaseRetry(user,{device_id:previous.device_id,wait_for_new_ms:0},requestID);
-    if(signal.aborted)return;
-    const source=result[visualPointEvidence]?.source;
-    if(!source||result.state!=="available"||!result.image||source.frame===origin.frame||
-      source.captureLower<=Math.max(origin.captureLower,previous.created_at)||source.sourceSeq<=origin.sourceSeq||
-      source.device!==previous.device_id||source.session!==previous.session_id||source.broadcast!==previous.broadcast_id||
-      source.worker!==previous.worker_id||source.lease!==previous.lease_epoch||source.control!==previous.control_epoch||
-      source.hardware!==previous.hardware_id||source.boot!==previous.board_boot_id||
-      result.metadata?.orientation_epoch!==request.orientation_epoch)return;
-    return {result,move:{command_id:previous.id,state:previous.state,error:previous.error,input_attempted:false}};
-  }
-  private async observeFailedReviewedPair(user:User,failed:ReturnType<MouseControl["output"]>,requestID:string,
-    options:ObservationRequestOptions,deadline=this.waitNow()+directAfterImageWaitMS) {
-    if(failed.state!=="failed"||failed.error!=="MOUSE_PRECONDITION_FAILED"||failed.input_not_submitted!==true||
-       !failed.predecessor_command_id||options.signal?.aborted||this.waitNow()>=deadline)return;
-    const now=this.e.now();
-    const original=await this.e.stmt(`SELECT m.* FROM sb_mouse_commands k
-      JOIN sb_mouse_commands m ON m.id=k.predecessor_id
-      JOIN sb_devices d ON d.id=k.device_id AND d.owner_id=k.owner_id
-      JOIN sb_sessions s ON s.id=d.current_session AND s.owner_id=d.owner_id AND s.device_id=d.id
-      JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id
-      WHERE k.id=? AND k.owner_id=? AND m.created_at>max(?,${databaseNowSQL})-${reviewedPressOriginalLifetimeMS}
-        AND ${failedReviewedPairSQL("m","k")} AND ${mouseAdmissionAuthority(databaseNowSQL)}
-        AND ${reviewedPointCapSQL(reviewedPressCapability)} AND m.session_id=s.id AND m.control_epoch=s.control_epoch
-        AND m.worker_id=d.worker_id AND m.lease_epoch=d.lease_epoch AND m.hardware_id=h.hardware_id AND m.board_boot_id=h.board_boot_id
-        AND ${noLaterSearchInputSQL("m",["k.id"])}
-        AND NOT EXISTS(SELECT 1 FROM sb_mouse_commands recovery WHERE recovery.predecessor_id=k.id)
-        AND NOT EXISTS(SELECT 1 FROM sb_browse_runs r JOIN sb_browse_leases l ON l.run_id=r.id
-          WHERE r.owner_id=d.owner_id AND r.device_id=d.id AND r.session_id=s.id AND r.control_epoch=s.control_epoch
-          AND l.expires_at>=m.created_at)`,failed.command_id,user.id,now).first<Command>();
-    if(!original)return;
-    const observed=await this.observe(user,this.output(original),true,deadline,requestID,
-      options.afterCommandMinGapMS??0,directAfterImageWaitMS,undefined,options.registerRelease,false,undefined,
-      {strictDeadline:true,action:true,signal:options.signal,currentInput:{kind:"parked_move",hardware:original.hardware_id,boot:original.board_boot_id}});
-    return {...failed,move_command_id:original.id,parked_move_observed:true,
-      after_screen:observed.after_screen,observation_state:observed.observation_state,image:observed.image};
   }
   private observeOriginalClick(user:User,original:Command&{click_parent_precondition:string|null},
     requestID:string,options:ObservationRequestOptions){
@@ -1186,15 +842,13 @@ export class MouseControl {
       this.e.stmt(`WITH request AS (SELECT max(?,${databaseNowSQL}) AS now,? AS intent)
         INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,precondition,state,control_epoch,created_at,expires_at)
         SELECT ?,d.owner_id,d.id,s.id,h.hardware_id,h.board_boot_id,'${DRAG_KIND}',?,?,?,
-          json_patch(json_patch(json_patch(${intent},json_object('capture_width',json_extract(f.metadata,'$.native_width_px'),
-            'capture_height',json_extract(f.metadata,'$.native_height_px'),'orientation',json_extract(f.metadata,'$.orientation'))),
-            CASE WHEN json_type(h.metadata,'$.capabilities."${DRAG_MODEL_DECISION_CAPABILITY}"')='true'
-              THEN json_object('drag_review_mode','${DRAG_MODEL_DECISION_MODE}') ELSE '{}' END),
-            CASE WHEN json_type(h.metadata,'$.capabilities."${DRAG_CLOUD_SOURCE_CAPABILITY}"')='true'
-              AND json_type(h.metadata,'$.capabilities."${DRAG_MODEL_DECISION_CAPABILITY}"')='true'
-              THEN json_object('drag_source_confirmation','${DRAG_CLOUD_SOURCE_CONFIRMATION}',
-                'drag_source_sha256',CASE WHEN f.frame_id=json_extract(${intent},'$.source_frame_id')
-                  THEN f.sha256 ELSE ${reviewedPointSourceHashSQL} END) ELSE '{}' END),
+          json_patch(${intent},json_object('capture_width',json_extract(f.metadata,'$.native_width_px'),
+            'capture_height',json_extract(f.metadata,'$.native_height_px'),'orientation',json_extract(f.metadata,'$.orientation'),
+            'drag_review_mode','${DRAG_MODEL_DECISION_MODE}',
+            'drag_source_confirmation','${DRAG_CLOUD_SOURCE_CONFIRMATION}',
+            'drag_source_sha256',${reviewedPointSourceHashSQL},
+            'drag_source_seq',json_extract(a.acceptance_json,'$.metadata.source_seq'),
+            'drag_source_frame_seq',json_extract(a.acceptance_json,'$.frame_seq'))),
           'queued',s.control_epoch,${at},min(?,s.mouse_until)
         ${mouseAdmissionJoin} JOIN sb_frames f ON f.device_id=d.id${dragReviewJoinsSQL(intent)}
         WHERE d.id=? AND d.owner_id=? AND ${at}<? AND ${mouseAdmissionAuthority(at)}
@@ -1296,7 +950,13 @@ export class MouseControl {
       return this.observeDirectInput(user,result,requested,independent?Infinity:deadline,requestID,minGap,
         kind===SYSTEM_SEARCH_KIND?"system_search":"scroll",options);
     }
-    return this.observe(user,result,requested,deadline,requestID,minGap);
+    // Confirmed pointer primitives use the same two-second image policy and
+    // independent five-second observation window as the compound actions.
+    // This extends observation only; it never extends or resubmits input.
+    const independent=args.wait_ms===undefined&&result.state==="board_acked";
+    return this.observe(user,result,requested,Math.min(independent?Infinity:deadline,this.waitNow()+directAfterImageWaitMS),
+      requestID,minGap,directAfterImageWaitMS,undefined,options.registerRelease,false,undefined,
+      {strictDeadline:true,action:true,signal:options.signal,snapshotOnly:options.snapshotOnly});
   }
   private observeDirectInput(user:User,result:Awaited<ReturnType<MouseControl["get"]>>,requested:boolean,deadline:number,
     requestID:string,minGap:number,kind:"scroll"|"system_search",options:ObservationRequestOptions){
@@ -1414,48 +1074,23 @@ export class MouseControl {
     const requested=args.observe_after===undefined?true:args.observe_after;need(typeof requested==="boolean","INVALID_ARGUMENTS",422);
     const cue=readyCue(args.after_ready_cue);
     need(!cue||requested,"INVALID_READY_CUE",422);
-    if(args.resume_failed_click_command_id!==undefined){
-      need(!cue&&reviewedPointOrigin===undefined&&args.source_query_proof===undefined,"INVALID_ARGUMENTS",422);
-      need(!isParkedPressSelector(uuid(args.source_frame_id)),"INVALID_PARKED_PRESS_CONTINUATION",422);
-      return this.resumeReviewedPress(user,args,requested,requestID,registerRelease);
-    }
-    need(args.resume_cursor_x===undefined&&args.resume_cursor_y===undefined,"INVALID_ARGUMENTS",422);
+    need(args.resume_failed_click_command_id===undefined,"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    need(args.source_query_proof===undefined&&args.resume_cursor_x===undefined&&args.resume_cursor_y===undefined&&reviewedPointOrigin===undefined,
+      "CURRENT_ACTION_PROTOCOL_REQUIRED",422);
     const minGap=integer(args.settle_ms??300,0,2000),wait=integer(args.wait_ms??6000,0,10000),deadline=this.waitNow()+wait;
-    const sourceFrameID=args.source_frame_id===undefined?undefined:uuid(args.source_frame_id);
-    const crops=reviewedPointCrops(args,sourceFrameID);
-    if(sourceFrameID&&isParkedPressSelector(sourceFrameID)){
-      need(!cue&&crops&&reviewedPointOrigin===undefined&&args.source_query_proof===undefined&&args.source_point_proof===undefined,
-        "INVALID_PARKED_PRESS_CONTINUATION",422);
-      const device=uuid(args.device_id);
-      const saved=await this.e.resolveParkedPressSelector(user,device,sourceFrameID);
-      need(saved,"REVIEWED_PRESS_SOURCE_PROOF_INVALID");
-      const original=absoluteMouseRequest({x:saved.geometry.source_x,y:saved.geometry.source_y,
-        image_width:saved.geometry.source_width,image_height:saved.geometry.source_height,orientation_epoch:saved.geometry.orientation_epoch}).intent;
-      const input=absoluteMouseRequest(args).intent;
-      need(input.source_width===original.source_width&&input.source_height===original.source_height&&
-        input.orientation_epoch===original.orientation_epoch,"REVIEWED_PRESS_FRAME_OR_CONTROL_CHANGED");
-      const normalized=input.source_x>0&&input.source_x<1&&input.source_y>0&&input.source_y<1;
-      const cursorX=normalized?input.source_x*(input.source_width-1):input.source_x;
-      const cursorY=normalized?input.source_y*(input.source_height-1):input.source_y;
-      const target=reviewedPointRegion(record(saved.geometry.point_source).target_region);
-      return this.resumeReviewedPress(user,{...args,source_frame_id:saved.proof.frame,resume_failed_click_command_id:saved.proof.command,
-        resume_cursor_x:cursorX,resume_cursor_y:cursorY,x:original.source_x,y:original.source_y},
-        requested,requestID,registerRelease,{proof:saved.proof,target,normalized});
-    }
-    const searchOriginID=reviewedPointOrigin===undefined?undefined:uuid(reviewedPointOrigin.systemSearchCommandID);
+    const sourceFrameID=uuid(args.source_frame_id);
+    need(args.target_region===undefined&&args.landmark_region===undefined&&args.after_ready_cue===undefined,"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    const crops:ReviewedPointCrops|undefined=undefined;
+    need(!sourceFrameID||!isParkedPressSelector(sourceFrameID),"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    const searchOriginID:string|undefined=undefined;
     if(sourceFrameID!==undefined)uuid(args.device_id);
     need(searchOriginID===undefined||sourceFrameID!==undefined,"REVIEWED_POINT_SOURCE_REQUIRED",422);
     const requestVisualProof=args.source_point_proof!==undefined;
-    const coordinateProof=this.ordinaryClickGeometryOnly&&!!sourceFrameID&&searchOriginID===undefined;
+    const coordinateProof=!!sourceFrameID&&searchOriginID===undefined;
     need(!requestVisualProof||args.source_query_proof===undefined,"INVALID_ARGUMENTS",422);
     let queryProof:ReviewedPointProof|undefined;
     let visualLookup:Awaited<ReturnType<BridgeEngine["resolveVisualReadPointProof"]>>|undefined;
-    if(args.source_query_proof!==undefined){
-      need((crops||coordinateProof)&&sourceFrameID&&searchOriginID===undefined,"COMPOUND_QUERY_POINT_SOURCE_REQUIRED",422);
-      const verified=await this.e.resolveReleasedPointProof(user,text(args.source_query_proof,2048));
-      need(verified&&verified.frame===sourceFrameID&&verified.device===uuid(args.device_id),"COMPOUND_QUERY_VIEW_PROOF_INVALID");
-      queryProof=verified;
-    }else if((crops||coordinateProof)&&sourceFrameID&&searchOriginID===undefined){
+    if((crops||coordinateProof)&&sourceFrameID&&searchOriginID===undefined){
       const device=uuid(args.device_id),explicit=requestVisualProof?text(args.source_point_proof,2048):undefined;
       visualLookup=await this.e.resolveVisualReadPointProof(user,device,sourceFrameID,explicit,this.shadowSignal);
       const verified=visualLookup.proof;
@@ -1475,43 +1110,15 @@ export class MouseControl {
     }else if(requestVisualProof){
       throw new BridgeError("VISUAL_READ_POINT_SOURCE_REQUIRED",422);
     }
-    let moveArgs=args,exactHeadCenter=false;
-    const reportCenterRejection=(reason:string)=>logPairedClickDiagnostic({event:"reviewed_point_center_rejected",
-      request_id:requestID,source_frame_id:sourceFrameID??null,reason,
-      visual_proof_lookup:visualLookup?.reason??"not_requested"});
-    if(crops&&args.x===0&&args.y===0&&searchOriginID===undefined){
-      if(!queryProof){
-        // A missing implicit ledger entry can use only the exact live frame.
-        // Expired or rejected proofs retain their original refusal.
-        exactHeadCenter=this.ordinaryClickGeometryOnly&&!requestVisualProof&&visualLookup?.reason==="released_frame_not_found";
-        if(!exactHeadCenter){
-          reportCenterRejection("released_proof_required");
-          throw new BridgeError("REVIEWED_TARGET_CENTER_REQUIRES_RELEASED_IMAGE");
-        }
-      }
-      const {source_width:width,source_height:height}=absoluteMouseRequest(args).intent;
-      const target=crops.target_region;
-      moveArgs={...args,x:(target.x+target.width/2)*(width-1),y:(target.y+target.height/2)*(height-1)};
-    }
+    const moveArgs=args;
     const key=await clickAtKey(args.idempotency_key);
     const phase=requested&&!cue&&minGap===300&&wait===6000?new PairedClickPhaseTiming(this.e.now()):undefined;
     const enqueueMove=async()=>{
       try{
         return await this.enqueue(user,"pointer.move_absolute",{...moveArgs,idempotency_key:key+":move",wait_ms:Math.min(3000,wait)},deadline,undefined,
           {clickKey:key+":click",captureMinGapMS:requested?minGap:0,readyCue:cue,phase,sourceFrameID,searchOriginID,signal:this.shadowSignal,crops,queryProof,
-            ...(this.ordinaryClickGeometryOnly&&sourceFrameID&&searchOriginID===undefined?{geometryOnly:true as const}:{}),
-            ...(exactHeadCenter?{exactHeadCenter:true as const}:{})});
+            geometryOnly:true});
       }catch(error){
-        if(error instanceof BridgeError&&error.code==="REVIEWED_TARGET_CENTER_REQUIRES_RELEASED_IMAGE")
-          reportCenterRejection("exact_accepted_head_unavailable");
-        if(error instanceof BridgeError&&error.code==="REVIEWED_POINT_TARGET_MARGIN"&&crops&&sourceFrameID){
-          const {source_x:x,source_y:y,source_width:width,source_height:height}=absoluteMouseRequest(moveArgs).intent;
-          const target=crops.target_region;
-          const dx=width-1,dy=height-1;
-          logPairedClickDiagnostic({event:"reviewed_point_admission_rejected",request_id:requestID,
-            source_frame_id:sourceFrameID,reason:error.code,center_requested:moveArgs!==args,image_width:width,image_height:height,
-            minimum_margin_px:Math.min(x-target.x*dx,(target.x+target.width)*dx-x,y-target.y*dy,(target.y+target.height)*dy-y)});
-        }
         if(error instanceof BridgeError&&["REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED","REVIEWED_POINT_NOT_READY"].includes(error.code)&&sourceFrameID){
           const code=error.code;
           const device=uuid(args.device_id);
@@ -1545,103 +1152,15 @@ export class MouseControl {
     };
     const move=timing?await timing.measure("move_enqueue",enqueueMove):await enqueueMove();
     phase?.admissionReturned(this.e.now());
-    if(pointSpec(move.precondition))return this.observePaired(user,move,requested,deadline,requestID,minGap,cue?undefined:registerRelease,
+    need(pointSpec(move.precondition),"CURRENT_ACTION_PROTOCOL_REQUIRED");
+    return this.observePaired(user,move,requested,deadline,requestID,minGap,cue?undefined:registerRelease,
       !cue&&minGap===120,!cue&&minGap===300&&wait===6000,phase,args.wait_ms===undefined&&!cue);
-    const base={workflow:"move_click_observe.v1",move_command_id:move.command_id,move_result:move,intermediate_landing_verified:false,settle_ms:minGap};
-    if(move.state!=="board_acked")return {...await this.observe(user,move,false,deadline,requestID,minGap),...base,workflow_stage:"move",click_submitted:false};
-    // The original move expiry gates first click admission. An admitted click
-    // keeps its own immutable command deadline; retries read that saved row.
-    let click:Awaited<ReturnType<MouseControl["enqueue"]>>;
-    try{click=await this.enqueue(user,"pointer.click",{device_id:move.device_id,idempotency_key:key+":click",button:"left",wait_ms:Math.min(3000,Math.max(0,Math.floor(deadline-this.waitNow())))},deadline,move);}
-    catch(error){
-      const reason=error instanceof BridgeError?error.code:"CLICK_ADMISSION_UNKNOWN";
-      const noClick=["COMPOUND_DISPATCH_EXPIRED","COMPOUND_SCOPE_CHANGED","COMPOUND_GEOMETRY_CHANGED","MOVE_NOT_CONFIRMED","ALLOW_MOUSE_ON_PHONE","MOUSE_ACTION_UNSUPPORTED","MOUSE_BUSY_OR_CONTROL_CHANGED"].includes(reason);
-      return {...await this.observe(user,move,false,deadline,requestID,minGap),...base,workflow_stage:"click_admission",click_submitted:noClick?false:null,workflow_error:reason};
-    }
-    return {...await this.observe(user,click,requested,deadline,requestID,minGap,2000,undefined,undefined,false,undefined,{action:true}),...base,workflow_stage:"click",click_submitted:true};
-  }
 
-  private async resumeReviewedPress(user:User,args:Record<string,unknown>,requested:boolean,requestID:string,
-    registerRelease?:RegisterClickAfterRelease,selected?:{proof:ParkedMovePointProof;target:Region;normalized:boolean}) {
-    const original=uuid(args.resume_failed_click_command_id),device=uuid(args.device_id),frame=uuid(args.source_frame_id);
-    const crops=reviewedPointCrops(args,frame);
-    need(crops,"REVIEWED_POINT_CROP_SOURCE_REQUIRED",422);
-    const {intent,payload}=absoluteMouseRequest(args);
-    const {source_x:x,source_y:y,source_width:width,source_height:height}=intent;
-    const cx=finite(args.resume_cursor_x,0,width-1),cy=finite(args.resume_cursor_y,0,height-1);
-    const minMargin=(target:Region)=>Math.min(reviewedPressTargetMargin(target,width,height,x,y),
-      reviewedPressTargetMargin(target,width,height,cx,cy));
-    const newMargin=minMargin(crops.target_region),originalMargin=selected?minMargin(selected.target):null;
-    const distance=Math.hypot(cx-x,cy-y);
-    if(width>1280||height>1280||newMargin<2||originalMargin!==null&&originalMargin<2||distance>reviewedPressLandingTolerancePX){
-      logPairedClickDiagnostic({event:"reviewed_parked_press",request_id:requestID,stage:"geometry",
-        reason:"REVIEWED_PRESS_LANDING_INVALID",path:selected?"selector":"explicit",normalized:selected?.normalized??false,
-        image_width:width,image_height:height,original_minimum_margin_px:originalMargin,new_minimum_margin_px:newMargin,
-        cursor_delta_px:distance});
-      throw new BridgeError("REVIEWED_PRESS_LANDING_INVALID",422);
-    }
-    const gap=integer(args.settle_ms??300,0,2000),wait=integer(args.wait_ms??6000,0,10000),deadline=this.waitNow()+wait;
-    const callerKey=text(args.idempotency_key,120);
-    const report=(reason:string)=>logPairedClickDiagnostic({event:"reviewed_parked_press",request_id:requestID,
-      stage:"admission",reason,original_click_command_id:original,source_frame_id:frame});
-    const proof=selected?.proof??await this.e.resolveParkedMovePointProof(user,device,original,frame,text(args.source_point_proof,2048));
-    if(!proof)report("source_proof_invalid_or_missing");
-    need(proof,"REVIEWED_PRESS_SOURCE_PROOF_INVALID");
-    const key=reviewedPressKeyPrefix+original,id=uid(),now=this.e.now(),at="clock.now";
-    const digest=await hash(JSON.stringify([callerKey,frame,proof.sha256,intent,crops,cx,cy,gap]));
-    const geometry=JSON.stringify({...intent,source_frame_id:frame,point_source:{content_sha256:proof.sha256}});
-    const wire=JSON.stringify({protocol:reviewedPressProtocol,original_move_id:proof.move,original_click_id:original,
-      move_ack_phone_mono_ms:proof.moveAck,capture_min_gap_ms:gap,
-      point_source:{protocol:scopeBoundLinkedPointProtocol,origin:"parked_move",frame_id:frame,content_sha256:proof.sha256,...crops},
-      ...intent,cursor_x:cx,cursor_y:cy});
-    need(!this.shadowSignal?.aborted,"REVIEWED_PRESS_CANCELLED");
-    const rows=await this.e.db.batch<Command>([
-      this.expiration({device,owner:user.id},now),
-      this.e.stmt(`WITH clock AS MATERIALIZED (SELECT max(?,${databaseNowSQL}) AS now),
-        i AS (SELECT ? AS geometry,? AS origin,? AS wire)
-        INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,
-          precondition,state,control_epoch,created_at,expires_at,input_attempted,worker_id,lease_epoch,predecessor_id)
-        SELECT ?,d.owner_id,d.id,s.id,h.hardware_id,h.board_boot_id,'pointer.click','{"button":"left"}',?,?,
-          json_object('reviewed_press',json_patch(json(i.wire),json_object('capture_width',json_extract(f.metadata,'$.native_width_px'),
-            'capture_height',json_extract(f.metadata,'$.native_height_px'),'orientation',json_extract(f.metadata,'$.orientation'))),
-            'reviewed_press_origin',json(i.origin),'reviewed_press_geometry',json_patch(json(i.geometry),json_object(
-              'capture_width',json_extract(f.metadata,'$.native_width_px'),'capture_height',json_extract(f.metadata,'$.native_height_px'),
-              'orientation',json_extract(f.metadata,'$.orientation'))),'capture_min_gap_ms',CAST(? AS INTEGER)),
-          'queued',s.control_epoch,${at},min(${at}+5000,s.mouse_until,d.worker_expires),0,d.worker_id,d.lease_epoch,k.id
-        ${mouseAdmissionJoin} CROSS JOIN clock CROSS JOIN i
-        JOIN sb_mouse_commands k ON k.id=? JOIN sb_mouse_commands m ON m.id=k.predecessor_id
-        JOIN sb_frames f ON f.device_id=d.id ${dragReviewJoinsSQL("i.geometry")}
-        WHERE d.id=? AND d.owner_id=? AND ${mouseAdmissionAuthority(at)}${mouseAdmissionAvailable}
-          AND json_type(h.metadata,'$.capabilities."hid.mouse.click"')='true'
-          AND ${reviewedPressOriginSQL("i.origin",at)}
-          AND ${reviewedPointHeadSQL(at,"i.geometry",false,"1","1","1")}
-          AND ${["source_x","source_y","source_width","source_height","orientation_epoch"].map(k=>
-            "json_extract(m.precondition,'$."+k+"')=json_extract(i.geometry,'$."+k+"')").join(" AND ")}
-          AND json_extract(m.payload,'$.x')=? AND json_extract(m.payload,'$.y')=?
-          AND json_extract(m.precondition,'$.capture_width')=json_extract(f.metadata,'$.native_width_px')
-          AND json_extract(m.precondition,'$.capture_height')=json_extract(f.metadata,'$.native_height_px')
-          AND json_extract(m.precondition,'$.orientation')=json_extract(f.metadata,'$.orientation')
-        ON CONFLICT DO NOTHING`,now,geometry,JSON.stringify(proof),wire,id,digest,key,gap,original,device,user.id,payload.x,payload.y),
-      this.e.stmt("SELECT * FROM sb_mouse_commands WHERE owner_id=? AND device_id=? AND predecessor_id=? AND idempotency_key=?",
-        user.id,device,original,key),
-    ]);
-    const saved=rows[2].results[0];
-    report(!saved?"frame_or_authority_changed":saved.digest!==digest?"idempotency_conflict":saved.id===id?"reserved":"original_readback");
-    need(saved,"REVIEWED_PRESS_FRAME_OR_CONTROL_CHANGED");
-    need(saved.digest===digest,"IDEMPOTENCY_CONFLICT");
-    const result=saved.id===id?await this.awaitNewCommand(user,saved,deadline):this.output(saved);
-    const observed=await this.observe(user,result,requested,Math.min(args.wait_ms===undefined?Infinity:deadline,this.waitNow()+directAfterImageWaitMS),
-      requestID,gap,directAfterImageWaitMS,undefined,registerRelease,false,undefined,
-      {strictDeadline:true,action:true,signal:this.shadowSignal,currentInput:{kind:"click",hardware:result.hardware_id,boot:result.board_boot_id}});
-    return {...observed,workflow:"reviewed_press_after_move.v1",move_command_id:proof.move,click_command_id:result.command_id,
-      original_click_command_id:original,workflow_stage:pending.has(result.state)?"point_pending":"click",
-      settle_ms:gap,move_result:undefined,intermediate_landing_verified:result.state==="board_acked",
-      click_submitted:pending.has(result.state)?null:result.input_attempted??(result.input_not_submitted?false:null)};
   }
   private async observePaired(user:User,admission:Awaited<ReturnType<MouseControl["get"]>> & {[admittedCompanion]?: Command},requested:boolean,deadline:number,requestID:string,minGap:number,registerRelease?:RegisterClickAfterRelease,shortSettleRequested=false,recoverTimeout=false,phase?:PairedClickPhaseTiming,extendAfterImage=false){
     const {[admittedCompanion]: companion, ...original} = admission;
     const spec=pointSpec(original.precondition);need(spec,"INVALID_POINT_SPEC");
-    const base={workflow:"phone_move_click_observe.v1",move_command_id:original.command_id,click_command_id:spec.click_command_id,
+    const base={source_age_ms:original.source_age_ms??null,screen_changed_since_source:original.screen_changed_since_source??null,source_observed_at_server_utc_ms:original.source_observed_at_server_utc_ms??null,workflow:"phone_move_click_observe.v1",move_command_id:original.command_id,click_command_id:spec.click_command_id,
       point_protocol:PAIRED_MOUSE_POINT,settle_ms:minGap,intermediate_landing_verified:false};
     const cue=readyCue(original.precondition?.point_capture_ready_cue),gapMatches=original.precondition?.point_capture_min_gap_ms===minGap;
     const shortSettle=!cue&&gapMatches&&shortSettleRequested;
@@ -1723,25 +1242,16 @@ export class MouseControl {
     }
     const submitted=pending.has(pair.click.state)?null:pair.click.input_not_submitted?false:pair.click.input_attempted===true?true:null;
     const receiptObserved=this.waitNow();
-    const parked=requested&&receiptObserved<deadline&&!cue?
-      await this.observeFailedReviewedPair(user,pair.click,requestID,{signal:this.shadowSignal,registerRelease},
-        extendAfterImage?receiptObserved+directAfterImageWaitMS:deadline).catch(()=>undefined):undefined;
     // Only a confirmed click seen within its original deadline can open the
     // independent read-only window. No input deadline is renewed.
     const useAfterWindow=extendAfterImage&&requested&&gapMatches&&receiptObserved<deadline&&
       pair.click.state==="board_acked"&&pair.click.receipt_observation.valid_for_capture_order;
     const recoverRelease=!cue&&gapMatches&&(useAfterWindow||minGap===300||shortSettle)?registerRelease:undefined;
     const afterDeadline=useAfterWindow?receiptObserved+pairedClickAfterImageWaitMS:deadline;
-    const first=parked??await this.observe(user,pair.click,requested,afterDeadline,requestID,minGap,
+    const first=await this.observe(user,pair.click,requested,afterDeadline,requestID,minGap,
       useAfterWindow?pairedClickAfterImageWaitMS:2000,pair.read,recoverRelease,
       !useAfterWindow&&recoverTimeout&&!cue&&gapMatches&&minGap===300,afterTiming,{strictDeadline:useAfterWindow,action:true});
     let observed=first;
-    if(cue&&first.after_screen.state==="available"){
-      const metadata=record(first.after_screen.metadata);
-      if(cue.mode!=="loader_disappears"||metadata.loading_cue_command_id===pair.click.command_id||metadata.ready_cue_command_id===pair.click.command_id){
-        observed=await this.waitForReadyCue(user,pair.click,first,cue,deadline,requestID,minGap);
-      }
-    }
     let phaseTiming;
     const timings=phase?.output();
     if(afterTiming)afterTiming.receiptTiming=timings?.receipt;
@@ -1757,35 +1267,6 @@ export class MouseControl {
     return {...observed,...base,[pairedClickShadow]:shadow,[clickAfterImageTiming]:!cue?afterTiming:undefined,
       [pairedClickTiming]:phaseTiming,
       workflow_stage:pending.has(pair.click.state)?"point_pending":"click",click_submitted:submitted,move_result:pair.move};
-  }
-  private async waitForReadyCue(user:User,click:Awaited<ReturnType<MouseControl["get"]>>,
-    first:Awaited<ReturnType<MouseControl["observe"]>>,cue:ReadyCue,deadline:number,requestID:string,minGap:number){
-    const metadata=record(first.after_screen.metadata);
-    const withCue=(value:typeof first,state:"matched"|"not_seen"):typeof first=>({...value,after_screen:{...value.after_screen,ready_cue_state:state}});
-    if(metadata.ready_cue_command_id===click.command_id)return withCue(first,"matched");
-    const proof=record(first.after_screen.after_command);
-    const laterGap=Math.max(minGap,Math.ceil(Number(proof.lower_gap_ms)));
-    if(laterGap>=2000||this.waitNow()>=deadline)return withCue(first,"not_seen");
-    const receipt=click.receipt_observation;
-    const loaderTiming=cue.mode==="loader_disappears"&&metadata.loading_cue_command_id===click.command_id&&
-      receipt.valid_for_capture_order&&typeof receipt.phone_ack_mono_ms==="number"&&
-      typeof receipt.scope.worker_id==="string"&&typeof receipt.scope.lease_epoch==="number"?
-      {owner:user.id,device:click.device_id,session:click.bridge_session_id,worker:receipt.scope.worker_id,
-        lease:receipt.scope.lease_epoch,captureAfter:receipt.phone_ack_mono_ms+laterGap,readyCueCommandID:click.command_id}:undefined;
-    const later=await this.observe(user,click,true,deadline,requestID,laterGap,cue.wait_ms,
-      (waitMS,rid,report)=>this.e.readActionAfterScreen(user,{device_id:click.device_id,after_command_id:click.command_id,
-        after_command_min_gap_ms:laterGap,wait_for_new_ms:waitMS},rid,{report,readyCueCommandID:click.command_id,loaderTiming}),
-      undefined,false,undefined,{action:true});
-    if(later.after_screen.state==="available"&&record(later.after_screen.metadata).ready_cue_command_id===click.command_id){
-      return withCue(later,"matched");
-    }
-    // Keep the original reviewed candidate only when the live scope was not
-    // lost and it is still fresh at the end of the extra observation.
-    const age=liveFrameAge(this.e.now(),metadata.capture_lower_server_utc_ms,actionAfterImageAgeLimitMS,actionAfterImageAgeLimitMS);
-    if(["WAITING_READY_CUE","WAITING_POST_COMMAND_FRAME"].includes(String(later.after_screen.reason))&&age!==null){
-      return withCue({...first,after_screen:{...first.after_screen,metadata:{...metadata,age_ms:age}}},"not_seen");
-    }
-    return withCue(later,"not_seen");
   }
   private async reviewedPointRejection(user:User,device:string,frame:string,args:Record<string,unknown>,now:number,proof?:VisualReadPointProof,cropReview=true,geometryOnly=false) {
     const at="clock.now",intent="i.intent",origin="i.origin";
@@ -1829,14 +1310,14 @@ export class MouseControl {
 
   private async insertCompanion(user:User,parent:string,child:string,clickKey:string) {
     const digest = await hash('pointer.click:{"button":"left"}');
-    return this.e.stmt(`INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,precondition,state,control_epoch,created_at,expires_at,predecessor_id,input_attempted)
-      SELECT ?,p.owner_id,p.device_id,p.session_id,p.hardware_id,p.board_boot_id,'pointer.click','{"button":"left"}',?,?,json_remove(p.precondition,'$.point','$.point_capture_min_gap_ms','$.point_capture_ready_cue','$.point_source','$.point_search_origin','$.point_query_origin','$.point_motion_policy','$.point_center_policy'),'embedded',p.control_epoch,p.created_at,p.expires_at,p.id,0
+    return this.e.stmt(`INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,precondition,state,control_epoch,created_at,expires_at,predecessor_id,input_attempted,worker_id,lease_epoch)
+      SELECT ?,p.owner_id,p.device_id,p.session_id,p.hardware_id,p.board_boot_id,'pointer.click','{"button":"left"}',?,?,json_remove(p.precondition,'$.point','$.point_capture_min_gap_ms','$.point_capture_ready_cue','$.point_source','$.point_search_origin','$.point_query_origin','$.point_motion_policy','$.point_center_policy'),'embedded',p.control_epoch,p.created_at,p.expires_at,p.id,0,p.worker_id,p.lease_epoch
       FROM sb_mouse_commands p WHERE p.id=? AND p.owner_id=? AND p.kind='pointer.move_absolute' AND p.state='queued' AND json_extract(p.precondition,'$.point.protocol')=? AND json_extract(p.precondition,'$.point.click_command_id')=?`,
       child,digest,text(clickKey,120),parent,user.id,PAIRED_MOUSE_POINT,child);
   }
   private admissionReadback(user:User,device:string,key:string,withCompanion:boolean,requireActive=false) {
     const active = requireActive ? " AND EXISTS(SELECT 1 FROM sb_sessions s JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id WHERE s.id=d.current_session AND s.owner_id=d.owner_id AND s.state='active')" : "";
-    const point=withCompanion?","+pointChildSnapshot+",d.worker_id AS queued_worker,d.lease_epoch AS queued_lease":"";
+    const point=withCompanion?","+sourceObservationSQL(this.e.now())+","+pointChildSnapshot+",d.worker_id AS queued_worker,d.lease_epoch AS queued_lease":"";
     return this.e.stmt("SELECT c.*"+point+" FROM sb_mouse_commands c JOIN sb_devices d ON d.id=c.device_id AND d.owner_id=c.owner_id WHERE c.owner_id=? AND c.device_id=? AND c.idempotency_key=? AND d.revoked=0"+active,user.id,device,key);
   }
   private noteQueuedPoint(point:Admission) {
@@ -1866,17 +1347,16 @@ export class MouseControl {
     const visualOrigin=point.queryProof?.origin==="visual_read";
     const proofCapability=pointProofCapability(point.queryProof);
     const scopeBoundReview=proofCapability&&proofCapability!==REVIEWED_POINT_COMPOUND_CAPABILITY?"1":undefined;
-    const pointCapability=proofCapability??(cropReview?REVIEWED_POINT_CROP_CAPABILITY:REVIEWED_POINT_CAPABILITY);
-    const pointProtocol=scopeBoundReview?scopeBoundLinkedPointProtocol:compoundReview?reviewedPointCompoundProtocol:
-      cropReview?reviewedPointCropProtocol:reviewedPointProtocol;
+    const pointCapability=visualReadPointCapability;
+    const pointProtocol=currentPointProtocol;
     const originGate=visualOrigin?visualReadPointOriginSQL("i.query_origin",at):
       compoundReview?compoundQueryOriginSQL("i.query_origin",at,[],scopeBoundReview):"(i.origin IS NULL OR "+pointSearchOriginSQL("i.origin")+")";
     const intentJSON=JSON.stringify({...intent,coordinate_space:"full_screen_image_pixels",...(reviewed?{source_frame_id:point.sourceFrameID}:{})});
-    const geometry=reviewed?`SELECT f.metadata,${reviewedPointSourceHashSQL} AS source_sha256 FROM live l CROSS JOIN review_intent i
+    const geometry=reviewed?`SELECT f.metadata,${visualOrigin?"COALESCE("+reviewedPointSourceHashSQL+",json_extract(i.query_origin,'$.sha256'))":reviewedPointSourceHashSQL} AS source_sha256 FROM live l CROSS JOIN review_intent i
       JOIN sb_devices d ON d.id=l.device_id JOIN sb_sessions s ON s.id=l.session_id
       JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id JOIN sb_frames f ON f.device_id=d.id
       ${dragReviewJoinsSQL("i.value")} WHERE l.paired AND ${reviewedPointCapSQL(pointCapability)}
-      AND ${reviewedPointHeadSQL(at,"i.value",false,cropReview?"1":undefined,compoundReview?"1":undefined,scopeBoundReview,point.geometryOnly?"1":undefined)} AND ${originGate}
+      AND ${visualOrigin?signedPointHeadSQL(at,"i.value","i.query_origin"):reviewedPointHeadSQL(at,"i.value")} AND ${originGate}
       ${point.exactHeadCenter&&!point.geometryOnly?"AND f.frame_id=json_extract(i.value,'$.source_frame_id')":""}`
       :latestGeometry(geometryRows("(SELECT owner_id FROM live)","(SELECT device_id FROM live)","(SELECT session_id FROM live)","(SELECT lease_epoch FROM live)",[at,at+"-2000",at+"+100"]));
     const selectedSource=reviewed?"(SELECT json_extract(value,'$.source_frame_id') FROM review_intent)":"json_extract(g.metadata,'$.frame_id')";
@@ -1982,9 +1462,11 @@ export class MouseControl {
   }
   async enqueue(user: User, kind: string, args: Record<string, unknown>,waitingDeadline?:number,moveDependency?:Awaited<ReturnType<MouseControl["get"]>>,
     point?:PointAdmission,searchAdmission?:SearchAdmissionOptions) {
+    if(point)need(point.sourceFrameID!==undefined&&point.readyCue===undefined&&point.crops===undefined&&point.searchOriginID===undefined&&point.exactHeadCenter===undefined&&(!point.queryProof||point.queryProof.origin==="visual_read"),"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
     need(capabilities[kind], "MOUSE_ONLY", 422);
     const systemSearch=kind===SYSTEM_SEARCH_KIND;
-    const sourceFrame=systemSearch&&args.source_frame_id!==undefined?uuid(args.source_frame_id):undefined;
+    if(systemSearch)need(args.source_frame_id===undefined&&args.source_view_proof===undefined,"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    const sourceFrame: string|undefined=undefined;
     const scopeOnly=systemSearch&&sourceFrame===undefined,withSearchSource=systemSearch&&!scopeOnly;
     const searchPrecondition=systemSearch?{
       ...(scopeOnly?{system_search_mode:systemSearchScopeOnlyMode}:{system_search_frame_id:sourceFrame}),
@@ -2025,7 +1507,7 @@ export class MouseControl {
       }
       r=admitted.ready;
       if(point.sourceFrameID!==undefined){
-        const capability=pointProofCapability(point.queryProof)??(point.crops?REVIEWED_POINT_CROP_CAPABILITY:REVIEWED_POINT_CAPABILITY);
+        const capability=visualReadPointCapability;
         need(r.point_protocol===PAIRED_MOUSE_POINT&&JSON.parse(r.metadata).capabilities[capability]===true,
           "REVIEWED_POINT_NOT_READY");
         throw new BridgeError(point.exactHeadCenter?"REVIEWED_TARGET_CENTER_REQUIRES_RELEASED_IMAGE":"REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED");
@@ -2060,7 +1542,7 @@ export class MouseControl {
       need(this.waitNow()<deadline&&dependencyExpiry>this.e.now(),"COMPOUND_DISPATCH_EXPIRED");
       need(moveDependency.device_id===r.id&&moveDependency.bridge_session_id===r.session_id&&moveDependency.control_epoch===r.control_epoch&&moveDependency.hardware_id===r.hardware_id&&moveDependency.board_boot_id===r.board_boot_id&&moveDependency.receipt_observation.scope.worker_id===r.worker_id&&moveDependency.receipt_observation.scope.lease_epoch===r.lease_epoch,"COMPOUND_SCOPE_CHANGED");
     }
-    let precondition: Record<string,unknown> | null = null, readyCueSupported=false, geometrySlot=0;
+    let precondition: Record<string,unknown> | null = null, geometrySlot=0;
     if(searchPrecondition)precondition=searchPrecondition;
     if(moveDependency){
       const prior=moveDependency.precondition,g=this.geometrySnapshot(JSON.parse(r.geometry_rows??"[]"));
@@ -2105,10 +1587,8 @@ export class MouseControl {
       need(g, "ABSOLUTE_GEOMETRY_UNAVAILABLE");
       need(g.image_width === absolute.intent.source_width && g.image_height === absolute.intent.source_height && g.orientation_epoch === absolute.intent.orientation_epoch, "ABSOLUTE_GEOMETRY_CHANGED");
       precondition = { ...absolute.intent, coordinate_space:"full_screen_image_pixels", capture_width:g.capture_width, capture_height:g.capture_height, orientation:g.orientation, source_frame_id:g.frame_id };
-      readyCueSupported=g[readyCueCapability(point?.readyCue)]===true;
     }
-    if(paired)precondition={...precondition,point_capture_min_gap_ms:point.captureMinGapMS,point:{protocol:PAIRED_MOUSE_POINT,click_command_id:companion},
-      ...(readyCueSupported&&point.readyCue?{point_capture_ready_cue:point.readyCue}:{})};
+    if(paired)precondition={...precondition,point_capture_min_gap_ms:point.captureMinGapMS,point:{protocol:PAIRED_MOUSE_POINT,click_command_id:companion}};
     const id = uid(), now=this.e.now();
     need(companion!==id,"POINT_ID_COLLISION");
     // Expiration, exclusion/authority CAS and idempotency readback share one
@@ -2219,18 +1699,17 @@ export class MouseControl {
     need(body.spotlight_dispatch_protocol==null||body.spotlight_dispatch_protocol===SPOTLIGHT_CLAIM_START,"INVALID_SPOTLIGHT_DISPATCH_PROTOCOL",422);
     const spotlightPregrant=body.spotlight_dispatch_protocol===SPOTLIGHT_CLAIM_START;
     need(!spotlightPregrant||atomicRaw,"SPOTLIGHT_REQUIRES_SCOPED_CLAIM",422);
-    need(body.app_search_protocol==null||body.app_search_protocol===APP_SEARCH_CLAIM,"INVALID_SEARCH_PREPARATION_PROTOCOL",422);
-    const searchPreparation=body.app_search_protocol===APP_SEARCH_CLAIM;
+    need(body.app_search_protocol===undefined,"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    const searchPreparation=false;
     need(!searchPreparation||atomicRaw,"SEARCH_PREPARATION_REQUIRES_SCOPED_CLAIM",422);
     need(body.point_protocol==null||body.point_protocol===PAIRED_MOUSE_POINT,"INVALID_POINT_PROTOCOL",422);
     const paired=body.point_protocol===PAIRED_MOUSE_POINT,pointDeclared=Object.hasOwn(body,"point_protocol");
     need(!pointDeclared||atomicRaw,"POINT_REQUIRES_RAW_PREGRANT",422);
-    need(body.reviewed_press_protocol===undefined||atomicRaw&&paired&&body.reviewed_press_protocol===reviewedPressProtocol,
-      "INVALID_REVIEWED_PRESS_PROTOCOL",422);
-    const reviewedPress=body.reviewed_press_protocol===reviewedPressProtocol;
+    need(body.reviewed_press_protocol===undefined,"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    const reviewedPress=false;
     const ttlProfiles=body.raw_dispatch_ttl_profiles;
-    need(ttlProfiles===undefined||(atomicRaw&&Array.isArray(ttlProfiles)&&ttlProfiles.length<=2&&
-      new Set(ttlProfiles).size===ttlProfiles.length&&ttlProfiles.every(value=>value===scopedSearchTTLProfile||value===reviewedPointTTLProfile)),
+    need(ttlProfiles===undefined||(atomicRaw&&Array.isArray(ttlProfiles)&&ttlProfiles.length<=1&&
+      new Set(ttlProfiles).size===ttlProfiles.length&&ttlProfiles.every(value=>value===scopedSearchTTLProfile)),
       "INVALID_RAW_DISPATCH_TTL_PROFILES",422);
     const ttlProjection=rawClaimTTLProjection(new Set(ttlProfiles as unknown[]|undefined),paired);
     const raw=atomicRaw?this.rawClaimIdentity(body):null;
@@ -2318,7 +1797,8 @@ export class MouseControl {
           SELECT c.id FROM sb_mouse_commands c JOIN sb_devices d ON d.id=c.device_id AND d.owner_id=c.owner_id
           JOIN sb_sessions s ON s.id=d.current_session AND s.owner_id=d.owner_id
           JOIN sb_hardware h ON h.device_id=d.id AND h.owner_id=d.owner_id${reviewedPointJoin}${pressJoin} LEFT JOIN drag_dispatch drag_view ON drag_view.id=c.id
-          WHERE (${caller.sql} AND c.session_id=s.id AND s.id=? AND s.broadcast_id=?
+          WHERE c.kind IN ('pointer.move_relative','pointer.move_absolute','pointer.click','pointer.scroll','keyboard.open_search','keyboard.type_text','pointer.drag_absolute')
+            AND (${caller.sql} AND c.session_id=s.id AND s.id=? AND s.broadcast_id=?
             AND s.mode='broadcast' AND (?=0 OR s.control_epoch=?))
             AND (json_extract(c.precondition,'$.point') IS NULL OR (?=1 AND json_extract(c.precondition,'$.point.protocol')=?
               AND EXISTS(SELECT 1 FROM sb_mouse_commands k WHERE k.id=json_extract(c.precondition,'$.point.click_command_id')
@@ -2340,7 +1820,7 @@ export class MouseControl {
             AND (NOT EXISTS(SELECT 1 FROM sb_mouse_commands other WHERE other.device_id=d.id AND other.state IN ('claimed','executing'))${liveClock})
           ORDER BY c.created_at LIMIT 1
         ) AND state='queued' RETURNING *${dispatchProbe}${ttlProjection}`,...reviewedPointValues,...(reviewedPress?caller.values:[]),...caller.values,atomicRaw?1:0,searchPreparation?1:0,spotlightPregrant?1:0,worker,lease,PAIRED_MOUSE_POINT,...caller.values,session,broadcast,
-        atomicRaw?1:0,control,paired?1:0,PAIRED_MOUSE_POINT,now,now,worker,lease,now,now,searchPreparation?1:0));
+        atomicRaw?1:0,control,paired?1:0,PAIRED_MOUSE_POINT,now,now,worker,lease,now,searchPreparation?1:0));
       if(paired) {
         // Only the parent won by the immediately preceding UPDATE can grant
         // its companion, under that same token and transaction. The child's
@@ -2467,17 +1947,11 @@ export class MouseControl {
       UPDATE sb_mouse_commands SET state='executing'
       WHERE state='claimed' AND id IN (SELECT id FROM start_context)
         AND id IN (SELECT id FROM start_search) AND id IN (SELECT id FROM start_field) AND id IN (SELECT id FROM start_drag)
-      RETURNING *`,uuid(id),device.id,device.owner_id,session,worker,lease,control,now,worker,lease,now,broadcast,now,now);
-    need(body.pointer_prefetch_protocol==null||body.pointer_prefetch_protocol===POINTER_PREFETCH,"INVALID_PREFETCH_PROTOCOL",422);
-    let row:Command|null,next:PrefetchCommand[]=[];
-    if(body.pointer_prefetch_protocol===POINTER_PREFETCH){
-      const prefetch=pointerPrefetchQuery({device:device.id,owner:device.owner_id,session,broadcast,worker,lease,control,parent:uuid(id)},databaseNowSQL);
-      const batch=await this.e.db.batch<Command>([statement,this.e.stmt(prefetch.sql,...prefetch.values)]);
-      row=batch[0].results[0]??null;next=batch[1].results;
-    }else {row=await statement.first<Command>();}
+      RETURNING *`,uuid(id),device.id,device.owner_id,session,worker,lease,control,now,worker,lease,now,broadcast,now);
+    need(body.pointer_prefetch_protocol===undefined,"CURRENT_ACTION_PROTOCOL_REQUIRED",422);
+    const row=await statement.first<Command>();
     need(row, "MOUSE_EXPIRED_OR_CONTROL_CHANGED");
-    const prefetched=pointerPrefetchEnvelopes(next,this.e.now(),row.id);
-    return { ...this.dispatchOutput(row), ttl_remaining_ms: Math.max(0,Math.min(row.kind === "pointer.local_plan" || row.kind===spotlightKind || row.kind===focusedTextKind ? 15000 : 2500, row.expires_at - this.e.now())),prefetched_pointer_command:prefetched[0]??null,prefetched_pointer_commands:prefetched };
+    return { ...this.dispatchOutput(row), ttl_remaining_ms: Math.max(0,Math.min(2500, row.expires_at - this.e.now())) };
   }
   private async authenticatedResultContext(tokenHash:string,command:string|null) {
     const row=await this.e.stmt(
@@ -2730,18 +2204,17 @@ export class MouseControl {
   private async stopScoped(user:User,device:string,session:string,epoch:number) {
     const result=await this.e.db.batch([
       this.e.stmt("UPDATE sb_sessions SET mouse_enabled=0,mouse_until=0,control_epoch=control_epoch+1 WHERE id=? AND device_id=? AND owner_id=? AND control_epoch=? AND state='active' AND EXISTS(SELECT 1 FROM sb_devices d WHERE d.id=sb_sessions.device_id AND d.owner_id=sb_sessions.owner_id AND d.current_session=sb_sessions.id AND d.revoked=0)",session,device,user.id,epoch),
-      this.e.stmt("UPDATE sb_mouse_commands SET state=CASE WHEN state='executing' THEN 'outcome_unknown' ELSE 'cancelled' END,error='PHONE_SCOPE_STOPPED' WHERE device_id=? AND owner_id=? AND session_id=? AND control_epoch=? AND state IN ('queued','claimed','executing','embedded')",device,user.id,session,epoch),
-      this.e.stmt("UPDATE sb_browse_runs SET state=CASE WHEN lease_seq>0 AND queue_json!='[]' THEN 'outcome_unknown' ELSE 'cancelled' END,error='PHONE_SCOPE_STOPPED',revision=revision+1 WHERE device_id=? AND owner_id=? AND session_id=? AND control_epoch=? AND state='active'",device,user.id,session,epoch),
+      ...stoppedInputStatements(this.e,user.id,device,session,"PHONE_SCOPE_STOPPED",epoch),
     ]);
     return {stopped:true,scope_matched:result[0].meta.changes===1,target_bridge_session_id:session,target_control_epoch:epoch,board_release_confirmed:false};
   }
   async stop(user: User, args: Record<string, unknown>) {
-    const r = await this.ready(user, args.device_id);
-    await this.e.db.batch([
-      this.e.stmt("UPDATE sb_sessions SET mouse_enabled=0,mouse_until=0,control_epoch=control_epoch+1,mouse_grant_request='00000000-0000-4000-8000-000000000000' WHERE id=? AND owner_id=?", r.session_id, user.id),
-      this.e.stmt("UPDATE sb_mouse_commands SET state=CASE WHEN state='executing' THEN 'outcome_unknown' ELSE 'cancelled' END,error='USER_STOPPED' WHERE device_id=? AND session_id=? AND state IN ('queued','claimed','executing','embedded')", r.id, r.session_id),
-      this.e.stmt("UPDATE sb_browse_runs SET state=CASE WHEN lease_seq>0 AND queue_json!='[]' THEN 'outcome_unknown' ELSE 'cancelled' END,error='USER_STOPPED',revision=revision+1 WHERE device_id=? AND session_id=? AND state='active'",r.id,r.session_id),
+    const device=args.device_id==null?null:uuid(args.device_id);
+    const stopped=await this.e.db.batch([
+      this.e.stmt("UPDATE sb_sessions SET mouse_enabled=0,mouse_until=0,control_epoch=control_epoch+1,mouse_grant_request='00000000-0000-4000-8000-000000000000' WHERE owner_id=? AND (? IS NULL OR device_id=?) AND state='active' AND (mouse_enabled!=0 OR mouse_until!=0 OR mouse_grant_request IS NOT '00000000-0000-4000-8000-000000000000') AND EXISTS(SELECT 1 FROM sb_devices d WHERE d.id=sb_sessions.device_id AND d.owner_id=sb_sessions.owner_id) RETURNING device_id",user.id,device,device),
+      ...stoppedInputStatements(this.e,user.id,device,null,"USER_STOPPED"),
     ]);
-    return { device_id: r.id, stopped: true, screen_sharing_stopped: false, board_release_confirmed: false };
+    return {device_id:device,stopped:true,already_stopped:stopped[0].results.length===0&&stopped.slice(1).every(result=>Number(result.meta.changes??0)===0),
+      scope:device===null?"all_owned_devices":"selected_device",screen_sharing_stopped:false,board_release_confirmed:false};
   }
 }

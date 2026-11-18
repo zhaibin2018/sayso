@@ -1,5 +1,5 @@
 import {confirmedSystemSearchReceiptSQL} from "./source-view-proof.ts";
-import {scopeBoundLinkedPointCapability,visualReadPointCapability} from "./compound-query-view-proof.ts";
+import {visualReadPointCapability} from "./compound-query-view-proof.ts";
 
 export const databaseNowSQL = "CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)";
 type Options={owner:string;selected:string|null;now:number;maxAge:number;hints:string[];conditionalHint:string|null;afterCommand:string|null;afterMinGapMS?:number;allowRepeated?:boolean;pointerPlan?:string|null;pointerCompletedOnly?:boolean;readyCueCommandID?:string;includeReadTime?:boolean;strictAgeCutoff?:boolean;visualPoint?:boolean;currentInput?:"focused_text"|"scroll"|"drag"|"click"|"system_search"|"parked_move"};
@@ -14,7 +14,6 @@ export function visualPointScopeSQL(device:string,session:string,owner:string,cl
     WHERE s.id=${session} AND s.device_id=${device} AND s.owner_id=${owner}
       AND s.state='active' AND s.mode='broadcast' AND s.capture_state='active'
       AND s.mouse_enabled=1 AND s.mouse_until>${clock} AND h.usb_connected=1
-      AND json_type(h.metadata,'$.capabilities."${scopeBoundLinkedPointCapability}"')='true'
       AND json_type(h.metadata,'$.capabilities."${visualReadPointCapability}"')='true')`;
 }
 

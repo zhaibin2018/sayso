@@ -13,7 +13,7 @@ const caller=()=>({id:"benchmark-test-owner",label:"Software fixture owner"});
 const noEngine=()=>{throw new Error("Fixture tools must not open the product/device engine");};
 async function rpc(method:string,params:unknown={},authenticate=caller){
  const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});
- const response=await handleMcp(request,{engine:noEngine,caller:authenticate,origin:"https://test.example"});
+ const response=await handleMcp(request,{engine:noEngine,caller:authenticate,origin:"https://test.example",toolAudience:"development"});
  return {status:response.status,body:await response.json() as any};
 }
 
@@ -26,7 +26,7 @@ test("software: modern wire completion fields preserve images and resources; leg
  ] as const){
   const [method,params]=methodAndParams;
   const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params:{...params,_meta:{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}})});
-  const response=await handleMcp(request,{engine:noEngine,caller,origin:"https://test.example"});
+  const response=await handleMcp(request,{engine:noEngine,caller,origin:"https://test.example",toolAudience:"development"});
   const result=(await response.json() as any).result;
   assert.equal(result.resultType,"complete");assert.equal(result._meta["io.modelcontextprotocol/serverInfo"].name,"sayso");
   if(method!=="tools/call"){assert.equal(result.cacheScope,"private");assert.equal(result.ttlMs,0);}

@@ -6,7 +6,7 @@ export const scopeBoundFieldProtocol = "model_reviewed_field_crops.v4";
 export const scopeBoundFieldCapability = "sayso."+scopeBoundFieldProtocol;
 export const scopeBoundLinkedPointProtocol = "reviewed_point_crop.v4";
 export const scopeBoundLinkedPointCapability = "sayso.reviewed_point_crops.v4";
-export const visualReadPointCapability = "sayso.reviewed_point_crops.visual_read.v1";
+export const visualReadPointCapability = "sayso.action_geometry.v1";
 export const visualReadPointLedgerKey = "visual_read";
 export const visualReadPointLifetimeMS = 15000;
 
@@ -27,7 +27,7 @@ export type ReleasedFieldViewProof = ReleasedActionView & {
   scopeBoundField?:true;
 };
 type PointViewProof=Omit<ReleasedActionView,"command"> & {hardware:string;boot:string};
-export type VisualReadPointProof=PointViewProof&{origin:"visual_read";command:typeof visualReadPointLedgerKey};
+export type VisualReadPointProof=PointViewProof&{origin:"visual_read";command:typeof visualReadPointLedgerKey;geometry:unknown[]};
 export type ParkedMovePointProof=PointViewProof&{origin:"parked_move";command:string;move:string;moveAck:number};
 export type ReviewedPointProof = CompoundQueryViewProof | VisualReadPointProof;
 

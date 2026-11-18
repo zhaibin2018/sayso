@@ -1,3 +1,4 @@
+import {currentActionCapabilities} from "./current-action-capabilities.ts";
 import { BridgeEngine, need, uuid, integer, record, text, uid, hash, iso, type Device, type User } from "./bridge-engine.ts";
 import { MouseControl,REVIEWED_POINT_CAPABILITY,REVIEWED_POINT_CROP_CAPABILITY,REVIEWED_POINT_COMPOUND_CAPABILITY,SYSTEM_SEARCH_BOARD_CAPABILITY,SYSTEM_SEARCH_CAPABILITY,SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY } from "./mouse-control.ts";
 import { extendedModelReviewedFieldCapability, focusedTextCapability, focusedTextClearCapabilities, focusedTextLinkedAfterEnterCapability, focusedTextSubmitEnterCapability, modelReviewedFieldCapability, noVisualFieldCapability, spotlightCapability, spotlightProbeCapability, spotlightStableCapability, stableASCIICapability, stableASCIIEnterCapability } from "./spotlight-command.ts";
@@ -33,77 +34,7 @@ export class LEDControl {
       if(scoped?.mode==="broadcast")await new MouseControl(this.service).grant(device,{control_enabled:false,bridge_session_id:scoped.id,expected_control_epoch:scoped.control_epoch});
       else await this.service.stop(device, scoped?.id??device.current_session!);
     }
-    const retained: Record<string, boolean> = { "led.set": capabilities["led.set"] as boolean };
-    for (const name of ["hid.mouse.relative", "hid.mouse.click", "hid.mouse.scroll", "hid.mouse.absolute"]) {
-      if (capabilities[name] != null) { need(typeof capabilities[name] === "boolean", "INVALID_CAPABILITIES", 422); retained[name] = capabilities[name] as boolean; }
-    }
-    if(body.transport==="usb_ncm"&&retained["hid.mouse.absolute"]===true&&retained["hid.mouse.click"]===true){
-      for(const capability of [REVIEWED_POINT_CAPABILITY,REVIEWED_POINT_CROP_CAPABILITY,REVIEWED_POINT_COMPOUND_CAPABILITY]){
-        if(capabilities[capability]===true)retained[capability]=true;
-      }
-      if(retained[REVIEWED_POINT_COMPOUND_CAPABILITY]&&capabilities[scopeBoundLinkedPointCapability]===true)
-        retained[scopeBoundLinkedPointCapability]=true;
-      if(retained[scopeBoundLinkedPointCapability]&&capabilities[reviewedPointTTLCapability]===true)
-        retained[reviewedPointTTLCapability]=true;
-      if(retained[scopeBoundLinkedPointCapability]&&capabilities[visualReadPointCapability]===true)
-        retained[visualReadPointCapability]=true;
-      if(retained[scopeBoundLinkedPointCapability]&&capabilities[reviewedPressCapability]===true)
-        retained[reviewedPressCapability]=true;
-    }
-    if(body.transport==="usb_ncm"&&retained["hid.mouse.absolute"]===true&&capabilities[DRAG_CAPABILITY]===true){
-      retained[DRAG_CAPABILITY]=true;
-      if(capabilities[DRAG_DIRECT_CAPABILITY]===true)retained[DRAG_DIRECT_CAPABILITY]=true;
-      if(capabilities[DRAG_RELATIVE_CAPABILITY]===true)retained[DRAG_RELATIVE_CAPABILITY]=true;
-      if(capabilities[DRAG_APP_CAPABILITY]===true){
-        retained[DRAG_APP_CAPABILITY]=true;
-        if(capabilities[DRAG_STATUS_MASK_CAPABILITY]===true)retained[DRAG_STATUS_MASK_CAPABILITY]=true;
-        if(capabilities[DRAG_MODEL_DECISION_CAPABILITY]===true&&capabilities[DRAG_EXTENDED_REFERENCE_CAPABILITY]===true)retained[DRAG_MODEL_DECISION_CAPABILITY]=true;
-        if(retained[DRAG_MODEL_DECISION_CAPABILITY]&&capabilities[DRAG_CLOUD_SOURCE_CAPABILITY]===true)retained[DRAG_CLOUD_SOURCE_CAPABILITY]=true;
-        if(capabilities[DRAG_EXTENDED_REFERENCE_CAPABILITY]===true)retained[DRAG_EXTENDED_REFERENCE_CAPABILITY]=true;
-        if(retained[DRAG_RELATIVE_CAPABILITY]&&capabilities[DRAG_RELATIVE_APP_CAPABILITY]===true)retained[DRAG_RELATIVE_APP_CAPABILITY]=true;
-      }
-    }
-    const stableSpotlight=capabilities[spotlightStableCapability]===true;
-    if(body.transport==="usb_ncm"&&capabilities[SYSTEM_SEARCH_BOARD_CAPABILITY]===true){
-      retained[SYSTEM_SEARCH_BOARD_CAPABILITY]=true;
-      if(capabilities[SYSTEM_SEARCH_CAPABILITY]===true){
-        retained[SYSTEM_SEARCH_CAPABILITY]=true;
-        if(capabilities[SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY]===true)retained[SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY]=true;
-        if(retained[SYSTEM_SEARCH_SCOPE_ONLY_CAPABILITY]&&capabilities[scopedSearchTTLCapability]===true)
-          retained[scopedSearchTTLCapability]=true;
-      }
-    }
-    const stableASCII=capabilities[stableASCIICapability]===true,keyboardWindow=capabilities["hid.keyboard.on_demand"]===true;
-    if ((keyboardWindow || stableSpotlight || stableASCII) && body.transport === "usb_ncm") {
-      if (stableSpotlight) retained[spotlightStableCapability]=true;
-      if (stableASCII) retained[stableASCIICapability]=true;
-      for (const capability of [spotlightCapability,spotlightProbeCapability]) {
-        if (capabilities[capability]===true) retained[capability]=true;
-      }
-      if((stableASCII||(!stableSpotlight&&keyboardWindow))&&capabilities[focusedTextCapability]===true)retained[focusedTextCapability]=true;
-      if(stableASCII&&retained[focusedTextCapability]&&capabilities[noVisualFieldCapability]===true)retained[noVisualFieldCapability]=true;
-      if(retained[noVisualFieldCapability]&&focusedTextClearCapabilities.every(capability=>capabilities[capability]===true)){
-        for(const capability of focusedTextClearCapabilities)retained[capability]=true;
-      }
-      if(stableASCII&&retained[focusedTextCapability]&&capabilities[modelReviewedFieldCapability]===true)
-        retained[modelReviewedFieldCapability]=true;
-      if(stableASCII&&retained[focusedTextCapability]&&capabilities[extendedModelReviewedFieldCapability]===true)
-        retained[extendedModelReviewedFieldCapability]=true;
-      if(retained[extendedModelReviewedFieldCapability]&&retained[SYSTEM_SEARCH_CAPABILITY]&&
-        capabilities[scopeBoundSystemSearchFieldCapability]===true)
-        retained[scopeBoundSystemSearchFieldCapability]=true;
-      if(stableASCII&&retained[focusedTextCapability]&&capabilities[scopeBoundFieldCapability]===true)
-        retained[scopeBoundFieldCapability]=true;
-      if(stableASCII&&capabilities[stableASCIIEnterCapability]===true){
-        retained[stableASCIIEnterCapability]=true;
-        if(retained[focusedTextCapability]&&capabilities[focusedTextSubmitEnterCapability]===true)
-          retained[focusedTextSubmitEnterCapability]=true;
-      }
-      if(retained[extendedModelReviewedFieldCapability]&&retained[focusedTextSubmitEnterCapability]&&
-        capabilities[focusedTextLinkedAfterEnterCapability]===true)retained[focusedTextLinkedAfterEnterCapability]=true;
-      if(stableASCII&&capabilities[SYSTEM_SEARCH_BOARD_CAPABILITY]===true&&capabilities[APP_SEARCH_CAPABILITY]===true)
-        retained[APP_SEARCH_CAPABILITY]=true;
-    }
+    const retained=currentActionCapabilities(capabilities,body.transport);
     const metadata = JSON.stringify({ capabilities: retained, led_config: led, descriptor_version: descriptor, transport: body.transport });
     if(scoped){
       const changed=await this.service.db.batch([

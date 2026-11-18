@@ -163,3 +163,4 @@ rpc("ui/initialize",{appInfo:{name:"sayso-synthetic-prefetch",version:"4.0.0"},a
 }).catch(function(e){byId("error").textContent=String(e.message||e);status("组件连接尚未成功。");});
 })();
 </script></body></html>`;
+

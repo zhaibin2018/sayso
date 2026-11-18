@@ -3,13 +3,13 @@ import test from "node:test";
 import {isRelativeDragPreflightError,validateDragReceipt} from "../lib/absolute-drag.ts";
 import {compactMcpSummary} from "../lib/mcp-performance.ts";
 
-test("calibrated duration and proven no-input correction survive compact model output",()=>{
+test("current compact output never suggests a retired calibration retry",()=>{
   const summary=(v:Record<string,unknown>)=>JSON.parse(compactMcpSummary(v));
-  assert.equal(summary({drag_at_ready:true,drag_calibrated_duration_ms:350}).drag_calibrated_duration_ms,350);
+  assert.equal(summary({drag_at_ready:true,drag_calibrated_duration_ms:350}).drag_calibrated_duration_ms,undefined);
   const failed={state:"failed",error:"DRAG_RELATIVE_DURATION_UNMEASURED",input_not_submitted:true,command_id:"original"};
   const value=summary(failed);
-  assert.equal(value.input_not_submitted,true);assert.equal(value.drag_calibrated_duration_ms,350);
-  assert.match(value.drag_retry_instruction,/new key/);assert.equal(value.command_id,"original");
+  assert.equal(value.input_not_submitted,true);assert.equal(value.drag_calibrated_duration_ms,undefined);
+  assert.equal(value.drag_retry_instruction,undefined);assert.equal(value.command_id,"original");
   for(const patch of [{state:"outcome_unknown"},{input_not_submitted:false},{error:"USB_OUTCOME_UNKNOWN"}])
     assert.equal(summary({...failed,...patch}).drag_retry_instruction,undefined);
 });

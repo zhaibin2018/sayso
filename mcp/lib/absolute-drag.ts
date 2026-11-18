@@ -10,7 +10,7 @@ export const DRAG_RELATIVE_APP_CAPABILITY="sayso.drag_relative.v1";
 export const DRAG_CAPTURE_GAP_MS=300;
 export const DRAG_CALIBRATED_DURATION_MS=350;
 export const DRAG_CLOUD_SOURCE_CAPABILITY="sayso.drag_cloud_acceptance.v1";
-export const DRAG_CLOUD_SOURCE_CONFIRMATION="server_accepted_frame.v1";
+export const DRAG_CLOUD_SOURCE_CONFIRMATION="server_accepted_geometry.v1";
 const relativeDragPreflightErrors=new Set(["DRAG_RELATIVE_CALIBRATION_REQUIRED","DRAG_RELATIVE_DURATION_UNMEASURED",
   "DRAG_RELATIVE_DIRECTION_UNMEASURED","DRAG_RELATIVE_RANGE_UNMEASURED"]);
 
@@ -19,13 +19,18 @@ export function isRelativeDragPreflightError(error:unknown) {
 }
 
 export function isDragNoInputPreflightError(error:unknown) {
-  return isRelativeDragPreflightError(error)||error==="DRAG_REVIEWED_FRAME_UNAVAILABLE";
+  return typeof error==="string"&&new Set([
+    "DRAG_PAYLOAD_INVALID","DRAG_BOARD_CAPABILITY_UNAVAILABLE","DRAG_APP_CAPABILITY_UNAVAILABLE",
+    "DRAG_CONTROL_AUTHORITY_CHANGED","DRAG_CLAIM_ENVELOPE_INVALID","DRAG_START_ENVELOPE_INVALID",
+    "DRAG_SOURCE_SCOPE_CHANGED","DRAG_CURRENT_FRAME_UNAVAILABLE","DRAG_SOURCE_REFERENCE_INVALID",
+    "DRAG_SOURCE_ORDER_INVALID","DRAG_USB_GEOMETRY_CHANGED","CURRENT_ACTION_PROTOCOL_REQUIRED",
+  ]).has(error);
 }
 
 export function relativeDragCorrection(value:Record<string,unknown>) {
-  if(value.state!=="failed"||value.input_not_submitted!==true||value.error!=="DRAG_RELATIVE_DURATION_UNMEASURED")return {};
-  return {drag_calibrated_duration_ms:DRAG_CALIBRATED_DURATION_MS,
-    drag_retry_instruction:"This original drag sent no input. The calibrated relative path supports only 350 ms. Omit duration_ms or use 350, never guess another duration. If the authorized target is still visible in the valid same-source image, correct this parameter once with a new key; otherwise obtain one current image. Do not retry pending, unknown or submitted input."};
+  // Historical receipts remain readable; no current call suggests an old
+  // relative-calibration route or a duration-correction replay.
+  void value;return {};
 }
 
 export function absoluteDragRequest(args:Record<string,unknown>) {

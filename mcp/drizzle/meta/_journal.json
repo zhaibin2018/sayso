@@ -183,6 +183,20 @@
       "when": 1794493948174,
       "tag": "0025_released_system_search_field_proofs",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1794962645440,
+      "tag": "0026_terminal_text_privacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1794965000000,
+      "tag": "0027_retire_unkeyed_text_digests",
+      "breakpoints": true
     }
   ]
 }

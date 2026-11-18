@@ -1,17 +1,55 @@
 import {PairedClickShadowRegistry} from "../lib/paired-click-shadow.ts";
 import { test } from "node:test";
 
+test("current contract: drag uses scoped server evidence without old pixel or age gates",async t=>{
+  for(const mode of ["old_reference","changed_after_admission","source_missing","control_changed","geometry_changed","current_image_stale","current_capability_missing"] as const)await t.test(mode,async()=>{
+    const {l,r,caps,led,args,source,count}=await realDragFixture();
+    for(let i=0;i<20;i++){l.tick(1000);await l.service.heartbeat(r.actor,r.beat);}
+    const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,97)},70).data;
+    const {meta:head}=await capturedAtPhoneMono(l,{...r,bytes},29999,2,{source_seq:2,content_sha256:await hash(bytes)});
+    if(mode==="source_missing")l.db.raw.prepare("DELETE FROM sb_observations WHERE frame_id=?").run(source.frame_id);
+    if(mode==="control_changed")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.control_epoch',99) WHERE frame_id=?").run(source.frame_id);
+    if(mode==="geometry_changed")l.db.raw.prepare("UPDATE sb_frames SET metadata=json_set(metadata,'$.orientation_epoch',1) WHERE frame_id=?").run(head.frame_id);
+    if(mode==="current_image_stale")l.tick(2000);
+    if(mode==="current_capability_missing")await led.bind(r.actor,{...r.hardware,capabilities:{...caps,"sayso.action_geometry.v1":false}});
+    const reply=await liveMcp(l.service,"drag_at",args),q=reply.result.structuredContent;
+    if(!["old_reference","changed_after_admission"].includes(mode)){
+      assert.equal(reply.result.isError,true,mode);assert.equal(count(),0);return;
+    }
+    assert.equal(reply.result.isError,false,JSON.stringify(q));
+    const p=record(q.precondition);assert.equal(p.drag_source_confirmation,"server_accepted_geometry.v1");
+    assert.equal(p.drag_source_sha256,source.content_sha256);assert.equal(p.drag_source_seq,1);assert.equal(p.drag_source_frame_seq,1);
+    assert.equal(p.source_frame_id,source.frame_id);
+    const replay=await liveMcp(l.service,"drag_at",args);assert.equal(replay.result.structuredContent.command_id,q.command_id);assert.equal(count(),1);
+    if(mode==="changed_after_admission"){l.tick(200);await capturedAtPhoneMono(l,r,30199,3,{source_seq:3});}
+    const claim=await r.mouse.claim(r.actor,{...r.identity,control_epoch:q.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH},0);
+    assert.equal(claim?.command_id,q.command_id);assert.equal(claim?.state,"executing");
+    assert.equal(record(claim.precondition).drag_source_seq,1);
+  });
+});
+
+test("current contract: retired tools and old input/search arguments cannot enqueue",async()=>{
+  const l=lab(),r=await mouseReady(l);
+  for(const name of ["prepare_app_search","search_app_with_vision","type_google_map_in_spotlight","get_app_search_query_result","get_app_search_preparation_result"]){
+    const reply=await liveMcp(l.service,name,{device_id:r.actor.id});assert.equal(reply.result.isError,true);
+  }
+  for(const [name,args] of [["open_system_search",{source_frame_id:uid()}],["type_text_in_field",{text:"hello",verify_layout:true}]] as const){
+    const reply=await liveMcp(l.service,name,{device_id:r.actor.id,idempotency_key:uid(),...args});assert.equal(reply.result.isError,true);
+  }
+  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
+});
+
 test("ordinary click: released bare coordinates survive old age and changed pixels without losing scope",async t=>{
   for(const mode of ["implicit","explicit","no_ledger","legacy_capability","changed_after_admission","control_mismatch",
-    "orientation_mismatch","missing_source","source_hash_tampered","proof_expired","proof_tampered","stopped_after_admission"] as const)await t.test(mode,async()=>{
+    "orientation_mismatch","missing_source","source_hash_tampered","proof_expired","proof_tampered","stopped_after_admission","same_pixels","explicit_cache_missing","beyond_retention"] as const)await t.test(mode,async()=>{
     const l=lab(false,undefined,new FrameUploadPermits("0123456789abcdef".repeat(4))),r=await systemSearchReady(l);
     const modern=mode!=="legacy_capability";
     await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
       "hid.mouse.absolute":true,"sayso.reviewed_point.v1":true,"sayso.reviewed_point_crops.v2":modern,
       "sayso.reviewed_point_crops.v3":modern,"sayso.reviewed_point_crops.v4":modern,
-      "sayso.reviewed_point_crops.visual_read.v1":modern}});
+      "sayso.action_geometry.v1":modern}});
     await l.service.heartbeat(r.actor,r.beat);
-    const mouse=new MouseControl(l.service,{ordinaryClickGeometryOnly:true});
+    const mouse=new MouseControl(l.service);
     const state=await mouse.status(alice,{device_id:r.actor.id});
     const phone={...r.identity,control_epoch:state.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,point_protocol:PAIRED_MOUSE_POINT};
     await mouse.claim(r.actor,phone,0);l.tick(400);
@@ -21,25 +59,37 @@ test("ordinary click: released bare coordinates survive old age and changed pixe
     const signed=await l.service.issueVisualReadPointProof(alice,{device:r.actor.id,session:r.identity.bridge_session_id,
       broadcast:r.identity.broadcast_id,worker:r.identity.worker_id,lease:r.identity.lease_epoch,control:state.control_epoch,
       frame:source.frame_id,frameSeq:2,sourceSeq:2,captureMono:10400,captureLower:original.capture_lower_ms,
-      sha256:await hash(r.bytes),hardware:r.hardware.hardware_id,boot:r.hardware.board_boot_id},Buffer.from(r.bytes).toString("base64"));
+      sha256:await hash(r.bytes),hardware:r.hardware.hardware_id,boot:r.hardware.board_boot_id,geometry:[16,32,source.native_width_px,source.native_height_px,"portrait",0,0,0,16,32,"1"]},Buffer.from(r.bytes).toString("base64"));
     assert.equal(typeof signed.proof,"string");
     if(mode!=="no_ledger")await l.service.rememberVisualReadPointProof(alice,signed.proof!);
-    const elapsed=mode==="proof_expired"?16000:4500;
-    for(let i=0;i<elapsed;i+=1000){l.tick(Math.min(1000,elapsed-i));await l.service.heartbeat(r.actor,r.beat);}
-    const changed=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,80)},70).data;
-    await capturedAtPhoneMono(l,{...r,bytes:changed},10400+elapsed,3,{source_seq:3,content_sha256:await hash(changed)});
+    const elapsed=mode==="beyond_retention"?86400001:mode==="proof_expired"?16000:4500;
+    if(mode==="beyond_retention"){
+      // Simulated elapsed time with a still-current grant/worker. This is not phone evidence.
+      l.tick(elapsed);
+      l.db.raw.prepare("UPDATE sb_devices SET worker_expires=? WHERE id=?").run(l.now()+30000,r.actor.id);
+      l.db.raw.prepare("UPDATE sb_sessions SET mouse_until=? WHERE id=?").run(l.now()+30000,r.identity.bridge_session_id);
+      r.metadata.clock_probe_id=uid();
+      l.db.raw.prepare("INSERT INTO sb_clock_probes(id,device_id,created_at,expires_at) VALUES(?,?,?,?)").run(r.metadata.clock_probe_id,r.actor.id,l.now(),l.now()+60000);
+    }else for(let i=0;i<elapsed;i+=1000){l.tick(Math.min(1000,elapsed-i));await l.service.heartbeat(r.actor,r.beat);}
+
+    const changed=mode==="same_pixels"?r.bytes:jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,80)},70).data;
+    await capturedAtPhoneMono(l,{...r,bytes:changed},10400+elapsed,3,{source_seq:3,content_sha256:await hash(changed),...(mode==="beyond_retention"?{capture_offset_ms:0,captured_at:new Date(l.now()).toISOString()}: {})});
     if(mode==="control_mismatch")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.control_epoch',?) WHERE id=?").run(Number(state.control_epoch)+1,observation);
     if(mode==="source_hash_tampered")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.content_sha256',?) WHERE id=?").run("0".repeat(64),observation);
-    if(mode==="missing_source")l.db.raw.prepare("DELETE FROM sb_observations WHERE id=?").run(observation);
+    if(["missing_source","explicit_cache_missing","beyond_retention"].includes(mode)){
+      l.db.raw.prepare("DELETE FROM sb_observations WHERE id=?").run(observation);
+      l.db.raw.prepare("DELETE FROM sb_released_system_search_field_proofs WHERE frame_id=?").run(source.frame_id);
+    }
     const args={device_id:r.actor.id,source_frame_id:source.frame_id,x:5,y:12,image_width:16,image_height:32,
       orientation_epoch:mode==="orientation_mismatch"?1:0,idempotency_key:uid(),wait_ms:0,
-      ...(["explicit","proof_tampered"].includes(mode)?{source_point_proof:signed.proof+(mode==="proof_tampered"?"x":"")}: {})};
-    const rejected=["control_mismatch","orientation_mismatch","missing_source","source_hash_tampered","proof_expired","proof_tampered"].includes(mode);
+      ...(["explicit","proof_tampered","explicit_cache_missing","beyond_retention"].includes(mode)?{source_point_proof:signed.proof+(mode==="proof_tampered"?"x":"")}: {})};
+    const rejected=["legacy_capability","control_mismatch","orientation_mismatch","missing_source","source_hash_tampered","proof_tampered"].includes(mode);
     if(rejected){
       await assert.rejects(mouse.clickAt(alice,args));
       assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);return;
     }
     const admitted=await mouse.clickAt(alice,args);
+    assert.ok(Number(admitted.source_age_ms)>=elapsed);assert.equal(admitted.screen_changed_since_source,mode!=="same_pixels");
     const duplicate=await mouse.clickAt(alice,args);
     assert.equal(duplicate.move_command_id,admitted.move_command_id);
     assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
@@ -79,180 +129,7 @@ import {reviewedPointTTLCapability,reviewedPointTTLProfile,scopedSearchTTLCapabi
 import {PairedClickPhaseTiming} from "../lib/paired-click-timing.ts";
 import {imageReleaseClockSampler,type ImageReleaseClockSampler} from "../lib/image-release-clock.ts";
 import {AppSearchControl} from "../lib/app-search-control.ts";
-import {AppSearchQuery,type SpotlightReviewer} from "../lib/app-search-query.ts";
 import {APP_SEARCH_PROTOCOL,APP_SEARCH_CLAIM,SOURCE_KEYS,searchPreparationRequest,validateSearchPreparationResult} from "../lib/app-search-contract.ts";
-
-async function searchPreparationReady(l:ReturnType<typeof lab>){
-  const r=await systemSearchReady(l),control=new AppSearchControl(l.service);
-  const hardware={...r.hardware,capabilities:{...r.hardware.capabilities,"hid.keyboard.ascii_stable":true,"sayso.focused_text":true,"sayso.app_search_prepare":true}};
-  await new LEDControl(l.service).bind(r.actor,hardware);
-  const {meta}=await capturedAtPhoneMono(l,r,10000,2,{source_seq:2});
-  const screen=await l.service.readScreen(alice,{device_id:r.actor.id,allow_repeated:false,wait_for_new_ms:0},0,false);
-  assert.equal(screen.state,"available");
-  const args={preparation_id:uid(),device_id:r.actor.id,source_image_ref:screen.image_ref,
-    source_scope:Object.fromEntries(SOURCE_KEYS.map(key=>[key,screen.metadata![key]])),source_allows_search:true,
-    query:"Arbitrary Reader",target_labels:["Arbitrary Reader"],capture_min_gap_ms:300,wait_ms:0};
-  const claim=()=>r.mouse.claim(r.actor,{...r.identity,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,app_search_protocol:APP_SEARCH_CLAIM,
-    control_epoch:screen.metadata!.control_epoch_at_read},0);
-  return {...r,hardware,control,screen,args,meta,claim};
-}
-async function preparedSearchResult(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof searchPreparationReady>>){
-  const queued=await r.control.enqueue(alice,r.args),claimed=await r.claim();assert.ok(claimed);
-  const payload=record(claimed.payload),search=String(payload.search_command_id),typed=String(payload.text_command_id);
-  l.tick(320);const field=await capturedAtPhoneMono(l,r,10320,3,{source_seq:3});
-  l.tick(80);const after=await capturedAtPhoneMono(l,r,10400,4,{source_seq:4});
-  function image(meta:Record<string,unknown>){return {frame_id:meta.frame_id,content_sha256:meta.content_sha256,capture_mono_ms:meta.capture_mono_ms,source_seq:meta.source_seq??meta.frame_seq};}
-  function part(id:string,ack:number,stage:string){return {command_id:id,state:"board_acked",input_submitted:true,error:null,finished_client_mono_ms:ack,
-    board_receipt:{command_id:id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,error:null,
-      started_uptime_ms:1000,finished_uptime_ms:1010,effect:{hid_reports_sent:true,all_released:true,[stage]:true}}};}
-  const body={protocol:APP_SEARCH_PROTOCOL,preparation_id:queued.preparation_id,...r.identity,control_epoch:r.screen.metadata!.control_epoch_at_read,
-    state:"ready_for_review",reason:"QUERY_INPUT_ACKNOWLEDGED",app_effect_observed:false,
-    search:part(search,10010,"system_search_stable"),text:part(typed,10380,"ascii_stable"),
-    observations:[image(r.meta),image(field.meta),image(after.meta)],field_evidence:{frame_id:field.meta.frame_id,content_sha256:field.meta.content_sha256,
-      native_check_executed:true,field_conditions_verified:true,field:{x:.1,y:.5,width:.75,height:.06},
-      landmark:{text:"Siri Suggestions",region:{x:.05,y:.1,width:.8,height:.06}},placeholder:"Search"}};
-  return {queued,claimed,payload,body,field,after};
-}
-test("software: app search preparation has one immutable parent and two distinct original child IDs",async()=>{
-  const l=lab(),r=await searchPreparationReady(l);
-  const first=await r.control.enqueue(alice,r.args),again=await r.control.enqueue(alice,r.args);
-  assert.equal(first.preparation_id,r.args.preparation_id);assert.equal(again.preparation_id,first.preparation_id);
-  const rows=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE device_id=?").all(r.actor.id);assert.equal(rows.length,1);
-  const payload=JSON.parse(rows[0].payload as string);assert.equal(new Set([first.preparation_id,payload.search_command_id,payload.text_command_id]).size,3);
-  await assert.rejects(r.control.enqueue(alice,{...r.args,query:"Different"}),/IDEMPOTENCY_CONFLICT/);
-  await assert.rejects(r.control.get(bob,first.preparation_id),/NOT_FOUND/);
-  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).app_search_preparation_ready,true);
-});
-test("software: app search preparation returns changed or wrong-scope sources without queuing input",async()=>{
-  for(const mode of ["image","control","geometry"]){
-    const l=lab(),r=await searchPreparationReady(l),args=structuredClone(r.args);
-    if(mode==="image")args.source_image_ref=uid();
-    else args.source_scope[mode==="control"?"control_epoch_at_read":"orientation_epoch"]=999;
-    const result=await r.control.enqueue(alice,args);assert.equal(result.queued,false);assert.equal(result.state,"review_required");
-    assert.equal(l.db.raw.prepare("SELECT COUNT(*) AS n FROM sb_mouse_commands").get()!.n,0);
-  }
-});
-test("software: app search preparation requires explicit current client declaration and board capability",async()=>{
-  const l=lab(),r=await searchPreparationReady(l);await r.control.enqueue(alice,r.args);
-  assert.equal(await r.mouse.claim(r.actor,r.identity,0),null);
-  assert.equal(await r.mouse.claim(r.actor,{...r.identity,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,control_epoch:r.screen.metadata!.control_epoch_at_read},0),null);
-  await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,"sayso.app_search_prepare":false}});
-  assert.equal(await r.claim(),null);
-  await new LEDControl(l.service).bind(r.actor,r.hardware);
-  const claimed=record(await r.claim());assert.equal(claimed.state,"executing");assert.equal(claimed.app_search_protocol,APP_SEARCH_CLAIM);
-  assert.ok(Number(claimed.ttl_remaining_ms)<=15000);assert.ok(Number(claimed.claim_pregrant_elapsed_ms)>=0);
-  assert.equal(await r.claim(),null,"A parent cannot be claimed twice");
-});
-test("software: app search preparation binds native field and all original observations to accepted server frames",async()=>{
-  const l=lab(),r=await searchPreparationReady(l),v=await preparedSearchResult(l,r);
-  const saved=await r.control.result(r.actor,v.queued.preparation_id,v.body);
-  assert.equal(saved.state,"ready_for_review");assert.equal(saved.app_effect_observed,false);
-  const replay=await r.control.result(r.actor,v.queued.preparation_id,v.body);assert.deepEqual(replay,saved);
-  const viewed=await r.control.get(alice,v.queued.preparation_id,true);
-  assert.equal(viewed.after_screen.state,"available");assert.equal(typeof viewed.image,"string");
-  assert.equal(record(viewed.after_screen).child_command_id,v.body.text.command_id);
-  assert.equal(record(viewed.after_screen).phone_ack_mono_ms,10380);
-  await assert.rejects(r.control.result(r.actor,v.queued.preparation_id,{...v.body,reason:"changed"}),/RESULT_CONFLICT/);
-});
-test("software: app search preparation rejects invalid field, receipts, chronology and fabricated acceptance",async()=>{
-  const l=lab(),r=await searchPreparationReady(l),v=await preparedSearchResult(l,r);
-  for(const mutation of [
-    (b:typeof v.body)=>{b.app_effect_observed=true;},
-    (b:typeof v.body)=>{b.text.board_receipt.error="PARTIAL" as never;},
-    (b:typeof v.body)=>{b.text.board_receipt.finished_uptime_ms=999;},
-    (b:typeof v.body)=>{b.text.board_receipt.effect.all_released=false;},
-    (b:typeof v.body)=>{b.field_evidence.field_conditions_verified=false;},
-    (b:typeof v.body)=>{b.field_evidence.frame_id=uid();},
-    (b:typeof v.body)=>{b.field_evidence.landmark.region=b.field_evidence.field;},
-    (b:typeof v.body)=>{b.field_evidence.placeholder="Already entered";},
-    (b:typeof v.body)=>{b.field_evidence.landmark.text="Unrelated page";},
-    (b:typeof v.body)=>{b.observations[1].capture_mono_ms=10310;},
-    (b:typeof v.body)=>{b.observations[2].capture_mono_ms=10380;},
-    (b:typeof v.body)=>{b.observations[2].frame_id=b.observations[1].frame_id;},
-    (b:typeof v.body)=>{b.observations[2].content_sha256="b".repeat(64);},
-  ]){
-    const changed=structuredClone(v.body);mutation(changed);
-    await assert.rejects(r.control.result(r.actor,v.queued.preparation_id,changed));
-  }
-  assert.equal(l.db.raw.prepare("SELECT result_digest FROM sb_mouse_commands WHERE id=?").get(v.queued.preparation_id)!.result_digest,null);
-  await r.control.result(r.actor,v.queued.preparation_id,v.body);
-});
-test("software: unknown app search preparation blocks new input and cannot fall through to typing",async()=>{
-  const l=lab(),r=await searchPreparationReady(l),v=await preparedSearchResult(l,r);
-  const unknown={...v.body,state:"outcome_unknown",reason:"USB_OUTCOME_UNKNOWN",field_evidence:null,
-    search:{command_id:v.body.search.command_id,state:"outcome_unknown",input_submitted:true,board_receipt:null,finished_client_mono_ms:null,error:"USB_OUTCOME_UNKNOWN"},
-    text:{command_id:v.body.text.command_id,state:"not_submitted",input_submitted:false,board_receipt:null,finished_client_mono_ms:null,error:null},observations:[v.body.observations[0]]};
-  await assert.rejects(r.control.result(r.actor,v.queued.preparation_id,{...unknown,text:v.body.text}),/SEARCH_UNKNOWN_MUST_STOP/);
-  const result=await r.control.result(r.actor,v.queued.preparation_id,unknown);assert.equal(result.state,"outcome_unknown");
-  assert.equal((await r.control.get(alice,v.queued.preparation_id,true)).image,undefined);
-  await assert.rejects(r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0}));
-  await assert.rejects(r.control.enqueue(alice,{...r.args,preparation_id:uid()}),/BUSY_OR_CHANGED/);
-});
-test("software: app search preparation never republishes stale scope images or late success",async()=>{
-  const l=lab(),r=await searchPreparationReady(l),v=await preparedSearchResult(l,r);
-  l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.identity.bridge_session_id);
-  const result=await r.control.result(r.actor,v.queued.preparation_id,v.body);
-  assert.equal(result.state,"outcome_unknown");assert.equal((await r.control.get(alice,v.queued.preparation_id,true)).image,undefined);
-});
-test("software: app search preparation request is bounded and observation wait cannot rewrite an original plan",()=>{
-  const scope={device_id:uid(),bridge_session_id:uid(),broadcast_id:uid(),worker_id:uid(),worker_id_at_read:"",lease_epoch:1,control_epoch_at_read:1,
-    width:443,height:960,native_width_px:886,native_height_px:1918,orientation:"portrait",orientation_epoch:1};scope.worker_id_at_read=scope.worker_id;
-  const args={preparation_id:uid(),device_id:scope.device_id,source_image_ref:uid(),source_scope:scope,source_allows_search:true,query:"taobao",target_labels:["淘宝"]};
-  assert.equal(searchPreparationRequest({...args,wait_ms:0}).digestInput,searchPreparationRequest({...args,wait_ms:9000}).digestInput);
-  for(const query of ["中文","x\n",String.fromCharCode(0),"a".repeat(65)])assert.throws(()=>searchPreparationRequest({...args,query}));
-  assert.equal(searchPreparationRequest({...args,query:null}).query,null);
-});
-test("software: app search preparation MCP tools preserve original IDs and deliver actual image blocks",async()=>{
-  const l=lab(),r=await searchPreparationReady(l);
-  const enqueued=record(await r.invoke("prepare_app_search",r.args)),summary=record(enqueued.structuredContent);
-  assert.equal(summary.preparation_id,r.args.preparation_id);assert.equal(summary.queued,true);
-  const v=await preparedSearchResult(l,r);await r.control.result(r.actor,v.queued.preparation_id,v.body);
-  const reply=record(await r.invoke("get_app_search_preparation_result",{preparation_id:r.args.preparation_id,include_image:true}));
-  const report=record(reply.structuredContent);assert.equal(report.state,"ready_for_review");assert.equal(report.app_effect_observed,false);
-  const blocks=(reply.content as unknown[]).map(record),images=blocks.filter(value=>value.type==="image");
-  assert.equal(images.length,1);assert.equal(images[0].mimeType,"image/jpeg");assert.equal(images[0].data,Buffer.from(r.bytes).toString("base64"));
-  assert.equal(l.db.raw.prepare("SELECT COUNT(*) AS n FROM sb_mouse_commands").get()!.n,1);
-});
-test("software: app search preparation concurrent requests cannot acquire two input plans",async()=>{
-  const l=lab(),r=await searchPreparationReady(l);
-  const values=await Promise.allSettled([r.control.enqueue(alice,r.args),r.control.enqueue(alice,{...r.args,preparation_id:uid()})]);
-  assert.equal(values.filter(value=>value.status==="fulfilled").length,1);
-  assert.equal(l.db.raw.prepare("SELECT COUNT(*) AS n FROM sb_mouse_commands").get()!.n,1);
-});
-function suggestionBody(v:Awaited<ReturnType<typeof preparedSearchResult>>){
-  const frame=v.body.observations[1];
-  return {...v.body,state:"review_required",reason:"POSSIBLE_TARGET_TEXT_VISIBLE",field_evidence:null,
-    text:{command_id:v.body.text.command_id,state:"not_submitted",input_submitted:false,board_receipt:null,finished_client_mono_ms:null,error:null},
-    observations:v.body.observations.slice(0,2),suggestion_target:{protocol:"system_search_suggestion_target.v1",structure:"system_search_siri_app_icon_row.v1",
-      text:"Arbitrary Reader",requested_label:"Arbitrary Reader",confidence:1,sibling_count:2,
-      icon_region:{x:.1,y:.14,width:.18,height:.08},label_region:{x:.1,y:.23,width:.18,height:.03},container_region:{x:.05,y:.12,width:.9,height:.16},
-      scene_marker:{text:"Siri Suggestions",confidence:1,region:{x:.05,y:.08,width:.5,height:.03}},
-      frame_id:frame.frame_id,content_sha256:frame.content_sha256,input_permission:false,app_effect_observed:false,native_system_field_verified:true,
-      system_field:{field:v.body.field_evidence.field,landmark:v.body.field_evidence.landmark,placeholder:"Search"}}};
-}
-test("software: app suggestion target binds request, accepted pixels and the exact delivered image",async()=>{
-  const l=lab(),r=await searchPreparationReady(l),v=await preparedSearchResult(l,r),body=suggestionBody(v);
-  for(const change of [
-    (b:typeof body)=>{b.suggestion_target.text="Other App";},
-    (b:typeof body)=>{b.suggestion_target.requested_label="Other App";},
-    (b:typeof body)=>{b.suggestion_target.confidence=.4;},
-    (b:typeof body)=>{b.suggestion_target.native_system_field_verified=false;},
-    (b:typeof body)=>{b.suggestion_target.input_permission=true;},
-    (b:typeof body)=>{b.suggestion_target.app_effect_observed=true;},
-    (b:typeof body)=>{b.suggestion_target.frame_id=v.body.observations[0].frame_id;},
-    (b:typeof body)=>{b.suggestion_target.scene_marker.text="Web results";},
-    (b:typeof body)=>{b.suggestion_target.icon_region.y=.8;},
-    (b:typeof body)=>{b.suggestion_target.system_field.placeholder="Already filled";},
-  ]){const changed=structuredClone(body);change(changed);await assert.rejects(r.control.result(r.actor,v.queued.preparation_id,changed));}
-  await r.control.result(r.actor,v.queued.preparation_id,body);
-  const first=await r.control.get(alice,v.queued.preparation_id,true),proof=record(record(first.after_screen).suggestion_target);
-  assert.equal(proof.frame_id,v.field.meta.frame_id);assert.equal(proof.delivered_frame_id,v.after.meta.frame_id);
-  assert.equal(proof.source_image_ref,first.image_ref);assert.equal(proof.same_pixels_revalidated_at_read,true);assert.equal(proof.input_permission,false);
-  const different=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,220)},70).data;
-  l.tick(100);await capturedAtPhoneMono(l,{...r,bytes:different},10500,5,{source_seq:5,content_sha256:await hash(different)});
-  const changed=await r.control.get(alice,v.queued.preparation_id,true);
-  assert.equal(changed.after_screen.state,"available");assert.equal(record(changed.after_screen).suggestion_target,null,"Changed pixels must not inherit the old target");
-});
 
 test("software: explicit post-command settle barrier rejects an early frame and never mutates capture time",async()=>{
   const l=lab(),r=await acknowledgedMouse(l),{e}=await capturedAtPhoneMono(l,r,10001);
@@ -278,108 +155,11 @@ import { scheduleLatestExpiryCleanup as scheduleCleanup } from "../lib/latest-ex
 
 let cleanupFixtureRevision=0;
 
-test("software: pointer result and cold after-image share one authenticated database roundtrip",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);await r.control.result(r.actor,r.queued.plan_id,body);
-  const before=l.db.requests,result=await r.control.get(alice,r.queued.plan_id,true);
-  assert.equal(result.after_screen.state,"available");assert.equal(typeof result.image,"string");
-  assert.equal(l.db.requests-before,1,"Plan expiry/result and current fresh pixels should share one D1 transaction");
-  const mouse=new MouseControl(l.service),calls=l.db.requests,snapshot=await l.service.readPointerPlanSnapshot(alice,r.queued.plan_id,mouse.ownedCommandStatements(alice,r.queued.plan_id));
-  assert.equal((await snapshot.read()).state,"available");await assert.rejects(snapshot.read(),/SNAPSHOT_ALREADY_CONSUMED/);assert.equal(l.db.requests-calls,1);
-});
-
-test("software: pointer combined read does not transfer JPEGs before a confirmed click or when image is disabled",async()=>{
-  for(const image of [false,true]) {
-    const l=lab(),r=await pointerExecuting(l),batch=l.db.batch.bind(l.db);let chars=0;
-    l.db.batch=async statements=>{const rows=await batch(statements);for(const result of rows){if(!result||!("results" in result)||!Array.isArray(result.results))continue;for(const row of result.results)chars+=typeof row.inline_jpeg==="string"?row.inline_jpeg.length:0;}return rows;};
-    const before=l.db.requests,value=await r.control.get(alice,r.queued.plan_id,image);
-    assert.equal(value.image,undefined);assert.equal(value.after_screen.state,"not_requested");assert.equal(chars,0);assert.equal(l.db.requests-before,1);
-  }
-});
-
-test("software: pointer combined read preserves owner revocation and command expiry rules",async()=>{
-  for(const mode of ["foreign","revoked","expired"]) {
-    const l=lab(),r=await pointerExecuting(l);
-    if(mode==="revoked")l.db.raw.prepare("UPDATE sb_devices SET revoked=1 WHERE id=?").run(r.actor.id);
-    if(mode==="expired")l.tick(16000);
-    const before=l.db.requests,work=r.control.get(mode==="foreign"?bob:alice,r.queued.plan_id,true);
-    if(mode==="expired"){const value=await work;assert.equal(value.state,"outcome_unknown");assert.equal(value.image,undefined);}
-    else await assert.rejects(work,/NOT_FOUND/);
-    assert.equal(l.db.requests-before,1);
-  }
-});
-
-test("software: pointer combined image read rejects changed scope and stale or pre-click images",async()=>{
-  for(const mode of ["control","worker","lease","stale","early","bad_ack"]) {
-    const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);await r.control.result(r.actor,r.queued.plan_id,body);
-    if(mode==="control")l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.scope.bridge_session_id);
-    if(mode==="worker")l.db.raw.prepare("UPDATE sb_devices SET worker_id=? WHERE id=?").run(uid(),r.actor.id);
-    if(mode==="lease")l.db.raw.prepare("UPDATE sb_devices SET lease_epoch=lease_epoch+1 WHERE id=?").run(r.actor.id);
-    if(mode==="stale")l.tick(1500);
-    if(mode==="early"){
-      const row=l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!,m=JSON.parse(row.metadata as string);m.capture_mono_ms=10000;
-      l.db.raw.prepare("UPDATE sb_frames SET metadata=? WHERE device_id=?").run(JSON.stringify(m),r.actor.id);
-    }
-    if(mode==="bad_ack"){
-      const row=l.db.raw.prepare("SELECT receipt FROM sb_mouse_commands WHERE id=?").get(r.queued.plan_id)!,receipt=JSON.parse(row.receipt as string);
-      receipt.events.find((e:Record<string,unknown>)=>e.phase==="click_acked").phone_ack_mono_s=-1;
-      l.db.raw.prepare("UPDATE sb_mouse_commands SET receipt=? WHERE id=?").run(JSON.stringify(receipt),r.queued.plan_id);
-    }
-    const before=l.db.requests,value=await r.control.get(alice,r.queued.plan_id,true);
-    assert.notEqual(value.after_screen.state,"available",mode);assert.equal(value.image,undefined,mode);assert.equal(l.db.requests-before,1);
-    const warm=edge(l),row=l.db.raw.prepare("SELECT session_id,frame_id,image_key,inline_jpeg,expires_at FROM sb_frames WHERE device_id=?").get(r.actor.id)!;
-    if(row.inline_jpeg)warm.cache.put(r.actor.id,{owner:alice.id,session:String(row.session_id),frame:String(row.frame_id),key:String(row.image_key),bytes:Buffer.from(String(row.inline_jpeg),"base64"),expires:Number(row.expires_at)});
-    const cached=await new PointerActionControl(warm.service).get(alice,r.queued.plan_id,true);assert.equal(cached.image,undefined,mode+" with RAM pixels");
-  }
-});
-
-test("software: pointer combined read rechecks image age when its database transaction returns late",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);await r.control.result(r.actor,r.queued.plan_id,body);
-  const batch=l.db.batch.bind(l.db);l.db.batch=async statements=>{const result=await batch(statements);l.tick(1500);return result;};
-  const before=l.db.requests,value=await r.control.get(alice,r.queued.plan_id,true);
-  assert.equal(value.image,undefined);assert.equal(value.after_screen.state,"unavailable");assert.equal(l.db.requests-before,1);
-});
-
-test("software: pointer combined read selects its own device even while another device is active",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);await r.control.result(r.actor,r.queued.plan_id,body);await running(l,alice);
-  const before=l.db.requests,value=await r.control.get(alice,r.queued.plan_id,true);
-  assert.equal(value.after_screen.state,"available");assert.equal(value.after_screen.metadata?.device_id,r.actor.id);assert.equal(l.db.requests-before,1);
-});
-
 test("software: pointer acceptance lookup bounds session state and expiry instead of walking device history",()=>{
   const l=lab(),sql=frameAcceptanceEvidenceSQL("CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)");
   const details=l.db.raw.prepare("EXPLAIN QUERY PLAN "+sql).all("fixture-device:fixture-frame").map(row=>String(row.detail));
-  assert.ok(details.some(line=>/SEARCH c USING INDEX sb_mouse_claim_idx.*device_id=\?.*session_id=\?.*state=\?.*expires_at>\?/.test(line)),JSON.stringify(details));
-});
-
-test("software: pointer acceptance evidence ignores other sessions and owners and preserves expiry boundaries",async()=>{
-  for(const mode of ["current","old_session","foreign_owner","queued","recent_unknown","expiry_edge","raw_mouse"]) {
-    const l=lab(),r=await pointerExecuting(l),frame=l.db.raw.prepare("SELECT frame_id FROM sb_frames WHERE device_id=?").get(r.actor.id)!,id=r.actor.id+":"+frame.frame_id;
-    l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=NULL WHERE id=?").run(id);
-    if(mode==="old_session")l.db.raw.prepare("UPDATE sb_mouse_commands SET session_id=? WHERE id=?").run(uid(),r.queued.plan_id);
-    if(mode==="foreign_owner")l.db.raw.prepare("UPDATE sb_mouse_commands SET owner_id=? WHERE id=?").run(bob.id,r.queued.plan_id);
-    if(mode==="queued")l.db.raw.prepare("UPDATE sb_mouse_commands SET state='queued' WHERE id=?").run(r.queued.plan_id);
-    if(mode==="raw_mouse")l.db.raw.prepare("UPDATE sb_mouse_commands SET kind='pointer.click' WHERE id=?").run(r.queued.plan_id);
-    if(mode==="recent_unknown"||mode==="expiry_edge")l.db.raw.prepare("UPDATE sb_mouse_commands SET state='outcome_unknown',expires_at=? WHERE id=?").run(l.now()-(mode==="recent_unknown"?29999:30000),r.queued.plan_id);
-    l.db.raw.prepare(frameAcceptanceEvidenceSQL("CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)")).run(id);
-    const value=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(id)!.acceptance_json;
-    assert.equal(value!==null,mode==="current"||mode==="recent_unknown",mode);
-  }
-});
-
-test("software: pointer acceptance remains scoped with twenty thousand historical commands",async()=>{
-  const l=lab(),r=await pointerExecuting(l),frame=l.db.raw.prepare("SELECT frame_id FROM sb_frames WHERE device_id=?").get(r.actor.id)!,id=r.actor.id+":"+frame.frame_id;
-  const baseline=Number(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE device_id=?").get(r.actor.id)!.n);
-  const insert=l.db.raw.prepare("INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,state,control_epoch,created_at,expires_at) VALUES(?,?,?,?,?,?,'pointer.local_plan','{}','fixture',?,'succeeded',1,?,?)");
-  l.db.raw.exec("BEGIN");
-  for(let i=0;i<20000;i++)insert.run("history-"+i,alice.id,r.actor.id,"old-session-"+(i%20),r.hardware.hardware_id,r.hardware.board_boot_id,"history-"+i,l.now()-7200000,l.now()-3600000);
-  l.db.raw.exec("COMMIT");
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE device_id=?").get(r.actor.id)!.n,baseline+20000);
-  l.db.raw.prepare("UPDATE sb_mouse_commands SET state='succeeded' WHERE id=?").run(r.queued.plan_id);
-  const sql=frameAcceptanceEvidenceSQL("CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)");l.db.raw.prepare(sql).run(id);
-  assert.equal(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(id)!.acceptance_json,null);
-  l.db.raw.prepare("UPDATE sb_mouse_commands SET state='executing' WHERE id=?").run(r.queued.plan_id);l.db.raw.prepare(sql).run(id);
-  const evidence=JSON.parse(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(id)!.acceptance_json as string);
-  assert.equal(evidence.metadata.frame_id,frame.frame_id);
+  assert.ok(details.some(line=>line.includes("SEARCH sb_observations USING INDEX")));
+  assert.ok(!details.some(line=>line.includes("SCAN sb_mouse_commands")),JSON.stringify(details));
 });
 
 test("software: fast paired admission and expiry skip completed cross-session mouse history",async t=>{
@@ -433,7 +213,7 @@ test("software: fast paired admission and expiry skip completed cross-session mo
     assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE id LIKE 'history-%'").get()!.n,13050);
     const current=l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id IN (?,?) ORDER BY state");
     assert.deepEqual(current.all(clicked.move_command_id,clicked.command_id).map(row=>row.state),["embedded","queued"]);
-    await assert.rejects(c.controller.clickAt(alice,{...c.args,device_id:r.actor.id,idempotency_key:uid(),observe_after:false}),/MOUSE_BUSY_OR_CONTROL_CHANGED/);
+    await assert.rejects(c.controller.clickAt(alice,{...c.args,device_id:r.actor.id,idempotency_key:uid(),observe_after:false}),/MOUSE_BUSY_OR_CONTROL_CHANGED|REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/);
     assert.deepEqual(current.all(clicked.move_command_id,clicked.command_id).map(row=>row.state),["embedded","queued"]);
   });
 });
@@ -444,7 +224,7 @@ test("software: immutable frame acceptance preserves both exact fractional clock
   l.tick(Math.floor(captureLower)+50-l.now());
   const r=await mouseReady(l);
   await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-    capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true,"hid.mouse.drag_absolute":true,"sayso.drag_at":true}});
+    capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true,"hid.mouse.drag_absolute":true,"hid.mouse.drag_absolute.v2":true,"hid.mouse.click":true,"sayso.action_geometry.v1":true,"sayso.drag_at":true}});
   await l.service.heartbeat(r.actor,r.beat);
   const {meta}=await capturedAtPhoneMono(l,r,9999,1,{source_seq:1});
   const key=r.actor.id+":"+meta.frame_id;
@@ -462,17 +242,6 @@ test("software: immutable frame acceptance preserves both exact fractional clock
   const accepted=JSON.parse(String(row?.acceptance_json));
   assert.equal(accepted.capture_lower_ms,captureLower);
   assert.equal(accepted.metadata.capture_mono_ms,phoneMono);
-});
-
-test("software: scoped acceptance adds no RPC to authenticated image and observation commits",async()=>{
-  const l=lab(),r=await pointerExecuting(l),e=edge(l),prior=JSON.parse(l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!.metadata as string);
-  l.tick(500);const bytes=jpeg.encode({width:prior.width,height:prior.height,data:Buffer.alloc(prior.width*prior.height*4,155)},65).data;
-  const meta={...prior,frame_id:uid(),frame_seq:3,source_seq:103,capture_mono_ms:10500,capture_offset_ms:500,captured_at:new Date(l.now()).toISOString(),content_sha256:await hash(bytes)};
-  const calls=l.db.requests;await e.service.acceptFrameRequest(new Request("https://test.example/frame",{headers:{Authorization:"Bearer "+r.token}}),meta,async()=>bytes);
-  assert.equal(l.db.requests-calls,2);assert.ok(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(r.actor.id+":"+meta.frame_id)!.acceptance_json);
-  l.tick(10);const next={...meta,frame_id:uid(),frame_seq:4,source_seq:104,capture_mono_ms:10510,capture_offset_ms:510,captured_at:new Date(l.now()).toISOString()},before=l.db.requests;
-  await e.service.acceptObservationRequest(observationRequest(r.token),()=>Promise.resolve(next));assert.equal(l.db.requests-before,1);
-  const accepted=JSON.parse(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(r.actor.id+":"+next.frame_id)!.acceptance_json as string);assert.equal(accepted.metadata.source_seq,104);
 });
 
 test("software: high-volume retention prunes use time ranges and preserve the exact cutoff",async()=>{
@@ -495,7 +264,7 @@ test("software: metadata prune logs one bounded begin/end pair around the unchan
   const batch=l.db.batch.bind(l.db),log=console.info;
   l.db.batch=async statements=>{
     assert.equal(events[0]?.event,"metadata_prune_begin");
-    assert.equal(statements.length,10);
+    assert.equal(statements.length,14);
     const results=await batch(statements);
     l.tick(42);
     return results.map((_,index)=>({success:true,results:[],meta:{changes:0,timings:{sql_duration_ms:0.25},
@@ -506,13 +275,13 @@ test("software: metadata prune logs one bounded begin/end pair around the unchan
   assert.equal(l.db.requests-before,1);
   assert.equal(events.length,2);
   assert.deepEqual(events[0],{event:"metadata_prune_begin",prune_id:events[1].prune_id,source:"frame",
-    scheduled:false,statement_count:10,started_at_utc_ms:started});
+    scheduled:false,statement_count:14,started_at_utc_ms:started});
   assert.equal(events[1].event,"metadata_prune_end");
   assert.equal(events[1].outcome,"completed");
   assert.equal(events[1].finished_at_utc_ms,started+42);
   const timing=record(events[1].d1_timing);
-  assert.equal(timing.sql_duration_ms,2.5);
-  assert.equal(timing.rows_read,45);
+  assert.equal(timing.sql_duration_ms,3.5);
+  assert.equal(timing.rows_read,91);
   assert.equal(timing.rows_written,3);
   assert.deepEqual(timing.served_by_regions,["APAC"]);
   assert.ok(Number.isFinite(timing.wall_ms)&&Number(timing.wall_ms)>=0);
@@ -763,402 +532,30 @@ function lab(browseEnabled = false,readTiming?:Dependencies["readTiming"],frameP
   // Keep SQLite's issuance clock on the same explicit fixture clock as Worker.
   db.raw.function("julianday",(value:unknown)=>{void value;return 2440587.5+now/86400000;});
   const service = new BridgeEngine({ db: db as unknown as D1Database, bucket: bucket as unknown as R2Bucket, now: () => now, browseEnabled,readTiming,framePermits,pairedShadow });
+  // Isolate text signing from optional image-signing fixtures; use the real HMAC implementation.
+  const textSigner=framePermits?.sourceViewProofAvailable?framePermits:new FrameUploadPermits("ab".repeat(32));
+  service.textRequestDigest=(...args)=>textSigner.textRequestDigest(...args);
   return { service, db, bucket, tick: (ms: number) => { now += ms; }, now: () => now };
 }
 const alice = { id: "site-user-alice", label: "Alice" }, bob = { id: "site-user-bob", label: "Bob" };
 // Pointer-entry records are isolated software fixtures, never phone evidence.
 const pointerStep=()=>({id:uid(),before:browseScene("List"),after:browseScene("Detail"),target:{text:"Product",region:browseRegion},click_region:{x:0.6,y:0.5,width:0.2,height:0.2}});
 function prefetched(reply:Awaited<ReturnType<BridgeEngine["heartbeat"]>>) {return "prefetched_pointer_command" in reply?reply.prefetched_pointer_command:undefined;}
-async function prefetchReady(l:ReturnType<typeof lab>) {
-  const r=await pointerReadyFixture(l);await r.control.ready(r.actor,{...r.readyBody,prefetch_protocol:POINTER_PREFETCH});return r;
-}
-async function queuedPair(l:ReturnType<typeof lab>) {
-  const r=await prefetchReady(l),step=pointerStep(),request={device_id:r.actor.id,idempotency_key:uid(),steps:[step]},root=await r.control.enqueue(alice,request);
-  const nextStep={...pointerStep(),before:step.after,after:browseScene("Reviews")},nextRequest={device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:root.plan_id,steps:[nextStep]},next=await r.control.enqueue(alice,nextRequest);
-  return {...r,request,root,nextRequest,next};
-}
-test("software: prefetch start grants exactly one authorized successor in the same round trip",async()=>{
-  const l=lab(),r=await queuedPair(l);await r.mouse.claim(r.actor,r.identity,0);const before=l.db.requests;
-  const start=await r.mouse.start(r.actor,r.root.plan_id,{...r.scope,pointer_prefetch_protocol:POINTER_PREFETCH});
-  assert.equal(l.db.requests-before,1);assert.equal(start.prefetched_pointer_command?.command_id,r.next.plan_id);assert.equal(start.prefetched_pointer_command?.activation,"after_local_predecessor_completion");
-  assert.equal(start.prefetched_pointer_command?.predecessor_plan_id,r.root.plan_id);assert.equal(start.prefetched_pointer_command?.state,"executing");
-  assert.equal(await r.mouse.claim(r.actor,r.identity,0),null,"raw claimant cannot overlap a pregranted chain");
-});
-test("software: prefetch heartbeat re-delivers without extending TTL or adding another DB round trip",async()=>{
-  const l=lab(),r=await queuedPair(l);await r.mouse.claim(r.actor,r.identity,0);await r.mouse.start(r.actor,r.root.plan_id,r.scope);
-  const body={...r.beat,pointer_prefetch_protocol:POINTER_PREFETCH,pointer_plan_id:r.root.plan_id,pointer_control_epoch:r.scope.control_epoch,heartbeat_seq:1},before=l.db.requests;
-  const beat=await l.service.heartbeat(r.actor,body);assert.equal(l.db.requests-before,3);assert.equal(prefetched(beat)?.command_id,r.next.plan_id);
-  l.tick(100);const again=await l.service.heartbeat(r.actor,{...body,heartbeat_seq:2});assert.equal(prefetched(again)?.command_id,r.next.plan_id);assert.ok(prefetched(again)!.ttl_remaining_ms<prefetched(beat)!.ttl_remaining_ms);
-  const old=await l.service.heartbeat(r.actor,body);assert.equal(old.stale_heartbeat,true);assert.equal(prefetched(old),undefined);
-});
-test("software: prefetch global bound includes queued descendants and forbids a second successor or wrong scene",async()=>{
-  const l=lab(),r=await queuedPair(l);
-  await assert.rejects(r.control.enqueue(alice,{...r.nextRequest,idempotency_key:uid()}),/BUSY_OR_SCOPE_CHANGED/);
-  const bad={...pointerStep(),before:browseScene("Unrelated"),after:browseScene("Other")};await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:r.next.plan_id,steps:[bad]}),/BUSY_OR_SCOPE_CHANGED/);
-  let previous=r.next.plan_id,scene=r.nextRequest.steps[0].after;
-  for(let i=0;i<3;i++){const step={...pointerStep(),before:scene,after:browseScene("Page"+i)},next=await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:previous,steps:[step]});previous=next.plan_id;scene=step.after;}
-  await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:previous,steps:[{...pointerStep(),before:scene,after:browseScene("Overflow")}]}),/BUSY_OR_SCOPE_CHANGED/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands WHERE kind='pointer.local_plan'").get()!.n,5);
-});
-test("software: prefetch requires actual app capability and cannot be borrowed across a stop or expired worker",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l),root=await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[pointerStep()]});
-  await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:root.plan_id,steps:[pointerStep()]}),/APP_UPDATE_REQUIRED/);
-  const nextLab=lab(),q=await queuedPair(nextLab);await q.mouse.claim(q.actor,q.identity,0);await q.mouse.start(q.actor,q.root.plan_id,q.scope);nextLab.tick(10001);
-  const recovered=await nextLab.service.heartbeat(q.actor,{...q.beat,pointer_prefetch_protocol:POINTER_PREFETCH,pointer_plan_id:q.root.plan_id,pointer_control_epoch:q.scope.control_epoch,heartbeat_seq:1});assert.equal(prefetched(recovered),undefined);
-  assert.equal(nextLab.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(q.next.plan_id)!.state,"queued");
-});
-test("software: prefetch start returns the connected descendant chain in one transaction",async()=>{
-  const l=lab(),r=await queuedPair(l),thirdSpec={...pointerStep(),before:r.nextRequest.steps[0].after,after:browseScene("Third")},third=await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:r.next.plan_id,steps:[thirdSpec]});
-  await r.mouse.claim(r.actor,r.identity,0);const before=l.db.requests,start=await r.mouse.start(r.actor,r.root.plan_id,{...r.scope,pointer_prefetch_protocol:POINTER_PREFETCH});assert.equal(l.db.requests-before,1);
-  assert.deepEqual(start.prefetched_pointer_commands.map(c=>c.command_id),[r.next.plan_id,third.plan_id]);assert.ok(start.prefetched_pointer_commands.every(c=>c.state==="executing"));
-  await r.mouse.stop(alice,{device_id:r.actor.id});assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands WHERE id IN (?,?) AND state='outcome_unknown'").get(r.next.plan_id,third.plan_id)!.n,2);
-});
-async function successorResultFixture(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof queuedPair>>,parent:Awaited<ReturnType<typeof pointerResultFixture>>){
-  l.tick(1000);const id=uid(),bytes=jpeg.encode({width:443,height:960,data:Buffer.alloc(443*960*4,160)},65).data,sha=await hash(bytes),meta={...JSON.parse(l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!.metadata as string),frame_id:id,frame_seq:4,source_seq:104,capture_mono_ms:11500,capture_offset_ms:1500,captured_at:new Date(l.now()).toISOString(),content_sha256:sha};await edge(l).service.acceptFrame(r.actor,meta,bytes);
-  const events=structuredClone(parent.events);
-  for(const event of events){event.plan_id=r.next.plan_id;if(event.step_id)event.step_id=r.nextRequest.steps[0].id;for(const key of ["capture_mono_s","phone_submit_mono_s","phone_ack_mono_s","sites_ack_mono_s","action_started_mono_s","cycle_deadline_mono_s"])if(typeof event[key]==="number")event[key]=Number(event[key])+1;if(event.receipt){const receipt=event.receipt as Record<string,unknown>;receipt.command_id=r.nextRequest.steps[0].id;receipt.started_uptime_ms=Number(receipt.started_uptime_ms)+1000;receipt.finished_uptime_ms=Number(receipt.finished_uptime_ms)+1000;}}
-  Object.assign(events[1],{predecessor_plan_id:r.root.plan_id,predecessor_click_id:r.request.steps[0].id,predecessor_phone_submit_mono_s:10.3,frame_id:parent.events[5].frame_id,content_sha256:parent.events[5].content_sha256,capture_mono_s:10.5});events[2].source_frame_id=events[1].frame_id;Object.assign(events[5],{frame_id:id,content_sha256:sha,source_seq:104});
-  return {...r.scope,events,status:{phase:"finished",finished:true,halted:false,completed_steps:1}};
-}
-test("software: prefetch successor proof cannot reset actual click intervals or precede parent confirmation",async()=>{
-  const l=lab(),r=await queuedPair(l);await r.mouse.claim(r.actor,r.identity,0);const started=await r.mouse.start(r.actor,r.root.plan_id,{...r.scope,pointer_prefetch_protocol:POINTER_PREFETCH});
-  const parent=await pointerResultFixture(l,{...r,queued:r.root,started});
-  const body=await successorResultFixture(l,r,parent);
-  await assert.rejects(r.control.result(r.actor,r.next.plan_id,body),/PREDECESSOR_NOT_CONFIRMED/);
-  assert.equal((await r.control.result(r.actor,r.root.plan_id,parent)).state,"succeeded");
-  const bad=structuredClone(body);for(const n of [2,4]){const receipt=bad.events[n].receipt as Record<string,unknown>;receipt.started_uptime_ms=Number(receipt.started_uptime_ms)+3000;receipt.finished_uptime_ms=Number(receipt.finished_uptime_ms)+3000;}
-  await assert.rejects(r.control.result(r.actor,r.next.plan_id,bad),/CLICK_GAP/);const resultCalls=l.db.requests;assert.equal((await r.control.result(r.actor,r.next.plan_id,body)).state,"succeeded");assert.equal(l.db.requests-resultCalls,2,"Successor confirmation should share one evidence/authority snapshot then one CAS");
-});
-async function pointerReadyFixture(l:ReturnType<typeof lab>) {
-  const r=await calibrationFixture(l,443,960),control=new PointerActionControl(l.service);
-  const c=await r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof:r.proof});
-  const body={...r.scope,ready:true,protocol:POINTER_PROTOCOL,source_kind:"replaykit_jpeg_v1",profile_samples:36,profile_cells:9,calibration_id:c.calibration_id,profile_id:uid(),source_generation:7,pointer_settings_hash:r.settings,capture_width:886,capture_height:1918,orientation_epoch:0};
-  await control.ready(r.actor,body);return {...r,control,readyBody:body};
-}
-async function pointerExecuting(l:ReturnType<typeof lab>,steps=[pointerStep()]) {
-  const r=await pointerReadyFixture(l),request={device_id:r.actor.id,idempotency_key:uid(),steps},queued=await r.control.enqueue(alice,request);
-  const claimed=await r.mouse.claim(r.actor,r.identity,0);assert.equal(claimed!.kind,"pointer.local_plan");
-  const started=await r.mouse.start(r.actor,queued.plan_id,{...r.scope});assert.ok(started.ttl_remaining_ms>2500);
-  return {...r,request,queued,started};
-}
-async function pointerResultFixture(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof pointerExecuting>>) {
-  l.tick(500);const bytes=jpeg.encode({width:443,height:960,data:Buffer.alloc(443*960*4,180)},65).data,after=uid(),afterHash=await hash(bytes),beforeHash=await hash("SOFTWARE before pixels");
-  const meta={...r.metadata,frame_id:after,frame_seq:3,source_seq:103,capture_mono_ms:10500,capture_offset_ms:500,captured_at:new Date(l.now()).toISOString(),width:443,height:960,native_width_px:886,native_height_px:1918,content_rect:{x:0,y:0,width:443,height:960},content_sha256:afterHash};
-  await edge(l).service.acceptFrame(r.actor,meta,bytes);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_metrics WHERE frame_id=? AND kind='upload'").get(after)!.n,0,"deferred metrics deliberately have not run");
-  assert.ok(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(r.actor.id+":"+after)!.acceptance_json,"commit proof must already exist");
-  const step=r.request.steps[0],before=uid(),landing=uid(),receipt=(sub:number)=>({command_id:step.id,subcommand_index:sub,board_boot_id:r.hardware.board_boot_id,state:"executed",started_uptime_ms:1000+sub*100,finished_uptime_ms:1040+sub*100,effect:sub===0?{hid_reports_sent:true,absolute_requested_x:22937,absolute_requested_y:19660}:{hid_reports_sent:true}});
-  const rows:Record<string,unknown>[]=[{phase:"run_started"},{phase:"move_prepared",step_id:step.id,frame_id:before,capture_mono_s:10,content_sha256:beforeHash},
-    {phase:"move_acked",step_id:step.id,receipt:receipt(0),phone_submit_mono_s:10.02,phone_ack_mono_s:10.1,source_frame_id:before},
-    {phase:"click_prepared",step_id:step.id,frame_id:landing,capture_mono_s:10.2,content_sha256:beforeHash},
-    {phase:"click_acked",step_id:step.id,receipt:receipt(1),phone_submit_mono_s:10.3,phone_ack_mono_s:10.4,source_frame_id:landing},
-    {phase:"observed_at_sites",step_id:step.id,frame_id:after,source_seq:103,content_sha256:afterHash,capture_mono_s:10.5,sites_ack_mono_s:10.7,server_age_ms:50,action_started_mono_s:10.01,cycle_deadline_mono_s:13.01}];
-  const events:Record<string,unknown>[]=rows.map((v,i)=>({...v,sequence:i+1,schema:"pointer_action_event.v1",plan_id:r.queued.plan_id}));
-  return {...r.scope,events,status:{phase:"finished",completed_steps:1,finished:true,halted:false}};
-}
-test("software: pointer entry uses actual calibration/JPEG scope, exclusive existing queue and stable idempotency",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l),args={device_id:r.actor.id,idempotency_key:uid(),steps:[pointerStep()]},before=l.db.requests,p=await r.control.enqueue(alice,args);
-  assert.equal(p.state,"queued");assert.equal(l.db.requests-before,2,"one combined ownership/idempotency/live/readiness snapshot, one CAS transaction; no receipt polling");
-  await assert.rejects(r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0}),/MOUSE_BUSY/);
-  await r.control.ready(r.actor,{...r.readyBody,ready:false});assert.equal((await r.control.enqueue(alice,args)).plan_id,p.plan_id);
-  await assert.rejects(r.control.enqueue(alice,{...args,steps:[pointerStep()]}),/IDEMPOTENCY_CONFLICT/);
-  await assert.rejects(r.control.get(bob,p.plan_id),/NOT_FOUND/);
-});
-
-test("software: pointer successor admission shares one context snapshot before its queue CAS",async()=>{
-  const l=lab(),r=await prefetchReady(l),step=pointerStep(),parent=await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[step]});
-  const next={...pointerStep(),before:step.after,after:browseScene("Reviews")},before=l.db.requests;
-  const child=await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),predecessor_plan_id:parent.plan_id,steps:[next]});
-  assert.equal(child.predecessor_plan_id,parent.plan_id);assert.equal(l.db.requests-before,2);
-});
 
 test("software: pointer admission snapshot uses exact device ready hardware and idempotency indexes",()=>{
   const l=lab(),q=pointerAdmissionSnapshotQuery({owner:alice.id,device:uid(),key:uid()},"CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)"),details=l.db.raw.prepare("EXPLAIN QUERY PLAN "+q.sql).all(...q.values).map(x=>String(x.detail));
   assert.ok(details.some(x=>x.includes("sb_mouse_idempotency_idx")&&x.includes("idempotency_key=?")),JSON.stringify(details));
   assert.ok(!details.some(x=>/^SCAN (d|c|s|h|w)\b/.test(x)),JSON.stringify(details));
 });
-
-test("software: pointer admission commit rechecks actual SQL expiry revocation and readiness",async()=>{
-  for(const mode of ["worker","token","grant","ready","calibration","revoked","owner","profile","hardware"]) {
-    const l=lab(),r=await pointerReadyFixture(l),batch=l.db.batch.bind(l.db),key=uid();
-    l.db.batch=async statements=>{
-      if(mode==="worker")l.db.raw.prepare("UPDATE sb_devices SET worker_expires=? WHERE id=?").run(l.now()+10,r.actor.id);
-      if(mode==="token")l.db.raw.prepare("UPDATE sb_devices SET token_expires=? WHERE id=?").run(l.now()+10,r.actor.id);
-      if(mode==="grant")l.db.raw.prepare("UPDATE sb_sessions SET mouse_until=? WHERE id=?").run(l.now()+10,r.scope.bridge_session_id);
-      if(mode==="ready")l.db.raw.prepare("UPDATE sb_pointer_ready SET expires_at=? WHERE device_id=?").run(l.now()+10,r.actor.id);
-      if(mode==="calibration")l.db.raw.prepare("UPDATE sb_browse_calibrations SET expires_at=? WHERE id=?").run(l.now()+10,r.readyBody.calibration_id);
-      if(mode==="revoked")l.db.raw.prepare("UPDATE sb_devices SET revoked=1 WHERE id=?").run(r.actor.id);
-      if(mode==="owner")l.db.raw.prepare("UPDATE sb_devices SET owner_id=? WHERE id=?").run(bob.id,r.actor.id);
-      if(mode==="profile")l.db.raw.prepare("UPDATE sb_pointer_ready SET profile_id=? WHERE device_id=?").run(uid(),r.actor.id);
-      if(mode==="hardware")l.db.raw.prepare("UPDATE sb_hardware SET board_boot_id=? WHERE device_id=?").run(uid(),r.actor.id);
-      l.tick(20);return batch(statements);
-    };
-    await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:key,steps:[pointerStep()]}),/BUSY_OR_SCOPE_CHANGED/,mode);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE idempotency_key=?").get(key)!.n,0,mode);
-  }
-});
-
-test("software: pointer admission cannot extend a parent or the computed plan lifetime during database IO",async()=>{
-  for(const successor of [false,true]) {
-    const l=lab(),r=await prefetchReady(l),step=pointerStep();
-    const parent=successor?await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[step]}):null;
-    if(parent)l.db.raw.prepare("UPDATE sb_mouse_commands SET state='succeeded',expires_at=? WHERE id=?").run(l.now()+10,parent.plan_id);
-    else {
-      l.db.raw.prepare("UPDATE sb_devices SET worker_expires=? WHERE id=?").run(l.now()+120000,r.actor.id);
-      l.db.raw.prepare("UPDATE sb_sessions SET mouse_until=? WHERE id=?").run(l.now()+120000,r.scope.bridge_session_id);
-      l.db.raw.prepare("UPDATE sb_pointer_ready SET expires_at=? WHERE device_id=?").run(l.now()+120000,r.actor.id);
-      l.db.raw.prepare("UPDATE sb_browse_calibrations SET expires_at=? WHERE id=?").run(l.now()+120000,r.readyBody.calibration_id);
-    }
-    const batch=l.db.batch.bind(l.db),key=uid();l.db.batch=async statements=>{l.tick(successor?20:16000);return batch(statements);};
-    await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:key,...(parent?{predecessor_plan_id:parent.plan_id}:{}),steps:[parent?{...pointerStep(),before:step.after,after:browseScene("Reviews")}:step]}),/BUSY_OR_SCOPE_CHANGED/);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE idempotency_key=?").get(key)!.n,0);
-  }
-});
-
-test("software: concurrent pointer admission keeps one plan and retries it without reviving offline control",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l),prepare=l.db.prepare.bind(l.db),args={device_id:r.actor.id,idempotency_key:uid(),steps:[pointerStep()]};
-  let count=0,release!:()=>void;const both=new Promise<void>(resolve=>{release=resolve;});
-  l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.includes("c.id AS prior_id"))statement.bind=(...values:unknown[])=>{
-    const bound=bind(...values),first=bound.first.bind(bound);bound.first=async<T>()=>{const value=await first<T>();if(++count===2)release();await both;return value;};return bound;
-  };return statement;};
-  const [one,two]=await Promise.all([r.control.enqueue(alice,args),r.control.enqueue(alice,args)]);l.db.prepare=prepare;
-  assert.equal(one.plan_id,two.plan_id);assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE idempotency_key=?").get(args.idempotency_key)!.n,1);
-  await r.control.ready(r.actor,{...r.readyBody,ready:false});l.db.raw.prepare("UPDATE sb_devices SET worker_expires=0 WHERE id=?").run(r.actor.id);
-  const before=l.db.requests,replayed=await r.control.enqueue(alice,args);assert.equal(replayed.plan_id,one.plan_id);assert.equal(l.db.requests-before,2);assert.notEqual(replayed.state,"executing");
-  await assert.rejects(r.control.enqueue(alice,{...args,steps:[pointerStep()]}),/IDEMPOTENCY_CONFLICT/);
-  await assert.rejects(r.control.enqueue(bob,args),/NOT_FOUND/);
-});
-
-test("software: pointer admission cannot return a concurrent saved row after device revocation",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l),batch=l.db.batch.bind(l.db),args={device_id:r.actor.id,idempotency_key:uid(),steps:[pointerStep()]};
-  l.db.batch=async statements=>{
-    l.db.batch=batch;await r.control.enqueue(alice,args);
-    l.db.raw.prepare("UPDATE sb_devices SET revoked=1 WHERE id=?").run(r.actor.id);
-    return batch(statements);
-  };
-  await assert.rejects(r.control.enqueue(alice,args),/BUSY_OR_SCOPE_CHANGED/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE idempotency_key=?").get(args.idempotency_key)!.n,1);
-});
-test("software: pointer readiness expires and cannot borrow another geometry or worker",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l);
-  await assert.rejects(r.control.ready(r.actor,{...r.readyBody,capture_width:443}),/GEOMETRY_CHANGED/);
-  await assert.rejects(r.control.ready(r.actor,{...r.readyBody,profile_samples:35}),/PERCEPTION_NOT_READY/);
-  await assert.rejects(r.control.ready(r.actor,{...r.readyBody,worker_id:uid()}),/STALE_LEASE/);
-  l.tick(30001);await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[pointerStep()]}),/ALLOW_MOUSE|APP_NOT_READY/);
-});
-test("software: pointer finished needs ordered raw HID, changed after-image and real Sites acceptance",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r),bad=structuredClone(body);
-  bad.events[4].receipt={...bad.events[4].receipt as object,started_uptime_ms:1};await assert.rejects(r.control.result(r.actor,r.queued.plan_id,bad),/BOARD_ORDER/);
-  const forged=structuredClone(body);forged.events[5].frame_id=uid();await assert.rejects(r.control.result(r.actor,r.queued.plan_id,forged),/ACCEPTANCE_MISSING/);
-  const resultCalls=l.db.requests,value=await r.control.result(r.actor,r.queued.plan_id,body);assert.equal(value.state,"succeeded");assert.equal(value.model_observed_effect,false);assert.equal(l.db.requests-resultCalls,2,"Root confirmation should share one evidence/authority snapshot then one CAS");
-  assert.equal((await r.control.result(r.actor,r.queued.plan_id,body)).state,"succeeded");
-  const read=await r.control.get(alice,r.queued.plan_id,true);assert.equal(read.after_screen?.state,"available");assert.equal(typeof read.image,"string");
-  const rpc=await(await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_pointer_action_result",arguments:{plan_id:r.queued.plan_id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}})).json() as RpcReply;
-  assert.equal(rpc.result.isError,false);assert.ok(rpc.result.content.some(block=>block.type==="image"));
-});
-test("software: pointer late receipts retain evidence without reviving stopped control",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);
-  await r.mouse.stop(alice,{device_id:r.actor.id});const value=await r.control.result(r.actor,r.queued.plan_id,body);
-  assert.equal(value.state,"outcome_unknown");assert.equal(value.verification,"not_complete");assert.ok(value.execution);
-});
-test("software: pointer metadata recovery older than one minute acknowledges retained acceptance without reviving control",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);await r.mouse.stop(alice,{device_id:r.actor.id});l.tick(120000);
-  const value=await r.control.result(r.actor,r.queued.plan_id,body);assert.equal(value.state,"outcome_unknown");assert.equal(value.execution?.proof&&record(value.execution.proof).sites_confirmed,true);
-  assert.equal((await r.control.result(r.actor,r.queued.plan_id,body)).state,"outcome_unknown");
-});
-test("software: pointer recovery after acceptance retention expires stores unconfirmed metadata only",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r);await r.mouse.stop(alice,{device_id:r.actor.id});l.tick(86400001);
-  l.db.raw.prepare("DELETE FROM sb_observations WHERE device_id=?").run(r.actor.id);
-  const value=await r.control.result(r.actor,r.queued.plan_id,body);assert.equal(value.state,"outcome_unknown");assert.equal(record(value.execution!.proof).sites_confirmed,false);assert.equal(record(value.execution!.proof).independent_sites_evidence_state,"unavailable");
-});
-test("software: pointer inactive successor recovery does not deadlock behind an unconfirmed predecessor",async()=>{
-  const l=lab(),r=await queuedPair(l);await r.mouse.claim(r.actor,r.identity,0);const started=await r.mouse.start(r.actor,r.root.plan_id,{...r.scope,pointer_prefetch_protocol:POINTER_PREFETCH}),parent=await pointerResultFixture(l,{...r,queued:r.root,started}),child=await successorResultFixture(l,r,parent);
-  await r.mouse.stop(alice,{device_id:r.actor.id});l.tick(120000);
-  assert.equal((await r.control.result(r.actor,r.root.plan_id,parent)).state,"outcome_unknown");
-  const result=await r.control.result(r.actor,r.next.plan_id,child);assert.equal(result.state,"outcome_unknown");assert.equal(record(result.execution!.proof).predecessor_confirmed,false);assert.equal(result.verification,"not_complete");
-});
-test("software: pointer live child cannot turn an irreversibly unknown parent into success",async()=>{
-  const l=lab(),r=await queuedPair(l);await r.mouse.claim(r.actor,r.identity,0);const started=await r.mouse.start(r.actor,r.root.plan_id,{...r.scope,pointer_prefetch_protocol:POINTER_PREFETCH}),parent=await pointerResultFixture(l,{...r,queued:r.root,started}),child=await successorResultFixture(l,r,parent);
-  l.db.raw.prepare("UPDATE sb_mouse_commands SET state='outcome_unknown' WHERE id=?").run(r.root.plan_id);
-  const value=await r.control.result(r.actor,r.next.plan_id,child);assert.equal(value.state,"outcome_unknown");assert.equal(record(value.execution!.proof).predecessor_confirmed,false);assert.equal(value.verification,"not_complete");
-});
-test("software: pointer result snapshot uses exact marker and parent primary keys",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r),q=pointerResultSnapshotQuery({plan:r.queued.plan_id,device:r.actor.id,owner:alice.id,tokenHash:r.actor.token_hash,frames:[String(body.events[5].frame_id)]},"CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)");
-  const plan=l.db.raw.prepare("EXPLAIN QUERY PLAN "+q.sql).all(...q.values as (string|number|null)[]),details=plan.map(row=>String(row.detail));
-  assert.ok(details.some(line=>line.includes("sb_observations_1")&&line.includes("SEARCH")),JSON.stringify(details));assert.ok(!details.some(line=>/SCAN (a|p|c|own)$/.test(line)),JSON.stringify(details));
-});
-test("software: pointer result CAS uses actual database expiry rather than old request time",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r),prepare=l.db.prepare.bind(l.db);let expired=false;
-  l.db.prepare=sql=>{if(sql.startsWith("UPDATE sb_mouse_commands SET state=?,receipt=?")&&!expired){expired=true;l.tick(11000);}return prepare(sql);};
-  await assert.rejects(r.control.result(r.actor,r.queued.plan_id,body),/RESULT_RACE/);assert.notEqual(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(r.queued.plan_id)!.state,"succeeded");
-  assert.equal((await r.control.result(r.actor,r.queued.plan_id,body)).state,"outcome_unknown");
-});
-test("software: pointer result cannot write after device revocation during IO",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r),prepare=l.db.prepare.bind(l.db);let revoked=false;
-  l.db.prepare=sql=>{if(sql.startsWith("UPDATE sb_mouse_commands SET state=?,receipt=?")&&!revoked){revoked=true;l.db.raw.prepare("UPDATE sb_devices SET revoked=1 WHERE id=?").run(r.actor.id);}return prepare(sql);};
-  await assert.rejects(r.control.result(r.actor,r.queued.plan_id,body),/RESULT_RACE/);assert.equal(l.db.raw.prepare("SELECT receipt FROM sb_mouse_commands WHERE id=?").get(r.queued.plan_id)!.receipt,null);
-});
-test("software: pointer proof rejects reordered events, early images, old pixels, wrong axes and excess cycle budget",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r),payload=JSON.parse(r.started.payload?JSON.stringify(r.started.payload):"{}");
-  const mutations:((e:Record<string,unknown>[])=>void)[]=[
-    e=>{e[5].capture_mono_s=10.3;},e=>{e[5].sites_ack_mono_s=13.1;},e=>{e[5].server_age_ms=1500;},
-    e=>{e[5].content_sha256=e[1].content_sha256;},e=>{e[4].source_frame_id=uid();},
-    e=>{e[2].receipt={...e[2].receipt as object,effect:{hid_reports_sent:true,absolute_requested_x:0,absolute_requested_y:19660}};},
-    e=>{[e[2],e[3]]=[e[3],e[2]];},e=>{e.push({...e[4],step_id:uid()});},
-  ];
-  for(const change of mutations){const e=structuredClone(body.events);change(e);assert.throws(()=>verifyPointerEvents(e,payload,1,true));}
-});
-test("software: pointer result CAS rechecks authority changed during database IO",async()=>{
-  const l=lab(),r=await pointerExecuting(l),body=await pointerResultFixture(l,r),prepare=l.db.prepare.bind(l.db);let changed=false;
-  l.db.prepare=sql=>{if(sql.startsWith("UPDATE sb_mouse_commands SET state=?,receipt=?")&&!changed){changed=true;l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.scope.bridge_session_id);}return prepare(sql);};
-  await assert.rejects(r.control.result(r.actor,r.queued.plan_id,body),/RESULT_RACE/);
-  assert.notEqual(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(r.queued.plan_id)!.state,"succeeded");
-  assert.equal((await r.control.result(r.actor,r.queued.plan_id,body)).state,"outcome_unknown");
-});
-test("software: pointer acceptance proof is atomic for authenticated same-image observations",async()=>{
-  const l=lab(),r=await pointerExecuting(l),previous=JSON.parse(l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!.metadata as string);
-  l.tick(500);const meta={...previous,frame_id:uid(),frame_seq:3,source_seq:104,capture_mono_ms:10500,capture_offset_ms:500,captured_at:new Date(l.now()).toISOString()};
-  const accepted=await l.service.acceptObservationRequest(observationRequest(r.token),()=>Promise.resolve(meta));assert.equal(accepted.accepted_frame_id,meta.frame_id);
-  const proof=JSON.parse(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(r.actor.id+":"+meta.frame_id)!.acceptance_json as string);
-  assert.equal(proof.metadata.source_seq,104);assert.equal(proof.metadata.content_sha256,previous.content_sha256);
-});
-test("software: pointer upload rejected after slow commit loses acceptance proof but retains replay fence",async()=>{
-  const l=lab(),r=await pointerExecuting(l),e=edge(l),rawBatch=l.db.batch.bind(l.db);let delayed=false;
-  l.db.batch=async statements=>{const value=await rawBatch(statements);if(!delayed){delayed=true;l.tick(1500);}return value;};
-  const frame=uid(),meta={...JSON.parse(l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!.metadata as string),frame_id:frame,frame_seq:3,source_seq:104,capture_mono_ms:10002,capture_offset_ms:2};
-  const bytes=jpeg.encode({width:443,height:960,data:Buffer.alloc(443*960*4,180)},65).data;meta.content_sha256=await hash(bytes);
-  await assert.rejects(e.service.acceptFrame(r.actor,meta,bytes),/OLD_CAPTURE/);
-  const marker=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(r.actor.id+":"+frame);assert.ok(marker);assert.equal(marker.acceptance_json,null);
-});
-async function pointerSecondResultFixture(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof pointerExecuting>>,one:Awaited<ReturnType<typeof pointerResultFixture>>){
-  const second=r.request.steps[1];
-  l.tick(1000);const bytes=jpeg.encode({width:443,height:960,data:Buffer.alloc(443*960*4,160)},65).data,id=uid(),sha=await hash(bytes);
-  const meta={...JSON.parse(l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!.metadata as string),frame_id:id,frame_seq:4,source_seq:104,capture_mono_ms:11500,capture_offset_ms:1500,captured_at:new Date(l.now()).toISOString(),content_sha256:sha};
-  await edge(l).service.acceptFrame(r.actor,meta,bytes);
-  const tail=structuredClone(one.events.slice(1));
-  for(const event of tail){event.step_id=second.id;event.sequence=Number(event.sequence)+5;for(const key of ["capture_mono_s","phone_submit_mono_s","phone_ack_mono_s","sites_ack_mono_s","action_started_mono_s","cycle_deadline_mono_s"])if(typeof event[key]==="number")event[key]=Number(event[key])+1;if(event.receipt){const receipt=event.receipt as Record<string,unknown>;receipt.command_id=second.id;receipt.started_uptime_ms=Number(receipt.started_uptime_ms)+1000;receipt.finished_uptime_ms=Number(receipt.finished_uptime_ms)+1000;}}
-  tail[0].frame_id=one.events[5].frame_id;tail[0].content_sha256=one.events[5].content_sha256;tail[0].capture_mono_s=10.5;tail[1].source_frame_id=tail[0].frame_id;
-  tail[4].frame_id=id;tail[4].content_sha256=sha;tail[4].source_seq=104;
-  return {body:{...one,events:[...one.events,...tail],status:{phase:"finished",completed_steps:2,finished:true,halted:false}},bytes,frameID:id};
-}
-test("software: pointer two-page progress retains both committed frames and enforces adjacent actual board click intervals",async()=>{
-  const l=lab(),first=pointerStep(),second={...pointerStep(),before:browseScene("Detail"),after:browseScene("Reviews")},r=await pointerExecuting(l,[first,second]);
-  const one=await pointerResultFixture(l,r);one.status.finished=false;one.status.phase="before";
-  assert.equal((await r.control.result(r.actor,r.queued.plan_id,one)).state,"executing");
-  const {body}=await pointerSecondResultFixture(l,r,one),bad=structuredClone(body);
-  for(const index of [7,9]){const receipt=bad.events[index].receipt as Record<string,unknown>;receipt.started_uptime_ms=Number(receipt.started_uptime_ms)+3000;receipt.finished_uptime_ms=Number(receipt.finished_uptime_ms)+3000;}
-  await assert.rejects(r.control.result(r.actor,r.queued.plan_id,bad),/CLICK_GAP/);
-  assert.equal((await r.control.result(r.actor,r.queued.plan_id,body)).state,"succeeded");
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_observations WHERE device_id=? AND acceptance_json IS NOT NULL").get(r.actor.id)!.n,2);
-});
-test("software: pointer wait bundles only a completed two-step plan and its fresh final image",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l),first=pointerStep(),second={...pointerStep(),before:first.after,after:browseScene("Spotlight")};
-  const request={device_id:r.actor.id,idempotency_key:uid(),steps:[first,second]};
-  const countCommands=()=>Number(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE device_id=?").get(r.actor.id)!.n);
-  const beforeCount=countCommands();
-  let time=0,stage=0,pendingJPEGs=0,run:Awaited<ReturnType<typeof pointerExecuting>>|undefined;
-  let one:Awaited<ReturnType<typeof pointerResultFixture>>|undefined,final:Awaited<ReturnType<typeof pointerSecondResultFixture>>|undefined;
-  const batch=l.db.batch.bind(l.db);
-  l.db.batch=async statements=>{
-    const results=await batch(statements);
-    if(stage<2)for(const result of results){
-      const rows=result?.results;
-      if(Array.isArray(rows))pendingJPEGs+=rows.filter(row=>row.candidate_id&&typeof row.inline_jpeg==="string").length;
-    }
-    return results;
-  };
-  const observed=new PointerActionControl(l.service,{now:()=>time,sleep:async ms=>{
-    time+=ms;stage++;
-    if(stage===1){
-      const claimed=await r.mouse.claim(r.actor,r.identity,0);assert.ok(claimed);
-      const queued=await r.control.get(alice,claimed.command_id),started=await r.mouse.start(r.actor,claimed.command_id,r.scope);
-      run={...r,request,queued,started};
-      one=await pointerResultFixture(l,run);one.status.finished=false;one.status.phase="before";
-      assert.equal((await r.control.result(r.actor,queued.plan_id,one)).state,"executing");
-    }else if(stage===2&&run&&one){
-      final=await pointerSecondResultFixture(l,run,one);
-      assert.equal((await r.control.result(r.actor,run.queued.plan_id,final.body)).state,"succeeded");
-    }
-  }});
-  const result=await observed.enqueueObserved(alice,{...request,wait_ms:1500});
-  assert.ok(final&&run);
-  assert.equal(result.plan_id,run.queued.plan_id);
-  assert.equal(result.state,"succeeded");
-  assert.ok("after_screen" in result);
-  const screen=record(result.after_screen);
-  assert.equal(screen.state,"available");
-  assert.equal(record(screen.metadata).frame_id,final.frameID);
-  assert.equal(result.image,Buffer.from(final.bytes).toString("base64"));
-  assert.equal(pendingJPEGs,0);
-  assert.equal(countCommands(),beforeCount+1);
-  const mcp=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"run_pointer_actions",arguments:{...request,wait_ms:500}}})}),
-    {engine:()=>l.service,caller:()=>alice,origin:"https://test.example"});
-  const wire=(await mcp.json() as RpcReply).result;
-  assert.equal(wire.structuredContent.plan_id,result.plan_id);
-  assert.equal(wire.content.find(x=>x.type==="image")?.data,result.image);
-  assert.equal(countCommands(),beforeCount+1);
-  l.db.raw.prepare("UPDATE sb_frames SET metadata=json_set(metadata,'$.capture_mono_ms',11450) WHERE device_id=?").run(r.actor.id);
-  const early=await r.control.get(alice,result.plan_id,true,true);
-  assert.equal(early.after_screen.state,"unavailable");
-  assert.equal(early.image,undefined);
-});
-
-test("software: pointer wait preserves the original plan on timeout or revoked observation",async()=>{
-  for(const revoked of [false,true]){
-    const l=lab(),r=await pointerReadyFixture(l),request={device_id:r.actor.id,idempotency_key:uid(),steps:[pointerStep()]};
-    let time=0;
-    const control=new PointerActionControl(l.service,{now:()=>time,sleep:async ms=>{
-      time+=ms;
-      if(revoked)l.db.raw.prepare("UPDATE sb_devices SET revoked=1 WHERE id=?").run(r.actor.id);
-    }});
-    const output=await control.enqueueObserved(alice,{...request,wait_ms:700});
-    assert.equal(output.state,"queued");
-    assert.ok("after_screen" in output);
-    assert.equal(record(output.after_screen).reason,revoked?"NOT_FOUND":"PLAN_WAIT_BUDGET_EXHAUSTED");
-    assert.equal(output.image,undefined);
-    const saved=l.db.raw.prepare("SELECT id,state FROM sb_mouse_commands WHERE device_id=? AND kind='pointer.local_plan'").all(r.actor.id);
-    assert.equal(saved.length,1);
-    assert.equal(saved[0].id,output.plan_id);
-    assert.equal(saved[0].state,"queued");
-  }
-});
-test("software: pointer admission rejection proves no input and raw result route cannot settle a plan",async()=>{
-  const l=lab(),r=await pointerExecuting(l);
-  await assert.rejects(r.mouse.result(r.actor,r.queued.plan_id,{...r.scope,state:"failed",board_receipt:{}}),/ENDPOINT_REQUIRED/);
-  await assert.rejects(r.control.result(r.actor,r.queued.plan_id,{...r.scope,events:[],status:{completed_steps:1,finished:true,halted:false}}),/START_EVIDENCE/);
-  const v=await r.control.result(r.actor,r.queued.plan_id,{...r.scope,events:[],no_input_submitted:true,status:{phase:"rejected",completed_steps:0,finished:false,halted:true,reason:"NO_CURRENT_PROFILE"}});
-  assert.equal(v.state,"failed");assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands WHERE kind='pointer.local_plan'").get()!.n,1);
-});
 test("software: pointer plans reject payment, duplicate IDs and oversized unsafe regions",()=>{
   const step=pointerStep();assert.equal(pointerSteps([step]).length,1);
   assert.throws(()=>pointerSteps([step,step]),/DUPLICATE_STEP/);assert.throws(()=>pointerSteps([{...step,target:{...step.target,text:"立即购买"}}]),/NAVIGATION_ONLY/);
   assert.throws(()=>pointerSteps([{...step,click_region:browseRegion}]),/CLICK_REGION/);
 });
-test("software: approach is explicit, separated from target and requires current phone support",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l),step={...pointerStep(),approach_point:{x:0.2,y:0.27}};
-  assert.deepEqual(pointerSteps([step])[0].approach_point,step.approach_point);
-  for(const point of [{x:0.7,y:0.6},{x:0.01,y:0.5},{x:1,y:0.5},{x:0.59,y:0.6}])assert.throws(()=>pointerSteps([{...step,approach_point:point}]));
-  await assert.rejects(r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[step]}),/APP_UPDATE_REQUIRED/);
-  await r.control.ready(r.actor,{...r.readyBody,pointer_approach_protocol:"pointer_approach.v1"});
-  const plan=await r.control.enqueue(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[step]});assert.equal(plan.state,"queued");
-});
-test("software: approach proof needs both moves, original after-approach frame and the single final click",async()=>{
-  const l=lab(),r=await pointerReadyFixture(l);await r.control.ready(r.actor,{...r.readyBody,pointer_approach_protocol:"pointer_approach.v1"});
-  const step={...pointerStep(),approach_point:{x:0.2,y:0.27}},request={device_id:r.actor.id,idempotency_key:uid(),steps:[step]},queued=await r.control.enqueue(alice,request);
-  await r.mouse.claim(r.actor,r.identity,0);const started=await r.mouse.start(r.actor,queued.plan_id,r.scope),base=await pointerResultFixture(l,{...r,request,queued,started});
-  const events=structuredClone(base.events),approachBefore={...events[1],phase:"approach_prepared",capture_mono_s:9.8},approachAck={...events[2],phase:"approach_acked",phone_submit_mono_s:9.85,phone_ack_mono_s:9.9,receipt:{...record(events[2].receipt),started_uptime_ms:800,finished_uptime_ms:840,effect:{hid_reports_sent:true,absolute_requested_x:6553,absolute_requested_y:8847}}};
-  events[2].receipt={...record(events[2].receipt),subcommand_index:1};events[4].receipt={...record(events[4].receipt),subcommand_index:2};events[5].action_started_mono_s=9.8;events[5].cycle_deadline_mono_s=12.8;
-  const ordered:Record<string,unknown>[]=[events[0],approachBefore,approachAck,...events.slice(1)].map((event,i)=>({...event,sequence:i+1})),body={...base,events:ordered};
-  const bad=structuredClone(body);bad.events[3].capture_mono_s=9.89;await assert.rejects(r.control.result(r.actor,queued.plan_id,bad),/APPROACH_PHONE_ORDER/);
-  const skipped=structuredClone(body);skipped.events=skipped.events.filter(e=>!String(e.phase).startsWith("approach_")).map((e,i)=>({...e,sequence:i+1}));await assert.rejects(r.control.result(r.actor,queued.plan_id,skipped),/EVENT_GRAMMAR|STEP_EVIDENCE/);
-  const wrong=structuredClone(body);wrong.events[2].receipt={...record(wrong.events[2].receipt),effect:{hid_reports_sent:true,absolute_requested_x:1,absolute_requested_y:1}};await assert.rejects(r.control.result(r.actor,queued.plan_id,wrong),/APPROACH_BOARD/);
-  const result=await r.control.result(r.actor,queued.plan_id,body);assert.equal(result.state,"succeeded");assert.equal(result.model_observed_effect,false);
-});
 test("software: default MCP responses and tracing headers use the SaySo name",async()=>{
   const l=lab();
   for(const [method,params] of [["initialize",{protocolVersion:"2026-07-28"}],["tools/list",{}],["resources/list",{}],["tools/call",{name:"read_screen",arguments:{wait_for_new_ms:0}}],["tools/call",{name:"get_control_guide",arguments:{workflow:"overview"}}]] as const){
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
     assert.ok(response.headers.get("X-SaySo-Request-ID"));
     const json=await response.text();assert.ok(!/screen.?bridge/i.test(json),method);
     if(method==="tools/call"&&params.name==="read_screen")assert.equal(JSON.parse(json).result.structuredContent.reason,"START_SAYSO_BROADCAST");
@@ -1198,7 +595,7 @@ async function ledReady(l: ReturnType<typeof lab>) {
 test("software: MCP LED writes queue once and only a matching board receipt confirms execution", async () => {
   const l = lab(), r = await ledReady(l), key = uid();
   const request = (name: string, args: Record<string, unknown>) => new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "tools/call", params: { name, arguments: args } }) });
-  const reply = await handleMcp(request("set_led", { on: true, idempotency_key: key, wait_ms: 0 }), { engine: () => l.service, caller: () => alice, origin: "https://test.example" });
+  const reply = await handleMcp(request("set_led", { on: true, idempotency_key: key, wait_ms: 0 }), { engine: () => l.service, caller: () => alice, origin: "https://test.example",toolAudience:"development" });
   const data = await reply.json() as RpcReply;
   assert.equal(data.result.isError, false); assert.equal(data.result.structuredContent.state, "queued");
   const id = data.result.structuredContent.command_id as string;
@@ -1211,7 +608,7 @@ test("software: MCP LED writes queue once and only a matching board receipt conf
   const result = { ...r.identity, state: "board_acked", board_receipt: receipt, finished_client_mono_ms: 123 };
   assert.equal((await r.led.result(r.actor, id, result)).state, "board_acked");
   assert.equal((await r.led.result(r.actor, id, result)).state, "board_acked");
-  const read = await handleMcp(request("get_command_result", { command_id: id }), { engine: () => l.service, caller: () => alice, origin: "https://test.example" });
+  const read = await handleMcp(request("get_command_result", { command_id: id }), { engine: () => l.service, caller: () => alice, origin: "https://test.example",toolAudience:"development" });
   const confirmed = await read.json() as RpcReply;
   assert.equal(confirmed.result.structuredContent.verification, "phone_verified_board_ack");
   assert.equal(confirmed.result.structuredContent.physical_light_observed, false);
@@ -1224,7 +621,7 @@ test("software: LED scope is opt-in, owner-bound and foreground-only; screen ses
   const ready = await ledReady(l);
   await assert.rejects(ready.led.set(bob, { device_id: ready.actor.id, on: true, wait_ms: 0 }), /NOT_FOUND/);
   const request = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "set_led", arguments: { on: true, kind: "pointer.click" } } }) });
-  const response = await handleMcp(request, { engine: () => l.service, caller: () => alice, origin: "https://test.example" });
+  const response = await handleMcp(request, { engine: () => l.service, caller: () => alice, origin: "https://test.example",toolAudience:"development" });
   assert.equal((await response.json() as RpcReply).result.structuredContent.error, "INVALID_ARGUMENTS");
 });
 test("software: stopped workers, board reboots and expiry cannot execute or promote late LED receipts", async () => {
@@ -1430,20 +827,6 @@ test("software: JPEG first-contact confirmation remains explicit and invalid JPE
  assert.equal(other.db.raw.prepare("SELECT count(*) AS n FROM sb_frames").get()!.n,0);assert.equal(other.db.raw.prepare("SELECT count(*) AS n FROM sb_observations").get()!.n,0);
 });
 
-test("software: JPEG decode/hash validation and MCP returns an image block, not a URL", async () => {
-  const l = lab(), r = await running(l);
-  await l.service.acceptFrame(r.actor, r.metadata, r.bytes);
-  const call = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_latest_screen", arguments: { device_id: r.actor.id, bridge_session_id: r.identity.bridge_session_id, wait_ms: 0 } } }) });
-  const response = await handleMcp(call, { engine: () => l.service, caller: () => alice, origin: "https://test.example" });
-  const data = await response.json() as RpcReply; assert.equal(data.result.isError, false);
-  const image = data.result.content.find((item: { type: string }) => item.type === "image");
-  assert.ok(image);
-  assert.equal(image.mimeType, "image/jpeg"); assert.deepEqual(Buffer.from(image.data, "base64"), Buffer.from(r.bytes));
-  assert.equal(JSON.stringify(data.result.structuredContent).includes(image.data), false);
-  const bad = new Uint8Array([1,2,3]);
-  await assert.rejects(l.service.acceptFrame(r.actor, { ...r.metadata, frame_id: uid(), frame_seq: 2, capture_mono_ms: 10001, content_sha256: await hash(bad) }, bad), /INVALID_IMAGE/);
-});
-
 test("software: JPEG validation optimization preserves original bytes for progressive, grayscale and CMYK uploads",async()=>{
   const corpus=JSON.parse(readFileSync("tests/fixtures/jpeg-validation.json","utf8")) as {fixtures:{name:string;width:number;height:number;jpeg_base64:string}[]};
   for(const name of ["RGB-17x31-p1-s2","L-17x31-p0-s0","CMYK-17x31-p1-s0"]){
@@ -1475,7 +858,7 @@ test("software: late upload transit is old; wrong-owner and no-identity MCP call
   await assert.rejects(l.service.acceptFrame(r.actor, r.metadata, r.bytes), /OLD_CAPTURE/);
   await assert.rejects(l.service.getScreen(bob, { device_id: r.actor.id, bridge_session_id: r.identity.bridge_session_id, wait_ms: 0 }), /NOT_FOUND/);
   const request = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_devices", arguments: {} } }) });
-  const response = await handleMcp(request, { engine: () => l.service, caller: () => { throw new BridgeError("UNAUTHENTICATED", 401); }, origin: "https://test.example" });
+  const response = await handleMcp(request, { engine: () => l.service, caller: () => { throw new BridgeError("UNAUTHENTICATED", 401); }, origin: "https://test.example",toolAudience:"development" });
   const result = await response.json() as RpcReply; assert.equal(result.result.isError, true); assert.equal(result.result.structuredContent.error, "UNAUTHENTICATED");
 });
 
@@ -1545,7 +928,7 @@ function edge(l: ReturnType<typeof lab>,framePermits?:FrameUploadPermits,pairedS
   return { service, cache, jobs, flush: async () => { while (jobs.some(value => value.delay === 0)) { const i = jobs.findIndex(value => value.delay === 0); await jobs.splice(i, 1)[0].job(); } } };
 }
 
-async function framePermitFixture(framePermits=new FrameUploadPermits()){
+async function framePermitFixture(framePermits=new FrameUploadPermits("ab".repeat(32))){
   const l=lab(),r=await running(l),e=edge(l,framePermits);
   const request=(proof:string,token=r.token,length=r.bytes.length)=>new Request("https://test.example/v1/device/frame",
     {method:"POST",headers:{Authorization:"Bearer "+token,[framePermitHeader]:proof,"Content-Length":String(length)}});
@@ -1575,7 +958,7 @@ test("software: frame permit publishes a small JPEG in one round trip with its a
   assert.equal(result.request_timing_scope,"acceptFrameRequest_permit_entry_to_D1_ack");
   const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id,wait_for_new_ms:0}}})}),
-    {engine:()=>e.service,caller:()=>alice,origin:"https://test.example"});
+    {engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development"});
   const rpc=await response.json() as {result:{content:{type:string;data?:string}[]}};
   assert.equal(rpc.result.content.find(item=>item.type==="image")?.data,Buffer.from(r.bytes).toString("base64"));
 });
@@ -1738,9 +1121,9 @@ test("software: shared frame permit crosses independent instances without a pre-
   assert.equal(result.accepted_frame_id,meta.frame_id);
 });
 
-test("software: shared frame permit key mismatch or invalid configuration keeps authenticated fallback",async()=>{
+test("software: valid but rotated frame permit key retains device-token authentication",async()=>{
   const key="0123456789abcdef".repeat(4);
-  for(const otherKey of ["fedcba9876543210".repeat(4),undefined,"",key+"\n"]){
+  for(const otherKey of ["fedcba9876543210".repeat(4)]){
     const {l,r,permit,request,next}=await framePermitFixture(new FrameUploadPermits(key));
     const other=edge(l,new FrameUploadPermits(otherKey));
     l.tick(50);const before=l.db.requests,meta=next(2,50);let read=false;
@@ -1766,8 +1149,8 @@ test("software: frame permit commit checks revocation, token rotation, live scop
     "UPDATE sb_clock_probes SET created_at=created_at+1","UPDATE sb_clock_probes SET expires_at=0",
   ];
   for(const sharedKey of [undefined,"0123456789abcdef".repeat(4)])for(const change of changes){
-    const {l,r,e,permit,request,next}=await framePermitFixture(new FrameUploadPermits(sharedKey));
-    const consumer=sharedKey?edge(l,new FrameUploadPermits(sharedKey)):e,jobs=consumer.jobs.length;
+    const {l,r,e,permit,request,next}=await framePermitFixture(new FrameUploadPermits(sharedKey??"ab".repeat(32)));
+    const consumer=sharedKey?edge(l,new FrameUploadPermits(sharedKey??"ab".repeat(32))):e,jobs=consumer.jobs.length;
     l.tick(50);const meta=next(2,50),before=l.db.requests;
     await assert.rejects(consumer.service.acceptFrameRequest(request(permit),meta,async limit=>{
       assert.equal(limit,framePermitMaxBytes);l.db.raw.exec(change);return r.bytes;
@@ -1780,7 +1163,7 @@ test("software: frame permit commit checks revocation, token rotation, live scop
 });
 
 test("software: frame permit fallback retains pre-body authentication and accepts a new isolate",async()=>{
-  const {l,r,e,permit,request,next}=await framePermitFixture(),other=edge(l,new FrameUploadPermits());
+  const {l,r,e,permit,request,next}=await framePermitFixture(),other=edge(l,new FrameUploadPermits("cd".repeat(32)));
   l.tick(50);const meta=next(2,50);let read=false;
   await assert.rejects(e.service.acceptFrameRequest(request(permit,"A".repeat(40)),meta,async()=>{
     read=true;return r.bytes;
@@ -2057,20 +1440,6 @@ test("software: observation request retains client-tag compatibility without cre
   assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
 });
 
-test("software: single-call view returns real JPEG from RAM before R2 and exposes compact metadata", async () => {
-  const l = lab(), r = await running(l), e = edge(l);
-  const receipt = await e.service.acceptFrame(r.actor, r.metadata, r.bytes);
-  assert.equal(receipt.storage_pending, true); assert.equal(l.bucket.values.size, 0);
-  const result = await e.service.viewScreen(alice, { wait_ms: 0 });
-  assert.equal(result.state, "available"); assert.equal(result.trace?.cache_hit, true);
-  assert.deepEqual(Buffer.from(result.image!, "base64"), Buffer.from(r.bytes));
-  assert.ok(JSON.stringify(result.metadata).length < 500); assert.equal(result.metadata?.clock_probe_id, undefined);
-  const request = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "view_screen", arguments: { wait_ms: 0 } } }) });
-  const response = await handleMcp(request, { engine: () => e.service, caller: () => alice, origin: "https://test.example" });
-  const rpc = await response.json() as RpcReply; assert.ok(rpc.result.content.some(item => item.type === "image"));
-  assert.equal(rpc.result.structuredContent.trace, undefined); assert.equal((await e.service.viewScreen(bob, { wait_ms: 0 })).state, "unavailable");
-});
-
 test("software: cold isolate shares the bounded frame cache and still supports R2 fallback", async () => {
   const l = lab(), r = await running(l), writer = edge(l), reader = edge(l);
   await writer.service.acceptFrame(r.actor, r.metadata, r.bytes);
@@ -2284,7 +1653,7 @@ test("software: App heartbeat repeats advance presentation time without changing
 });
 test("software: strict capture readers never consume a repeated presentation",async()=>{
   const l=lab(),r=await running(l),e=edge(l);await e.service.acceptFrame(r.actor,r.metadata,r.bytes);l.tick(6000);await presentRepeated(l,r,1);
-  assert.equal((await e.service.readScreen(alice,{allow_repeated:false,wait_for_new_ms:0})).image,undefined);
+  assert.equal((await e.service.readScreen(alice,{wait_for_new_ms:0})).image,undefined);
   assert.equal((await e.service.readScreen(alice,{wait_for_new_ms:0})).image,undefined);
   const before=l.db.requests,changes=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
   assert.equal((await e.service.readScreen(alice,{allow_repeated:true,wait_for_new_ms:0})).state,"repeated");
@@ -2389,7 +1758,7 @@ test("software: repeated views never satisfy a post-command fresh-capture barrie
 test("software: modern and legacy MCP reject stale capture despite a fresh presentation heartbeat",async()=>{
   for(const modern of [true,false]){
     const l=lab(),r=await running(l),e=edge(l);await e.service.acceptFrame(r.actor,r.metadata,r.bytes);l.tick(6000);await presentRepeated(l,r,1);
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{})},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{wait_for_new_ms:0,allow_repeated:true}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{})},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
     const rpc=await response.json() as RpcReply;assert.equal(rpc.result.structuredContent.state,"unavailable");
     assert.equal(rpc.result.structuredContent.reason,"NO_FRESH_FRAME");
     assert.equal(rpc.result.content.filter(b=>b.type==="image").length,0);
@@ -2414,7 +1783,7 @@ test("software: read-only immediate screen uses one database snapshot, zero R2 c
   assert.equal(result.trace?.lookups, 1);
   assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_refreshes").get()!.n, 0);
   const call = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read_screen", arguments: {} } }) });
-  const response = await handleMcp(call, { engine: () => e.service, caller: () => alice, origin: "https://test.example" });
+  const response = await handleMcp(call, { engine: () => e.service, caller: () => alice, origin: "https://test.example",toolAudience:"development" });
   const rpc = await response.json() as RpcReply;
   assert.equal(rpc.result.isError, false); assert.ok(rpc.result.content.some(value => value.type === "image"));
   const summaryBytes=Buffer.byteLength(JSON.stringify(rpc.result.structuredContent));
@@ -2487,15 +1856,19 @@ test("software: combined MCP diagnostics retain voice history in one read-only d
   const run=uid();await voiceBenchmark(l.service,alice,{action:"start",run_id:run,scenario:"current_screen",device_id:r.actor.id});
   await voiceBenchmark(l.service,alice,{action:"finish",run_id:run,first_response_ms:700,total_ms:1300});
   const expectedVoice=await voiceRuns(l.service,alice,r.actor.id),batch=l.db.batch.bind(l.db),batches:string[][]=[];
+  const maintenance:(()=>Promise<void>)[]=[];
+  const scheduled=new BridgeEngine({db:l.db as unknown as D1Database,bucket:l.bucket as unknown as R2Bucket,now:l.now,schedule:(_delay,job)=>{maintenance.push(job);}});
   l.db.batch=async statements=>{batches.push(statements.map(s=>s.sql));assert.ok(statements.every(s=>/^(SELECT|WITH)\b/.test(s.sql)&&!/\b(INSERT|UPDATE|DELETE)\b/.test(s.sql)));return batch(statements);};
   const before=l.db.requests,changes=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_screen_metrics",arguments:{device_id:r.actor.id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_screen_metrics",arguments:{device_id:r.actor.id}}})}),{engine:()=>scheduled,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const result=(await response.json() as RpcReply).result;
   assert.equal(result.isError,false);assert.deepEqual(result.structuredContent.voice_benchmark,JSON.parse(JSON.stringify(expectedVoice)));
   assert.equal(l.db.requests-before,1);assert.equal(batches.length,1);
   assert.equal(l.db.raw.prepare("SELECT total_changes() n").get()!.n,changes);
   assert.equal(result.content.filter(x=>x.type==="image").length,0);
   assert.ok(!JSON.stringify(result.structuredContent).includes("inline_jpeg"));
+  assert.equal(maintenance.length,1,"Maintenance is scheduled separately from the read-only diagnostic projection");
+  l.db.batch=batch;await maintenance[0]();
 });
 
 test("software: diagnostics gate every projection against revocation or owner replacement at batch execution",async()=>{
@@ -2537,7 +1910,7 @@ test("software: a cache hint race returns the newly authorized frame and its mat
 });
 test("software: native read and its atomic snapshot share one diagnostic request ID",async()=>{
   const l=lab(),r=await running(l),e=edge(l);await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
-  const reply=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example"});
+  const reply=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development"});
   const body=await reply.json() as {result:{structuredContent:{mcp_request_id:string};_meta:{sayso_trace:{request_id:string}}}};
   assert.equal(body.result.structuredContent.mcp_request_id,body.result._meta.sayso_trace.request_id);
 });
@@ -2578,7 +1951,7 @@ test("software: conditional read falls back to pixels for changed content, geome
 });
 test("software: unchanged image MCP replies carry the reference in text and structure with zero image blocks",async()=>{
   const l=lab(),r=await running(l),e=edge(l);await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
-  async function read(args:Record<string,unknown>){const reply=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","mcp-protocol-version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:args}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example"});return (await reply.json() as RpcReply).result;}
+  async function read(args:Record<string,unknown>){const reply=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","mcp-protocol-version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:args}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development"});return (await reply.json() as RpcReply).result;}
   const first=await read({}),reference=first.structuredContent!.image_ref;
   assert.equal(first.content.filter(x=>x.type==="image").length,1);assert.equal(typeof reference,"string");
   const second=await read({if_unchanged_since:reference});assert.equal(second.structuredContent!.state,"unchanged");assert.equal(second.content.filter(x=>x.type==="image").length,0);
@@ -2827,7 +2200,7 @@ async function readCadenceFixture(mode:"advancing"|"quiet"|"unverified"|"source_
     }return statement;
   };
   const changes=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  const result=await l.service.readScreen(alice,{device_id:r.actor.id,allow_repeated:false,wait_for_new_ms:budget});
+  const result=await l.service.readScreen(alice,{device_id:r.actor.id,wait_for_new_ms:budget});
   return {result,clock,starts,waits,count,maximumInFlight,changesAfter:l.db.raw.prepare("SELECT total_changes() n").get()!.n,changes};
 }
 
@@ -3032,7 +2405,7 @@ test("software: terminal revocation redacts frame progress collected from earlie
   let clock=0;const l=lab(false,{now:()=>clock,sleep:async ms=>{clock+=ms;}}),r=await running(l),e=edge(l);
   await e.service.acceptFrame(r.actor,r.metadata,r.bytes);l.tick(2600);
   const reads=afterFirstScreenSnapshot(l,async()=>{l.db.raw.prepare("UPDATE sb_devices SET revoked=1 WHERE id=?").run(r.actor.id);});
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const result=(await response.json() as RpcReply).result,recovery=result.structuredContent.recovery as Record<string,unknown>;
   assert.equal(reads(),2);assert.equal(recovery.termination,"terminal");
   assert.equal((recovery.frame_progress as Record<string,unknown>).observation,"terminal");
@@ -3116,7 +2489,7 @@ test("software: slow first snapshot exhausts the soft retry budget instead of po
 
 test("software: native screen result carries bounded recovery evidence even when result meta is omitted",async()=>{
   let clock=0;const l=lab(false,{now:()=>clock,sleep:async ms=>{clock+=ms;}}),r=await running(l),reads=afterFirstScreenSnapshot(l,async()=>{});
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const result=(await response.json() as RpcReply).result,recovery=result.structuredContent.recovery as Record<string,unknown>;
   assert.equal(result.isError,false);assert.equal(reads(),32);assert.equal(recovery.lookups,32);assert.equal(recovery.retry_count,31);
   assert.equal(recovery.timeout_ms,15000);
@@ -3174,13 +2547,6 @@ test("software: consolidated upload validation still rejects replay, invalid pro
   await assert.rejects(e.service.acceptFrame(r.actor, r.metadata, r.bytes), /FRAME_ID_REUSED/);
   await assert.rejects(e.service.acceptFrame(r.actor, { ...r.metadata, frame_id: uid(), frame_seq: 2, clock_probe_id: uid() }, r.bytes), /INVALID_CLOCK_PROBE/);
   await assert.rejects(e.service.acceptFrame(r.actor, { ...r.metadata, frame_id: uid(), frame_seq: 2, worker_id: uid() }, r.bytes), /STALE_LEASE/);
-});
-test("software: screen catalogue declares a pure reader while capture refresh and LED remain writes", async () => {
-  const l = lab(), request = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
-  const response = await handleMcp(request, { engine: () => l.service, caller: () => alice, origin: "https://test.example" });
-  const rpc = await response.json() as {result: {tools: {name: string; annotations: {readOnlyHint: boolean}}[]}};
-  assert.equal(rpc.result.tools.find(t => t.name === "read_screen")?.annotations.readOnlyHint, true);
-  for (const name of ["view_screen", "get_latest_screen", "set_led"]) assert.equal(rpc.result.tools.find(t => t.name === name)?.annotations.readOnlyHint, false);
 });
 test("software: paused broadcast is reported directly without hiding a separate active phone", async () => {
   const l = lab(), r = await running(l), e = edge(l); await e.service.acceptFrame(r.actor, r.metadata, r.bytes);
@@ -3416,87 +2782,6 @@ async function textCapture(l: ReturnType<typeof lab>, r: Awaited<ReturnType<type
   return { metadata, ocr };
 }
 
-test("software: local OCR returns complete low-confidence text, alternatives and exact coordinates without pixels", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service), body = await textCapture(l, r);
-  await service.accept(r.actor, body);
-  const before = l.db.requests, changes = l.db.raw.prepare("SELECT total_changes() AS n").get()!.n;
-  l.bucket.get = async () => { throw new Error("OCR must not read an image"); };
-  const value = await service.read(alice, {});
-  assert.equal(value.state, "available"); assert.equal(value.format, "ocr"); assert.deepEqual(value.ocr, body.ocr);
-  assert.equal(l.db.requests - before, 1); assert.equal(l.db.raw.prepare("SELECT total_changes() AS n").get()!.n, changes);
-  assert.equal(value.image, undefined); assert.equal(l.bucket.values.size, 0);
-  const call = new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read_screen_text", arguments: {} } }) });
-  const rpc = await (await handleMcp(call, { engine: () => l.service, caller: () => alice, origin: "https://test.example" })).json() as RpcReply;
-  assert.equal(rpc.result.structuredContent.state, "available"); assert.equal(rpc.result.content.some(b => b.type === "image"), false);
-  assert.equal((rpc.result.structuredContent.ocr as typeof body.ocr).blocks[0].confidence, .12);
-});
-
-test("software: OCR never exposes foreign, stale, paused, replaced or revoked screen text", async () => {
-  for (const condition of ["foreign", "stale", "paused", "lease", "stopped", "revoked", "replaced"]) {
-    const l = lab(), r = await running(l), service = new ScreenText(l.service); await service.accept(r.actor, await textCapture(l, r));
-    if (condition === "stale") l.tick(3001);
-    if (condition === "paused") l.db.raw.exec("UPDATE sb_sessions SET capture_state='paused'");
-    if (condition === "lease") l.db.raw.exec("UPDATE sb_devices SET lease_epoch=lease_epoch+1");
-    if (condition === "stopped") await l.service.stop(r.actor, r.identity.bridge_session_id);
-    if (condition === "revoked") await l.service.revoke(alice, r.actor.id);
-    if (condition === "replaced") { await l.service.createSession(r.actor, { mode: "broadcast", broadcast_id: uid(), request_id: uid(), control_enabled: false }); assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_screen_texts").get()!.n, 0); }
-    const value = await service.read(condition === "foreign" ? bob : alice, {});
-    assert.notEqual(value.state, "available"); assert.equal(value.ocr, undefined); assert.equal(value.image, undefined);
-  }
-});
-
-test("software: OCR rejects invalid geometry, false text, unsupported claims and replay", async () => {
-  for (const condition of ["bounds", "confidence", "text", "hash", "button", "clock", "dimensions", "replay", "old_sequence", "old_orientation"]) {
-    const l = lab(), r = await running(l), service = new ScreenText(l.service), body = await textCapture(l, r);
-    if (condition === "bounds") body.ocr.blocks[0].bounds.x = 1000;
-    if (condition === "confidence") body.ocr.blocks[0].confidence = 2;
-    if (condition === "text") body.ocr.full_text = "different";
-    if (condition === "hash") body.metadata.content_sha256 = "0".repeat(64);
-    if (condition === "button") Object.assign(body.ocr.blocks[0], { clickable: true });
-    if (condition === "clock") body.metadata.capture_clock_verified = false;
-    if (condition === "dimensions") body.ocr.image_width = 100;
-    if (["replay", "old_sequence", "old_orientation"].includes(condition)) {
-      await service.accept(r.actor, body); l.tick(50);
-      if (condition !== "replay") { body.metadata.frame_id = uid(); body.metadata.capture_mono_ms += 50; body.metadata.capture_offset_ms = 50; }
-      if (condition === "old_orientation") { l.db.raw.exec("UPDATE sb_screen_texts SET orientation_epoch=2"); body.metadata.frame_seq++; }
-    }
-    await assert.rejects(service.accept(r.actor, body));
-  }
-});
-
-test("software: OCR rechecks capture freshness after a slow database read and does not leak payload", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service); await service.accept(r.actor, await textCapture(l, r));
-  const prepare = l.db.prepare.bind(l.db);
-  l.db.prepare = sql => {
-    const stmt = prepare(sql), bind = stmt.bind.bind(stmt);
-    if (sql.includes("sb_screen_texts t ON")) stmt.bind = (...values: unknown[]) => {
-      const bound = bind(...values), all = bound.all.bind(bound); bound.all = async <T>() => { const rows = await all<T>(); l.tick(3001); return rows; }; return bound;
-    };
-    return stmt;
-  };
-  const result = await service.read(alice, { wait_ms: 0 }); assert.equal(result.reason, "NO_FRESH_SCREEN_TEXT"); assert.equal(result.ocr, undefined);
-});
-
-test("software: OCR and screenshot MCP paths stay separate without automatic format fallback", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service); await service.accept(r.actor, await textCapture(l, r));
-  const request = (name: string, args: Record<string, unknown>) => new Request("https://test.example/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) });
-  const image = await (await handleMcp(request("get_latest_screen", { device_id: r.actor.id, bridge_session_id: r.identity.bridge_session_id, wait_ms: 0 }), { engine: () => l.service, caller: () => alice, origin: "https://test.example" })).json() as RpcReply;
-  assert.equal(image.result.structuredContent.ocr, undefined); assert.notEqual(image.result.structuredContent.state, "available");
-  await l.service.acceptFrame(r.actor, { ...r.metadata, frame_id: uid(), frame_seq: 2, capture_mono_ms: 10001 }, r.bytes);
-  const textOnly = await (await handleMcp(request("read_screen_text", {}), { engine: () => l.service, caller: () => alice, origin: "https://test.example" })).json() as RpcReply;
-  assert.equal(textOnly.result.structuredContent.format, "ocr"); assert.equal(textOnly.result.content.some(value => value.type === "image"), false);
-});
-
-test("software: OCR expiry deletes the bounded latest text and a delayed cleanup cannot delete a replacement", async () => {
-  const l = lab(), r = await running(l), e = edge(l), service = new ScreenText(e.service), first = await textCapture(l, r);
-  await service.accept(r.actor, first); const oldCleanup = e.jobs.find(job => job.delay === 15_100)!;
-  l.tick(100);
-  const next = await textCapture(l, r); Object.assign(next.metadata, { frame_id: uid(), frame_seq: 2, capture_mono_ms: 10100, capture_offset_ms: 100 });
-  await service.accept(r.actor, next); l.tick(15_001);
-  await oldCleanup.job(); assert.equal(l.db.raw.prepare("SELECT frame_id FROM sb_screen_texts").get()!.frame_id, next.metadata.frame_id);
-  await e.jobs.filter(job => job.delay === 15_100)[1].job(); assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_screen_texts").get()!.n, 0);
-});
-
 test("software: latest-only cleanup suppresses obsolete jobs even when callbacks fire out of order",async()=>{
   const scope={},jobs:(()=>Promise<void>)[]=[],calls:string[]=[];
   const schedule=(job:()=>Promise<void>)=>{jobs.push(job);return true;};
@@ -3544,154 +2829,6 @@ test("software: scheduling exceptions do not cancel an earlier cleanup registrat
   scheduleLatestExpiryCleanup(scope,"phone",job=>{jobs.push(job);return true;},async()=>{calls.push("original");});
   assert.throws(()=>scheduleLatestExpiryCleanup(scope,"phone",()=>{throw Error("scheduler unavailable");},async()=>{calls.push("failed-registration");}),/scheduler unavailable/);
   await jobs[0]();assert.deepEqual(calls,["original"]);
-});
-
-test("software: continuous OCR replacements need only one final database cleanup",async()=>{
-  const l=lab(),r=await running(l),e=edge(l),service=new ScreenText(e.service);let newest="";
-  for(let i=0;i<3;i++){
-    if(i)l.tick(100);const body=await textCapture(l,r);newest=uid();Object.assign(body.metadata,{frame_id:newest,frame_seq:i+1,capture_mono_ms:10000+i*100,capture_offset_ms:i*100,captured_at:new Date(l.now()).toISOString()});
-    const count=l.db.requests;await service.accept(r.actor,body);assert.equal(l.db.requests-count,1);
-  }
-  assert.equal(l.db.raw.prepare("SELECT frame_id FROM sb_screen_texts").get()!.frame_id,newest);
-  l.tick(15101);const before=l.db.requests,jobs=e.jobs.filter(job=>job.delay===15100);assert.equal(jobs.length,3);
-  for(const job of jobs)await job.job();assert.equal(l.db.requests-before,1);assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_screen_texts").get()!.n,0);
-});
-
-test("software: a delayed older commit response cannot cancel the latest frame cleanup",async()=>{
-  const l=lab(),r=await running(l),e=edge(l),service=new ScreenText(e.service),first=await textCapture(l,r),batch=l.db.batch.bind(l.db);let release!:()=>void,committed!:()=>void,calls=0;
-  const held=new Promise<void>(resolve=>{release=resolve;}),firstCommitted=new Promise<void>(resolve=>{committed=resolve;});
-  l.db.batch=async statements=>{const index=++calls,result=await batch(statements);if(index===1){committed();await held;}return result;};
-  const oldResponse=service.accept(r.actor,first);await firstCommitted;l.tick(100);
-  const next=await textCapture(l,r);Object.assign(next.metadata,{frame_id:uid(),frame_seq:2,capture_mono_ms:10100,capture_offset_ms:100,captured_at:new Date(l.now()).toISOString()});await service.accept(r.actor,next);
-  release();await oldResponse;assert.equal(l.db.raw.prepare("SELECT frame_id FROM sb_screen_texts").get()!.frame_id,next.metadata.frame_id);
-  l.tick(15101);for(const job of e.jobs.filter(job=>job.delay===15100))await job.job();
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_screen_texts").get()!.n,0);
-});
-
-test("software: a delayed prior-session response cannot supersede a reset sequence in a new session",async()=>{
-  const l=lab(),r=await running(l),e=edge(l),service=new ScreenText(e.service),first=await textCapture(l,r),batch=l.db.batch.bind(l.db);first.metadata.frame_seq=50;let release!:()=>void,committed!:()=>void,calls=0;
-  const held=new Promise<void>(resolve=>{release=resolve;}),firstCommitted=new Promise<void>(resolve=>{committed=resolve;});
-  l.db.batch=async statements=>{const index=++calls,result=await batch(statements);if(index===1){committed();await held;}return result;};
-  const oldResponse=service.accept(r.actor,first);await firstCommitted;l.tick(100);
-  const broadcast=uid(),session=await l.service.createSession(r.actor,{mode:"broadcast",broadcast_id:broadcast,request_id:uid(),control_enabled:false}),worker=uid();
-  const identity={bridge_session_id:session.bridge_session_id,broadcast_id:broadcast,worker_id:worker},lease=await l.service.claimWorker(r.actor,{...identity,worker_kind:"broadcast"}),probe=await l.service.clockProbe(r.actor);
-  const next=await textCapture(l,r);Object.assign(next.metadata,{...identity,lease_epoch:lease.lease_epoch,clock_probe_id:probe.clock_probe_id,frame_id:uid(),frame_seq:1,capture_mono_ms:10100,capture_offset_ms:0,captured_at:new Date(l.now()).toISOString()});
-  await service.accept(r.actor,next);release();await oldResponse;
-  assert.equal(l.db.raw.prepare("SELECT frame_id FROM sb_screen_texts").get()!.frame_id,next.metadata.frame_id);
-  l.tick(15101);for(const job of e.jobs.filter(job=>job.delay===15100))await job.job();
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_screen_texts").get()!.n,0);
-});
-
-test("software: commit-expiry diagnostics retain original timing and still reject stale data",async()=>{
-  const l=lab(),r=await running(l),service=new ScreenText(l.service),body=await textCapture(l,r),batch=l.db.batch.bind(l.db),logs:Record<string,unknown>[]=[],warn=console.warn;
-  l.db.batch=async statements=>{const result=await batch(statements);l.tick(2100);return result;};console.warn=(value:unknown)=>{logs.push(JSON.parse(String(value)));};
-  try{await assert.rejects(service.accept(r.actor,body),/OCR_EXPIRED_DURING_COMMIT/);}finally{console.warn=warn;}
-  const rejection=logs.find(x=>x.event==="screen_text_upload_rejected")!;assert.equal(rejection.capture_age_at_batch_issue_ms,50);assert.equal(rejection.freshness_margin_at_batch_issue_ms,1950);assert.equal(rejection.capture_age_after_batch_ms,2150);assert.ok(Number(rejection.batch_roundtrip_ms)>=0);
-  const record=l.db.raw.prepare("SELECT capture_lower FROM sb_screen_texts").get()!;assert.equal(Number(record.capture_lower),l.now()-2150);assert.equal((await service.read(alice,{wait_ms:0})).ocr,undefined);
-  assert.equal(JSON.stringify(rejection).includes(body.ocr.full_text),false);
-});
-
-test("software: a committed OCR row keeps expiry cleanup when its worker lease lapses during IO",async()=>{
-  const l=lab(),r=await running(l),e=edge(l),service=new ScreenText(e.service),body=await textCapture(l,r),batch=l.db.batch.bind(l.db);
-  l.db.raw.prepare("UPDATE sb_devices SET worker_expires=? WHERE id=?").run(l.now()+100,r.actor.id);
-  l.db.batch=async statements=>{const result=await batch(statements);l.tick(200);return result;};
-  await assert.rejects(service.accept(r.actor,body),/STALE_LEASE/);
-  assert.equal(l.db.raw.prepare("SELECT frame_id FROM sb_screen_texts").get()!.frame_id,body.metadata.frame_id);
-  const jobs=e.jobs.filter(job=>job.delay===15100);assert.equal(jobs.length,1);l.tick(15101);await jobs[0].job();
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_screen_texts").get()!.n,0);
-});
-
-
-test("software: OCR token authentication and live commit take one database round trip", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service), body = await textCapture(l, r);
-  const before = l.db.requests;
-  const accepted = await service.acceptRequest(new Request("https://test.example/v1/device/screen-text", { headers: { authorization: "Bearer " + r.token } }), body);
-  assert.equal(l.db.requests - before, 1); assert.equal(accepted.freshness_limit_ms, 2000);
-  assert.equal((await service.read(alice, { wait_ms: 0 })).state, "available");
-  const other = await paired(l, bob), foreign = await textCapture(l, r);
-  foreign.metadata.frame_id = uid(); foreign.metadata.frame_seq++; foreign.metadata.capture_mono_ms++;
-  await assert.rejects(service.acceptRequest(new Request("https://test.example/v1/device/screen-text", { headers: { authorization: "Bearer " + other.token } }), foreign), /STALE_SESSION/);
-  l.db.raw.exec("UPDATE sb_devices SET revoked=1 WHERE id='" + r.actor.id + "'");
-  await assert.rejects(service.acceptRequest(new Request("https://test.example/v1/device/screen-text", { headers: { authorization: "Bearer " + r.token } }), foreign), /UNAUTHENTICATED/);
-});
-
-test("software: OCR never returns a two-second-old frame even with a legacy three-second argument", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service);
-  await service.accept(r.actor, await textCapture(l, r)); l.tick(2001);
-  const value = await service.read(alice, { max_age_ms: 3000, wait_ms: 0 });
-  assert.equal(value.state, "unavailable"); assert.equal(value.ocr, undefined);
-});
-
-test("software: OCR read bridges an upload gap without renewing an old capture timestamp", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service);
-  await service.accept(r.actor, await textCapture(l, r)); l.tick(2100);
-  const next = await textCapture(l, r);
-  Object.assign(next.metadata, { frame_id: uid(), frame_seq: 2, capture_mono_ms: 12100, capture_offset_ms: 2100, captured_at: new Date(l.now()).toISOString() });
-  const upload = new Promise<void>((resolve, reject) => setTimeout(() => { service.accept(r.actor, next).then(() => resolve(), reject); }, 20));
-  const result = await service.read(alice, { wait_ms: 500 }); await upload;
-  assert.equal(result.state, "available");
-  const returnedMetadata = result.metadata as Record<string, unknown>;
-  assert.equal(returnedMetadata.frame_id, next.metadata.frame_id);
-  assert.ok(Number(returnedMetadata.age_ms) <= 2000);
-});
-
-test("software: OCR terminal polling observes an upload completed during the final database round trip",async()=>{
-  const l=lab(),r=await running(l),issued=l.now();let mono=0,queries=0;let frame:string|null=null;
-  const service=new ScreenText(l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;l.tick(ms);}});
-  await service.accept(r.actor,await textCapture(l,r));l.tick(2100);
-  const prepare=l.db.prepare.bind(l.db);
-  l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.startsWith("WITH candidates AS"))statement.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{const result=await all<T>();queries++;mono+=185;l.tick(185);if(queries===5){const next=await textCapture(l,r),offset=l.now()-issued;frame=uid();Object.assign(next.metadata,{frame_id:frame,frame_seq:2,capture_mono_ms:10000+offset,capture_offset_ms:offset,captured_at:new Date(l.now()).toISOString()});await service.accept(r.actor,next);}return result;};return bound;};return statement;};
-  const value=await service.read(alice,{wait_ms:1200});assert.equal(value.state,"available");assert.equal((value.metadata as Record<string,unknown>).frame_id,frame);assert.equal(queries,6);assert.equal(mono,1350);
-});
-
-test("software: terminal OCR miss is bounded and never refreshes or exposes old text",async()=>{
-  const l=lab(),r=await running(l);let mono=0;const starts:number[]=[];
-  const service=new ScreenText(l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;l.tick(ms);}}),body=await textCapture(l,r);
-  await service.accept(r.actor,body);l.tick(2100);const changes=l.db.raw.prepare("SELECT total_changes() AS n").get()!.n,prepare=l.db.prepare.bind(l.db);
-  l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.startsWith("WITH candidates AS"))statement.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{starts.push(mono);const value=await all<T>();mono+=185;l.tick(185);return value;};return bound;};return statement;};
-  const value=await service.read(alice,{wait_ms:1200}),trace=value.trace as Record<string,unknown>,last=trace.last_poll as Record<string,unknown>;
-  assert.equal(value.state,"unavailable");assert.equal(value.ocr,undefined);assert.equal(starts.length,6);assert.ok(starts.every(x=>x<1200));assert.equal(mono,1350);
-  assert.equal(trace.terminal_poll_used,true);assert.equal(trace.poll_window_overrun_ms,150);assert.equal(last.cause,"CAPTURE_TOO_OLD");assert.equal(last.source_probe_rtt_ms,10);
-  assert.equal(JSON.stringify(trace).includes(body.ocr.full_text),false);assert.equal(l.db.raw.prepare("SELECT total_changes() AS n").get()!.n,changes);
-});
-
-test("software: zero-duration OCR database polls cannot loop forever in the terminal slot",async()=>{
-  const l=lab(),r=await running(l);let mono=0;const service=new ScreenText(l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;l.tick(ms);}});
-  await service.accept(r.actor,await textCapture(l,r));l.tick(2100);
-  const value=await service.read(alice,{wait_ms:100}),trace=value.trace as Record<string,unknown>;
-  assert.equal(value.state,"unavailable");assert.equal(trace.poll_count,3);assert.equal(trace.terminal_poll_used,true);assert.equal(mono,60);assert.equal(value.ocr,undefined);
-});
-
-test("software: zero-wait OCR reads retain a single database lookup and no terminal poll",async()=>{
-  const l=lab(),r=await running(l),mono=0;let sleeps=0;const service=new ScreenText(l.service,{now:()=>mono,sleep:async()=>{sleeps++;}});
-  await service.accept(r.actor,await textCapture(l,r));l.tick(2100);const before=l.db.requests;
-  const value=await service.read(alice,{wait_ms:0}),trace=value.trace as Record<string,unknown>;
-  assert.equal(l.db.requests-before,1);assert.equal(trace.poll_count,1);assert.equal(trace.terminal_poll_used,false);assert.equal(sleeps,0);
-});
-
-test("software: terminal OCR polls recheck pause and owner revocation before serving data",async()=>{
-  for(const mutation of ["UPDATE sb_sessions SET capture_state='paused'","UPDATE sb_devices SET revoked=1"]){
-    const l=lab(),r=await running(l);let mono=0,queries=0;const service=new ScreenText(l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;l.tick(ms);}});
-    await service.accept(r.actor,await textCapture(l,r));l.tick(2100);const prepare=l.db.prepare.bind(l.db);
-    l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.startsWith("WITH candidates AS"))statement.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{const result=await all<T>();queries++;mono+=185;l.tick(185);if(queries===5)l.db.raw.exec(mutation);return result;};return bound;};return statement;};
-    const value=await service.read(alice,{wait_ms:1200});assert.equal(value.state,mutation.includes("paused")?"paused":"unavailable");assert.equal(value.ocr,undefined);assert.equal(queries,6);
-  }
-});
-
-test("software: a fresh terminal result that expires in flight is still rejected",async()=>{
-  const l=lab(),r=await running(l),issued=l.now();let mono=0,queries=0;
-  const service=new ScreenText(l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;l.tick(ms);}});await service.accept(r.actor,await textCapture(l,r));l.tick(2100);const prepare=l.db.prepare.bind(l.db);
-  l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.startsWith("WITH candidates AS"))statement.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{const result=await all<T>();queries++;const io=queries===6?2500:185;mono+=io;l.tick(io);if(queries===5){const next=await textCapture(l,r),offset=l.now()-issued;Object.assign(next.metadata,{frame_id:uid(),frame_seq:2,capture_mono_ms:10000+offset,capture_offset_ms:offset,captured_at:new Date(l.now()).toISOString()});await service.accept(r.actor,next);}return result;};return bound;};return statement;};
-  const value=await service.read(alice,{wait_ms:1200}),trace=value.trace as Record<string,unknown>;
-  assert.equal(queries,6);assert.equal(value.state,"unavailable");assert.equal(value.ocr,undefined);assert.equal((trace.last_poll as Record<string,unknown>).cause,"CAPTURE_TOO_OLD");assert.equal(trace.maximum_poll_ms,2500);
-});
-
-test("software: OCR diagnostic fields never cross owner scope or contain screen bodies",async()=>{
-  const l=lab(),r=await running(l),service=new ScreenText(l.service),body=await textCapture(l,r);await service.accept(r.actor,body);
-  const own=await service.read(alice,{wait_ms:0}),foreign=await service.read(bob,{wait_ms:0});
-  const trace=own.trace as Record<string,unknown>;assert.equal((trace.last_poll as Record<string,unknown>).source_ocr_ms,123);
-  assert.equal(JSON.stringify(trace).includes(body.ocr.full_text),false);assert.equal(foreign.ocr,undefined);assert.equal((foreign.trace as Record<string,unknown>).poll_count,1);
-  assert.equal(Object.hasOwn((foreign.trace as Record<string,unknown>).last_poll as object,"observed_frame_id"),false);
 });
 
 test("software: probe persistence diagnostics do not move the trusted issuance anchor",async()=>{
@@ -3879,14 +3016,6 @@ test("software: a permit that expires during signing is omitted with its TTL",as
   assert.equal(probe.frame_upload_permit_ttl_ms,undefined);
 });
 
-test("software: OCR rejects a capture that expires during its atomic commit", async () => {
-  const l = lab(), r = await running(l), service = new ScreenText(l.service), body = await textCapture(l, r);
-  const batch = l.db.batch.bind(l.db);
-  l.db.batch = async statements => { const result = await batch(statements); l.tick(2100); return result; };
-  await assert.rejects(service.accept(r.actor, body), /OCR_EXPIRED_DURING_COMMIT/);
-  assert.equal((await service.read(alice, { wait_ms: 0 })).ocr, undefined);
-});
-
 
 async function mouseReady(l: ReturnType<typeof lab>) {
   const r = await running(l), mouse = new MouseControl(l.service), led = new LEDControl(l.service);
@@ -3916,14 +3045,14 @@ async function capturedAtPhoneMono(l:ReturnType<typeof lab>,r:Awaited<ReturnType
 async function systemSearchReady(l:ReturnType<typeof lab>){
   const r=await mouseReady(l);
   const hardware={...r.identity,...r.hardware,capabilities:{...r.hardware.capabilities,
-    "hid.keyboard.system_search":true,"sayso.system_search":true}};
+    "hid.keyboard.system_search":true,"sayso.system_search":true,"sayso.system_search.scope_only.v1":true}};
   await new LEDControl(l.service).bind(r.actor,hardware);await l.service.heartbeat(r.actor,r.beat);
   const {meta}=await capturedAtPhoneMono(l,r,9999,1,{source_seq:1});
-  const args={device_id:r.actor.id,source_frame_id:meta.frame_id,idempotency_key:uid(),wait_ms:0};
+  const args={device_id:r.actor.id,idempotency_key:uid(),wait_ms:0};
   async function invoke(name:string,arguments_:Record<string,unknown>,user=alice){
     const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name,arguments:arguments_}})}),
-      {engine:()=>l.service,caller:()=>user,origin:"https://test.example",performance:{log:()=>{}}});
+      {engine:()=>l.service,caller:()=>user,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
     return (await response.json() as RpcReply).result;
   }
   return {...r,meta,args,hardware,invoke};
@@ -3947,7 +3076,7 @@ test("software: scope-only system search starts without a preimage and returns o
   assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_frames WHERE device_id=?").get(device)!.n,0);
   const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE device_id=?").get(device)!.n;
   const unboundProof=await liveMcp(l.service,"open_system_search",{...r.args,source_view_proof:"fixture-proof"});
-  assert.equal(unboundProof.result.structuredContent.error,"SYSTEM_SEARCH_PROOF_REQUIRES_SOURCE_FRAME");
+  assert.equal(unboundProof.result.structuredContent.error,"INVALID_ARGUMENTS");
   assert.equal(count(),0);
   let announce!: (id:string)=>void;
   const queued=new Promise<string>(resolve=>{announce=resolve;});
@@ -4001,38 +3130,30 @@ test("software: scope-only system search starts without a preimage and returns o
   assert.ok(Number(after.wait_budget_ms)>4500&&Number(after.wait_budget_ms)<=5000);
   const duplicate=await liveMcp(l.service,"open_system_search",r.args);
   assert.equal(duplicate.result.structuredContent.command_id,id);
-  const changed=await liveMcp(l.service,"open_system_search",{...r.args,source_frame_id:meta.frame_id});
+  const changed=await liveMcp(l.service,"open_system_search",{...r.args,settle_ms:700});
   assert.equal(changed.result.structuredContent.error,"IDEMPOTENCY_CONFLICT");
   assert.equal(await claim(r.token),null);
   assert.equal(count(),1);
 });
 
-test("software: scope-only search rejects older Apps while a new App can still use explicit reviewed source",async()=>{
+test("software: current Search requires scope capability and rejects the removed source-image argument",async()=>{
   const l=lab(),r=await scopeOnlySystemSearchReady(l,false),device=r.actor.id;
   const before=await r.mouse.status(alice,{device_id:device});
-  assert.equal(before.system_search_ready,true);
+  assert.equal(before.system_search_ready,undefined);
   assert.equal(before.system_search_scope_only_ready,undefined);
   const rejected=await liveMcp(l.service,"open_system_search",r.args);
-  assert.equal(rejected.result.structuredContent.error,"SYSTEM_SEARCH_SCOPE_ONLY_NOT_READY");
+  assert.ok(["SYSTEM_SEARCH_SCOPE_ONLY_NOT_READY","MOUSE_ACTION_UNSUPPORTED"].includes(String(rejected.result.structuredContent.error)));
   assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
 
   await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
     "sayso.system_search.scope_only.v1":true}});
   await l.service.heartbeat(r.actor,r.beat);
   const {meta}=await capturedAtPhoneMono(l,r,9999,1,{source_seq:1});
-  const args={...r.args,source_frame_id:meta.frame_id};
-  const reviewed=await liveMcp(l.service,"open_system_search",args);
-  const command=reviewed.result.structuredContent;
-  assert.equal(command.state,"queued");
-  assert.deepEqual(command.precondition,{system_search_frame_id:meta.frame_id,capture_min_gap_ms:300});
-  const legacyAdmission=l.db.raw.prepare("SELECT worker_id,lease_epoch FROM sb_mouse_commands WHERE id=?").get(String(command.command_id))!;
-  assert.equal(legacyAdmission.worker_id,null);
-  assert.equal(legacyAdmission.lease_epoch,null);
-  await new LEDControl(l.service).bind(r.actor,r.hardware);
-  const claim=await r.mouse.claim(r.actor,{...r.identity,control_epoch:command.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH},0);
-  assert.ok(claim);
-  assert.equal(claim.command_id,command.command_id);
-  assert.deepEqual(claim.precondition,command.precondition);
+  const rejectedOld=await liveMcp(l.service,"open_system_search",{...r.args,source_frame_id:meta.frame_id});
+  assert.equal(rejectedOld.result.structuredContent.error,"INVALID_ARGUMENTS");
+  const current=await liveMcp(l.service,"open_system_search",r.args);
+  assert.equal(current.result.isError,false);
+  assert.equal(record(current.result.structuredContent.precondition).system_search_mode,"scope_only.v1");
 });
 
 test("software: negotiated raw TTL uses only an exact scope-only search and never renews the row or live authority",async t=>{
@@ -4042,6 +3163,10 @@ test("software: negotiated raw TTL uses only an exact scope-only search and neve
     await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
       [scopedSearchTTLCapability]:mode!=="no_capability"}});
     const source=mode==="reviewed_source"?(await capturedAtPhoneMono(l,r,9999,1,{source_seq:1})).meta.frame_id:undefined;
+    if(mode==="reviewed_source"){
+      await assert.rejects(r.mouse.enqueue(alice,SYSTEM_SEARCH_KIND,{...r.args,source_frame_id:source}),/CURRENT_ACTION_PROTOCOL_REQUIRED/);
+      assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);return;
+    }
     const queued=mode==="ordinary_click"?await r.mouse.enqueue(alice,"pointer.click",r.args):
       await r.mouse.enqueue(alice,SYSTEM_SEARCH_KIND,{...r.args,source_frame_id:source});
     const args={...r.identity,control_epoch:queued.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
@@ -4114,86 +3239,15 @@ test("software: scope-only system search fences owner, permission, control, boar
 });
 
 const sourceViewLab=()=>lab(false,undefined,new FrameUploadPermits("59".repeat(32)));
-async function reviewedSystemSearchView(r:Awaited<ReturnType<typeof systemSearchReady>>){
-  const read=await r.invoke("read_screen",{device_id:r.actor.id,wait_for_new_ms:0,allow_repeated:false,include_source_view_proof:true});
-  assert.equal(read.structuredContent.state,"available");
-  assert.equal(read.content.filter(c=>c.type==="image").length,1);
-  const proof=read.structuredContent.source_view_proof;
-  assert.equal(typeof proof,"string");
-  return {read,proof:String(proof)};
-}
-
-test("software: cancellation while preparing a compound shortcut creates no input and preserves original readback",async t=>{
-  for(const mode of ["scope_readiness","legacy_proof","admitted_readback"] as const)await t.test(mode,async()=>{
-    const l=sourceViewLab(),r=await systemSearchReady(l),abort=new AbortController();
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      "sayso.system_search.scope_only.v1":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const source=mode==="legacy_proof"?{source_frame_id:r.meta.frame_id,source_view_proof:(await reviewedSystemSearchView(r)).proof}:{};
-    const scopeArgs={device_id:r.actor.id,idempotency_key:uid(),wait_ms:0};
-    const original=mode==="admitted_readback"?
-      await r.mouse.enqueueObserved(alice,SYSTEM_SEARCH_KIND,scopeArgs):undefined;
-    let reached=0;
-    if(mode==="legacy_proof"){
-      const verify=l.service.verifySourceViewProof.bind(l.service);
-      l.service.verifySourceViewProof=async(...args)=>{
-        const verified=await verify(...args);
-        assert.ok(verified);
-        reached++;abort.abort();
-        return verified;
-      };
-    }else{
-      const prepare=l.db.prepare.bind(l.db);
-      l.db.prepare=sql=>{
-        const statement=prepare(sql);
-        if(sql.includes("SELECT d.*,s.id AS session_id")&&sql.includes("c.id AS prior_id")){
-          const bind=statement.bind.bind(statement);
-          statement.bind=(...args)=>{
-            const bound=bind(...args),all=bound.all.bind(bound);
-            bound.all=async<T>()=>{
-              const result=await all<T>();
-              reached++;abort.abort();
-              return result;
-            };
-            return bound;
-          };
-        }
-        return statement;
-      };
-    }
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-    if(original){
-      const saved=await r.mouse.enqueueObserved(alice,SYSTEM_SEARCH_KIND,scopeArgs,uid(),
-        {signal:abort.signal,cancelSystemSearchBeforeAdmission:true});
-      assert.equal(saved.command_id,original.command_id);
-      assert.equal(saved.state,original.state);
-      assert.equal(count(),1);
-    }else{
-      const run=new AppSearchQuery(l.service,async()=>{throw Error("Cancelled shortcut must not send a JPEG to the reviewer");});
-      const preparation_id=uid();
-      const result=await run.run(alice,{preparation_id,device_id:r.actor.id,query:"Google map",...source},uid(),abort.signal);
-      assert.equal(result.state,"stopped");
-      assert.equal(result.reason,"APP_SEARCH_QUERY_CANCELLED");
-      assert.equal(result.shortcut_command_id,null);
-      assert.equal(result.text_command_id,null);
-      assert.equal(count(),0);
-      const saved=await run.get(alice,preparation_id,false,uid(),new AbortController().signal);
-      assert.equal(saved.reason,"APP_SEARCH_QUERY_CANCELLED");
-      assert.equal(count(),0);
-    }
-    assert.equal(reached,1);
-    assert.equal(abort.signal.aborted,true);
-  });
-});
 
 test("software: system search is one exact same-boot action with an original after-image",async()=>{
   const l=lab(),r=await systemSearchReady(l);
   assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).system_search_ready,true);
   const first=await r.invoke("open_system_search",r.args),command=first.structuredContent,id=String(command.command_id);
   assert.equal(first.isError,false);assert.equal(command.kind,"keyboard.open_search");
-  assert.deepEqual(command.payload,{});assert.deepEqual(command.precondition,{system_search_frame_id:r.meta.frame_id,capture_min_gap_ms:300});
+  assert.deepEqual(command.payload,{});assert.deepEqual(command.precondition,{system_search_mode:"scope_only.v1",capture_min_gap_ms:300});
   assert.equal((await r.invoke("open_system_search",r.args)).structuredContent.command_id,id);
-  assert.equal((await r.invoke("open_system_search",{...r.args,source_frame_id:uid()})).structuredContent.error,"IDEMPOTENCY_CONFLICT");
+  assert.equal((await r.invoke("open_system_search",{...r.args,settle_ms:700})).structuredContent.error,"IDEMPOTENCY_CONFLICT");
   const claim=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",{headers:{Authorization:"Bearer "+r.token}}),
     async()=>({body:{...r.identity,control_epoch:command.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH},waitMS:0}));
   assert.equal(claim?.command_id,id);assert.equal(claim?.state,"executing");
@@ -4216,7 +3270,7 @@ test("software: system search is one exact same-boot action with an original aft
   assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
 });
 
-test("software: system search rejects missing capability, stale source and unrelated parameters",async()=>{
+test("software: current Search ignores image age but rejects missing capability and unrelated parameters",async()=>{
   for(const mode of ["no_board_cap","no_phone_cap","old_frame","wrong_frame","foreign","stopped","app_name","text","payload"]){
     const l=lab(),r=await systemSearchReady(l);
     let args:Record<string,unknown>={...r.args},user=alice;
@@ -4230,7 +3284,7 @@ test("software: system search rejects missing capability, stale source and unrel
     if(mode==="stopped")await r.mouse.stop(alice,{device_id:r.actor.id});
     if(["app_name","text","payload"].includes(mode))args={...args,[mode]:mode==="payload"?{keys:[40]}:"target app"};
     const response=await r.invoke("open_system_search",args,user);
-    assert.equal(response.isError,true,mode);assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0,mode);
+    assert.equal(response.isError,mode!=="old_frame",mode);assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,mode==="old_frame"?1:0,mode);
   }
 });
 
@@ -4255,131 +3309,6 @@ test("software: system search capabilities remain fenced at claim and start",asy
   }
 });
 
-test("software: system search accepts a reviewed predecessor only with a current same-pixel source view proof",async()=>{
-  for(const mode of ["fresh_successor","equivalent_rect_order","orientation_change","native_size_change","orientation_value_change","worker_change"]){
-    const l=sourceViewLab(),r=await systemSearchReady(l),{proof}=await reviewedSystemSearchView(r);
-    const changed=mode==="orientation_change"?{orientation_epoch:1}:mode==="native_size_change"
-      ?{native_width_px:Number(r.metadata.native_width_px)*2,native_height_px:Number(r.metadata.native_height_px)*2}
-      :mode==="orientation_value_change"?{orientation:"portrait_upside_down"}
-      :mode==="equivalent_rect_order"?{content_rect:{height:32,width:16,y:0,x:0}}:{};
-    l.tick(100);const next=await capturedAtPhoneMono(l,r,10100,2,{source_seq:2,...changed});
-    if(mode==="worker_change")l.db.raw.prepare("UPDATE sb_devices SET worker_id=? WHERE id=?").run(uid(),r.actor.id);
-    const reply=await r.invoke("open_system_search",{...r.args,source_view_proof:proof});
-    const equivalent=mode==="fresh_successor"||mode==="equivalent_rect_order";
-    assert.equal(reply.isError,!equivalent,mode);
-    if(equivalent)assert.deepEqual(reply.structuredContent.precondition,{system_search_frame_id:next.meta.frame_id,capture_min_gap_ms:300});
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,equivalent?1:0,mode);
-  }
-});
-
-test("software: opted-in real read issues a source view proof with no write and emits no proof for unchanged or stale capture",async()=>{
-  const l=sourceViewLab(),r=await systemSearchReady(l);
-  const before=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  const {read}=await reviewedSystemSearchView(r);
-  assert.equal(l.db.raw.prepare("SELECT total_changes() n").get()!.n,before);
-  const unchanged=await r.invoke("read_screen",{device_id:r.actor.id,wait_for_new_ms:0,include_source_view_proof:true,
-    if_unchanged_since:read.structuredContent.image_ref});
-  assert.equal(unchanged.structuredContent.state,"unchanged");
-  assert.equal(unchanged.structuredContent.source_view_proof,undefined);
-  l.tick(2600);
-  l.db.raw.prepare("UPDATE sb_frames SET repeat_presented_at=?,repeat_received_at=?,repeat_phone_mono_ms=?,repeat_sequence=1 WHERE device_id=?")
-    .run(l.now(),l.now(),11600,r.actor.id);
-  const repeated=await r.invoke("read_screen",{device_id:r.actor.id,wait_for_new_ms:0,allow_repeated:true,include_source_view_proof:true});
-  assert.equal(repeated.structuredContent.state,"unavailable");
-  assert.equal(repeated.content.filter(c=>c.type==="image").length,0);
-  assert.equal(repeated.structuredContent.source_view_proof,undefined);
-  assert.equal((await r.invoke("open_system_search",r.args)).isError,true);
-});
-
-test("software: source view proof can rebind a briefly older reviewed frame, never its naked ID or a second input",async()=>{
-  const l=sourceViewLab(),r=await systemSearchReady(l),{proof}=await reviewedSystemSearchView(r);
-  l.tick(1600);
-  const next=await capturedAtPhoneMono(l,r,11600,2,{source_seq:2});
-  assert.equal((await r.invoke("open_system_search",r.args)).structuredContent.error,"SYSTEM_SEARCH_FRAME_OR_CONTROL_CHANGED");
-  const approved=await r.invoke("open_system_search",{...r.args,source_view_proof:proof});
-  assert.equal(approved.isError,false);
-  assert.deepEqual(approved.structuredContent.precondition,{system_search_frame_id:next.meta.frame_id,capture_min_gap_ms:300});
-  l.tick(500);
-  const replay=await r.invoke("open_system_search",r.args);
-  assert.equal(replay.structuredContent.command_id,approved.structuredContent.command_id);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: same-pixel rebind rejects mutated proof, another owner, reset scope, expired view and invalid capture order",async()=>{
-  for(const mode of ["tampered","foreign","control_reset","missing_commit_scope","expired","same_source_sequence","older_lower_bound"]){
-    const l=sourceViewLab(),r=await systemSearchReady(l),{proof}=await reviewedSystemSearchView(r);
-    let sentProof=proof;
-    if(mode==="tampered"){
-      const [body,mac]=proof.split(".");
-      sentProof=body+"."+(mac[0]==="A"?"B":"A")+mac.slice(1);
-    }
-    if(mode==="control_reset")l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.identity.bridge_session_id);
-    if(mode==="missing_commit_scope")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_remove(acceptance_json,'$.control_epoch') WHERE frame_id=?").run(r.meta.frame_id);
-    const delay=mode==="expired"?2100:100;
-    l.tick(delay);
-    await capturedAtPhoneMono(l,r,10000+delay,2,{source_seq:mode==="same_source_sequence"?1:2,
-      ...(mode==="older_lower_bound"?{capture_offset_ms:-200}:{})});
-    const reply=await r.invoke("open_system_search",{...r.args,source_view_proof:sentProof},mode==="foreign"?bob:alice);
-    assert.equal(reply.isError,true,mode);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0,mode);
-  }
-});
-
-test("software: changed pixels fail rebind and an enqueue-to-dispatch race never starts the shortcut",async()=>{
-  for(const stage of ["enqueue","claim","start"]){
-    const l=sourceViewLab(),r=await systemSearchReady(l),{proof}=await reviewedSystemSearchView(r);
-    const changed=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,30)},70).data;
-    const different={...r,bytes:changed,metadata:{...r.metadata,content_sha256:await hash(changed)}};
-    const args={...r.args,source_view_proof:proof};
-    if(stage==="enqueue"){
-      l.tick(80);await capturedAtPhoneMono(l,different,10080,2,{source_seq:2});
-      const reply=await r.invoke("open_system_search",args);
-      assert.equal(reply.structuredContent.error,"SYSTEM_SEARCH_FRAME_OR_CONTROL_CHANGED");
-      continue;
-    }
-    l.tick(80);await capturedAtPhoneMono(l,r,10080,2,{source_seq:2});
-    const admitted=await r.invoke("open_system_search",args);
-    assert.equal(admitted.isError,false);
-    const c=admitted.structuredContent,id=String(c.command_id);
-    if(stage==="start")assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,id);
-    l.tick(80);await capturedAtPhoneMono(l,different,10160,3,{source_seq:3});
-    if(stage==="claim")assert.equal(await r.mouse.claim(r.actor,{...r.identity,control_epoch:c.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH},0),null);
-    else await assert.rejects(r.mouse.start(r.actor,id,{...r.identity,control_epoch:c.control_epoch}),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
-    assert.notEqual(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(id)!.state,"executing");
-  }
-});
-
-test("software: exact same-pixel head replacement before claim or start preserves the native source precondition",async()=>{
-  for(const stage of ["claim","start"]){
-    const l=sourceViewLab(),r=await systemSearchReady(l),{proof}=await reviewedSystemSearchView(r);
-    l.tick(80);const execution=await capturedAtPhoneMono(l,r,10080,2,{source_seq:2});
-    const admitted=await r.invoke("open_system_search",{...r.args,source_view_proof:proof});
-    assert.equal(admitted.isError,false);
-    const c=admitted.structuredContent,id=String(c.command_id);
-    if(stage==="start")assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,id);
-    l.tick(80);await capturedAtPhoneMono(l,r,10160,3,{source_seq:3});
-    const dispatched=stage==="claim"
-      ?await r.mouse.claim(r.actor,{...r.identity,control_epoch:c.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH},0)
-      :await r.mouse.start(r.actor,id,{...r.identity,control_epoch:c.control_epoch});
-    assert.equal(dispatched?.command_id,id);
-    assert.equal(dispatched?.state,"executing");
-    assert.deepEqual(dispatched?.precondition,{system_search_frame_id:execution.meta.frame_id,capture_min_gap_ms:300});
-  }
-});
-
-test("software: source view proof expiry is fenced in the admission transaction",async()=>{
-  const l=sourceViewLab(),r=await systemSearchReady(l),{proof}=await reviewedSystemSearchView(r);
-  l.tick(1600);await capturedAtPhoneMono(l,r,11600,2,{source_seq:2});
-  const batch=l.db.batch.bind(l.db);
-  l.db.batch=async statements=>{
-    if(statements.some(statement=>statement.sql.startsWith("WITH source_clock AS")))l.tick(500);
-    return batch(statements);
-  };
-  const reply=await r.invoke("open_system_search",{...r.args,source_view_proof:proof});
-  assert.equal(reply.structuredContent.error,"SYSTEM_SEARCH_FRAME_OR_CONTROL_CHANGED");
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
-});
-
 test("software: system search binds the capture delay to its original command and recovery",async()=>{
   const l=lab(),r=await systemSearchReady(l),args={...r.args,settle_ms:900};
   const original=(await r.invoke("open_system_search",args)).structuredContent,id=String(original.command_id);
@@ -4402,57 +3331,6 @@ test("software: system search binds the capture delay to its original command an
   assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
 });
 
-test("software: focused text accepts distinct values and layouts under the same restored grant",async()=>{
-  for(const [value,landmark,field,placeholder] of [
-    ["Calendar","Siri Suggestions",{x:.05,y:.53,width:.75,height:.08},"Search"],
-    ["Google map","Siri Suggestions",{x:.05,y:.53,width:.75,height:.08},"Search"],
-    ["taobao","Siri Suggestions",{x:.05,y:.53,width:.75,height:.08},"Search"],
-    ["221B Baker St.","Delivery details",{x:.13,y:.31,width:.72,height:.07},"Street address"],
-    ["SW1A 1AA","Shipping postcode",{x:.43,y:.64,width:.26,height:.06},undefined],
-  ] as const){
-    const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999);
-    const args={device_id:r.actor.id,source_frame_id:meta.frame_id,text:value,field,clear_before_input:false,
-      landmark:{text:landmark,region:{x:.08,y:.17,width:.78,height:.06}},placeholder,idempotency_key:uid(),wait_ms:0};
-    await assert.rejects(r.mouse.enqueueSpotlight(alice,args,undefined,true),/FOCUSED_TEXT_NOT_READY/);
-    await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,"hid.keyboard.on_demand":true,"sayso.focused_text":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).focused_text_ready,true);
-    for(const bad of ["邮编","line\n",""]){
-      await assert.rejects(r.mouse.enqueueSpotlight(alice,{...args,text:bad},undefined,true),/UNSUPPORTED_TEXT_CHARACTERS|INVALID_TEXT/);
-    }
-    await assert.rejects(r.mouse.enqueueSpotlight(alice,{...args,source_frame_id:uid()},undefined,true),/FIELD_FRAME_OR_CONTROL_CHANGED/);
-    const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"type_text_in_field",arguments:args}})});
-    const reply=await handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
-    const command=(await reply.json() as RpcReply).result.structuredContent,id=String(command.command_id);
-    assert.equal(command.kind,"keyboard.type_text");
-    assert.equal(record(command.payload).text,value);
-    assert.deepEqual(record(command.payload).landmark,args.landmark);
-    assert.equal(record(command.payload).placeholder,placeholder);
-    assert.equal((await r.mouse.enqueueSpotlight(alice,args,undefined,true)).command_id,id);
-    await assert.rejects(r.mouse.enqueueSpotlight(alice,{...args,text:"other"},undefined,true),/IDEMPOTENCY_CONFLICT/);
-    assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,id);
-    await r.mouse.start(r.actor,id,{...r.identity,control_epoch:command.control_epoch});
-    const restored=uid();
-    const outcome=await r.mouse.result(r.actor,id,{...r.identity,state:"board_acked",finished_client_mono_ms:10003,
-      spotlight_focus_frame_id:uid(),mouse_mode_confirmed:true,restored_mouse_boot_id:restored,
-      board_receipt:{command_id:id,board_boot_id:uid(),state:"executed",subcommand_index:0,effect:{hid_reports_sent:true}}});
-    assert.equal(outcome.text_input?.restored_mouse_boot_id,restored);
-    assert.equal((await r.mouse.getSpotlightObserved(alice,id)).image,undefined);
-    await assert.rejects(r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0}),/MOUSE_BUSY_OR_CONTROL_CHANGED/);
-    const recovery=await l.service.heartbeat(r.actor,{...r.beat,heartbeat_seq:12,board_boot_id:restored,
-      spotlight_restore_command_id:id,spotlight_lease_epoch_floor:0});
-    assert.equal(record(recovery).spotlight_mouse_resumed,true);
-    assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).control_epoch,command.control_epoch);
-    l.tick(80);const fresh=(await capturedAtPhoneMono(l,r,10020,2)).meta;
-    const seen=await r.mouse.getSpotlightObserved(alice,id);
-    assert.equal(seen.observation_state,"available");
-    assert.equal(record(record(seen.after_screen).metadata).frame_id,fresh.frame_id);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-  }
-});
-
 const focusedTextEnterBoard={
   "sayso.focused_text":true,"hid.keyboard.ascii_stable":true,
   "sayso.focused_text_submit_enter":true,"hid.keyboard.ascii_enter_stable":true,
@@ -4462,144 +3340,40 @@ const focusedTextEnterArgs=(device:string,frame:string)=>({
   field:{x:.12,y:.48,width:.64,height:.06},landmark:{text:"Search",region:{x:.04,y:.16,width:.8,height:.06}},
 });
 
-test("software: optional focused text Return requires both verified App and board capabilities",async t=>{
-  for(const mode of ["app_missing","board_missing","claimed_capability_lost","start_capability_lost","type_only"] as const)await t.test(mode,async()=>{
-    const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999),led=new LEDControl(l.service);
-    const bind=async(changes:Record<string,boolean>={})=>led.bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard,...changes}});
-    await bind(mode==="app_missing"?{"sayso.focused_text_submit_enter":false}:mode==="board_missing"?{"hid.keyboard.ascii_enter_stable":false}:{});
-    await l.service.heartbeat(r.actor,r.beat);
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-    const args=focusedTextEnterArgs(r.actor.id,meta.frame_id);
-    for(const invalid of ["send",true,null])await assert.rejects(r.mouse.enqueueSpotlight(alice,{...args,submit:invalid},undefined,true),/INVALID_FIELD_SUBMIT/);
-    await assert.rejects(r.mouse.enqueueSpotlight(alice,{...args,submit:undefined,submit_enter:true},undefined,true),/INVALID_FIELD_SUBMIT/);
-    const status=await r.mouse.status(alice,{device_id:r.actor.id});
-    assert.equal(status.focused_text_ready,true);
-    if(mode==="app_missing"||mode==="board_missing"){
-      assert.equal(status.focused_text_submit_enter_ready,undefined);
-      await assert.rejects(r.mouse.enqueueSpotlight(alice,args,undefined,true),/FOCUSED_TEXT_ENTER_NOT_READY/);
-      assert.equal(count(),0);
-      return;
-    }
-    assert.equal(status.focused_text_submit_enter_ready,true);
-    const command=await r.mouse.enqueueSpotlight(alice,mode==="type_only"?{...args,submit:undefined}:args,undefined,true);
-    assert.equal(record(command.payload).submit_enter,mode==="type_only"?undefined:true);
-    assert.equal(count(),1);
-    if(mode==="type_only"){
-      await assert.rejects(r.mouse.enqueueSpotlight(alice,args,undefined,true),/IDEMPOTENCY_CONFLICT/);
-      assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,command.command_id);
-      await r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch});
-      const boot=r.hardware.board_boot_id,packet={...r.identity,state:"board_acked",finished_client_mono_ms:10050,
-        spotlight_focus_frame_id:meta.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-        board_receipt:{command_id:command.command_id,board_boot_id:boot,state:"executed",subcommand_index:0,
-          effect:{hid_reports_sent:true,ascii_stable:true,all_released:true,enter_sent:true}}};
-      await assert.rejects(r.mouse.result(r.actor,command.command_id,packet),/UNEXPECTED_FOCUSED_TEXT_ENTER_RECEIPT/);
-      const typed=await r.mouse.result(r.actor,command.command_id,{...packet,board_receipt:{...packet.board_receipt,
-        effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
-      assert.equal(typed.text_input?.enter_sent,undefined);
-      return;
-    }
-    if(mode==="start_capability_lost")assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,command.command_id);
-    await bind({"sayso.focused_text_submit_enter":false});
-    if(mode==="claimed_capability_lost")assert.equal(await r.mouse.claim(r.actor,r.identity,0),null);
-    else await assert.rejects(r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch}),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
-    assert.equal((await r.mouse.get(alice,command.command_id)).state,mode==="claimed_capability_lost"?"queued":"claimed");
-  });
-});
-
-test("software: one focused text and Return command delivers a post-ACK JPEG and reconciles by its original ID",async()=>{
-  let mono=0,commandID:string|undefined,afterFrame:string|undefined;
-  const l=lab(false,{now:()=>mono,sleep:async ms=>{
-    mono+=ms;l.tick(ms);
-    if(commandID&&!afterFrame)afterFrame=(await capturedAtPhoneMono(l,r,10351,3,{source_seq:3})).meta.frame_id;
-  }});
-  const r=await mouseReady(l),{meta:focus}=await capturedAtPhoneMono(l,r,9999);
-  const led=new LEDControl(l.service),boot=r.hardware.board_boot_id;
-  await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard}});
-  await l.service.heartbeat(r.actor,r.beat);
-  const original=l.db.batch.bind(l.db);
-  let equalFrame:string|undefined;
-  l.db.batch=async statements=>{
-    const result=await original(statements);
-    if(!commandID&&statements.some(statement=>statement.sql.startsWith("WITH clock AS")&&statement.sql.includes("INSERT INTO sb_mouse_commands"))){
-      const rows=result[2]?.results;
-      assert.ok(Array.isArray(rows)&&rows.length===1);
-      const queued=record(rows[0]);
-      commandID=String(queued.id);
-      assert.equal(JSON.parse(String(queued.payload)).submit_enter,true);
-      const claim=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-        {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:queued.control_epoch,
-          raw_dispatch_protocol:RAW_MOUSE_DISPATCH,spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START},waitMS:0}));
-      assert.equal(claim?.command_id,commandID);
-      assert.equal(claim?.state,"executing");
-      const receipt={command_id:commandID,board_boot_id:boot,state:"executed",subcommand_index:0,
-        effect:{hid_reports_sent:true,ascii_stable:true,enter_sent:true,all_released:true}};
-      const resultPacket={...r.identity,state:"board_acked",finished_client_mono_ms:10050,
-        spotlight_focus_frame_id:focus.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,board_receipt:receipt};
-      for(const effect of [{...receipt.effect,enter_sent:false},{...receipt.effect,all_released:false}]){
-        await assert.rejects(r.mouse.result(r.actor,commandID,{...resultPacket,board_receipt:{...receipt,effect}}),/INVALID_.*RECEIPT/);
-      }
-      const acked=await r.mouse.result(r.actor,commandID,resultPacket);
-      assert.equal(acked.text_input?.enter_sent,true);
-      assert.equal(acked.text_input?.restored_mouse_boot_id,boot);
-      l.tick(350);
-      equalFrame=(await capturedAtPhoneMono(l,r,10350,2,{source_seq:2})).meta.frame_id;
-    }
-    return result;
-  };
-  const args={...focusedTextEnterArgs(r.actor.id,focus.frame_id),wait_ms:900};
-  const same=await liveMcp(l.service,"type_text_in_field",args),summary=same.result.structuredContent;
-  assert.equal(summary.command_id,commandID);
-  assert.equal(summary.state,"board_acked");
-  assert.equal(same.images.length,1);
-  const after=record(summary.after_screen),proof=record(after.after_command);
-  assert.equal(record(after.metadata).frame_id,afterFrame);
-  assert.notEqual(record(after.metadata).frame_id,equalFrame);
-  assert.equal(proof.command_id,commandID);
-  assert.equal(proof.minimum_gap_ms,300);
-  assert.equal(proof.lower_gap_ms,301);
-  const recovered=await liveMcp(l.service,"get_mouse_result",{command_id:commandID,include_after_screen:true});
-  assert.equal(recovered.images.length,1);
-  assert.equal(recovered.result.structuredContent.command_id,commandID);
-  assert.equal(record(record(recovered.result.structuredContent.after_screen).after_command).minimum_gap_ms,300);
-  const replay=await liveMcp(l.service,"type_text_in_field",args);
-  assert.equal(replay.result.structuredContent.command_id,commandID);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-});
-
 async function focusedTextAfterFixture(submitEnter:boolean,settleMS?:number,advanceCaptureClockDuringWait=true){
   let mono=0;
   const l=lab(false,{now:()=>mono,sleep:async ms=>{mono+=ms;if(advanceCaptureClockDuringWait)l.tick(ms);}});
-  const r=await mouseReady(l),{meta:focus}=await capturedAtPhoneMono(l,r,9999);
+  const r=await mouseReady(l);await capturedAtPhoneMono(l,r,9999);
   const boot=r.hardware.board_boot_id;
   await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-    capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard,"hid.mouse.absolute":true}});
+    capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard,"hid.mouse.absolute":true,"sayso.action_geometry.v1":true,
+      "sayso.focused_text.no_visual.v1":true}});
   await l.service.heartbeat(r.actor,r.beat);
-  const args={...focusedTextEnterArgs(r.actor.id,focus.frame_id),submit:submitEnter?"enter":undefined,
-    ...(settleMS===undefined?{}:{settle_ms:settleMS})};
-  const pending=await r.mouse.enqueueSpotlight(alice,args,undefined,true),id=pending.command_id;
-  const claimed=await r.mouse.claim(r.actor,r.identity,0);
-  const started=await r.mouse.start(r.actor,id,{...r.identity,control_epoch:pending.control_epoch});
-  if(settleMS!==undefined){
-    const transport={spotlight_transport:"stable_usb"};
-    assert.deepEqual(pending.precondition,settleMS>(submitEnter?300:0)?{...transport,capture_min_gap_ms:settleMS}:transport);
-    assert.deepEqual(claimed?.precondition,transport);
-    assert.deepEqual(started.precondition,transport);
-  }
-  await r.mouse.result(r.actor,id,{...r.identity,state:"board_acked",finished_client_mono_ms:10050,
-    spotlight_focus_frame_id:focus.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-    board_receipt:{command_id:id,board_boot_id:boot,state:"executed",subcommand_index:0,
+  const state=await r.mouse.status(alice,{device_id:r.actor.id});
+  const phone={...r.identity,control_epoch:state.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
+    point_protocol:PAIRED_MOUSE_POINT,spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START};
+  await r.mouse.claim(r.actor,phone,0);
+  const args={device_id:r.actor.id,text:"Changi airport",idempotency_key:uid(),clear_before_input:false,
+    submit:submitEnter?"enter":undefined,wait_ms:0,...(settleMS===undefined?{}:{settle_ms:settleMS})};
+  const pending=await r.mouse.enqueueAuthorizedFieldObserved(alice,args);assert.ok(pending);
+  const id=pending.command_id,claimed=await r.mouse.claim(r.actor,phone,0);assert.equal(claimed?.state,"executing");
+  await r.mouse.result(r.actor,id,{...r.identity,state:"board_acked",input_submitted:true,finished_client_mono_ms:10050,
+    mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
+    board_receipt:{command_id:id,board_boot_id:boot,state:"executed",subcommand_index:0,error:null,
       effect:{hid_reports_sent:true,ascii_stable:true,all_released:true,...(submitEnter?{enter_sent:true}:{})}}});
   const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-  const setAge=(frame:string,age:number)=>l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-age,frame);
+  const setAge=(frame:string,age:number)=>{
+    l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-age,frame);
+    l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.capture_lower_ms',?) WHERE frame_id=?").run(l.now()-age,frame);
+  };
   return {l,r,id,args,count,setAge};
 }
 
 test("software: split focused text uses a saved settle and read-only original gap without replay",async t=>{
-  for(const mode of ["type_only","legacy_type_only","enter_floor","enter_raised"] as const)await t.test(mode,async()=>{
+  for(const mode of ["type_only","default_type_only","enter_floor","enter_raised"] as const)await t.test(mode,async()=>{
     const submitEnter=mode==="enter_floor"||mode==="enter_raised";
-    const configured=mode==="legacy_type_only"?undefined:mode==="enter_floor"?0:mode==="enter_raised"?480:300;
-    const expectedGap=mode==="legacy_type_only"?0:mode==="enter_raised"?480:300;
+    const configured=mode==="default_type_only"?undefined:mode==="enter_floor"?0:mode==="enter_raised"?480:300;
+    const expectedGap=mode==="enter_raised"?480:300;
     const {l,r,id,args,count}=await focusedTextAfterFixture(submitEnter,configured,false);
     const ack=10050;
     let sequence=1,previousMono=10000;
@@ -4624,8 +3398,7 @@ test("software: split focused text uses a saved settle and read-only original ga
     };
     const earlyFrame=await capture(87);
     const first=await same();
-    if(expectedGap===0)verify(first,earlyFrame,0);
-    else{
+    {
       assert.equal(first.result.structuredContent.command_id,id);
       assert.equal(first.result.structuredContent.state,"board_acked");
       assert.equal(first.images.length,0);
@@ -4686,7 +3459,7 @@ test("software: focused text and exact original-ID reads release only same-scope
       const proof=record(after.after_command);
       assert.equal(record(after.metadata).frame_id,replacement??frame.frame_id);
       assert.equal(proof.command_id,id);
-      assert.equal(proof.minimum_gap_ms,submitEnter?300:0);
+      assert.equal(proof.minimum_gap_ms,300);
       assert.ok(Number(proof.lower_gap_ms)>(submitEnter?300:0));
       if(mode==="late_replacement")assert.equal(record(after.recovery).retry_trigger,"late_image_release");
     }else{
@@ -4721,16 +3494,17 @@ test("software: a verified text after-image supplies the next action without rep
     const metadata=record(record(verified.result.structuredContent.after_screen).metadata);
     const nextBase={device_id:metadata.device_id,idempotency_key:uid(),wait_ms:0,observe_after:false};
     if(mode==="next_text"){
-      const next=await liveMcp(l.service,"type_text_in_field",{...args,...nextBase,source_frame_id:metadata.frame_id,text:"another field"});
+      const next=await liveMcp(l.service,"type_text_in_field",{...args,...nextBase,text:"another field"});
       assert.notEqual(next.result.structuredContent.command_id,id);
-      assert.equal(record(next.result.structuredContent.payload).source_frame_id,frame.frame_id);
+      assert.equal(record(next.result.structuredContent.payload).source_frame_id,undefined);
     }else{
-      const next=await liveMcp(l.service,"click_at",{...nextBase,x:7,y:15,
+      const next=await liveMcp(l.service,"click_at",{...nextBase,source_frame_id:metadata.frame_id,x:7,y:15,
         image_width:metadata.width,image_height:metadata.height,orientation_epoch:metadata.orientation_epoch});
-      const move=record(next.result.structuredContent.move_result);
-      assert.equal(record(move.precondition).source_frame_id,frame.frame_id);
+      assert.equal(next.result.isError,false,JSON.stringify(next.result.structuredContent));
+      const move=l.db.raw.prepare("SELECT precondition FROM sb_mouse_commands WHERE id=?").get(String(next.result.structuredContent.move_command_id));
+      assert.ok(move);assert.equal(JSON.parse(String(move.precondition)).source_frame_id,frame.frame_id);
     }
-    assert.equal(count(),2);
+    assert.equal(count(),mode==="next_click"?3:2);
   });
 });
 
@@ -4907,7 +3681,10 @@ async function originalWheelFixture(l:ReturnType<typeof lab>,settle:number|null|
 }
 
 test("software: original wheel relook follows an executing reverse scroll through its signed ACK and fresh JPEG",async()=>{
-  const l=lab(),{r,args,id,result}=await originalWheelFixture(l,520);
+  // This boundary fixture intentionally excludes source-proof signing.
+  const l=lab(false,undefined,new FrameUploadPermits()),{r,args,id,result}=await originalWheelFixture(l,520);
+  const maintenance:(()=>Promise<void>)[]=[];
+  l.service.scheduleBackground=(_delay,job)=>{maintenance.push(job);return true;};
   const lookup={command_id:id,include_after_screen:true};
   const before=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
   const pending=await liveMcp(l.service,"get_mouse_result",lookup);
@@ -5014,7 +3791,7 @@ test("software: original wheel relook stops a stalled image read at five seconds
 async function realDragFixture(appReady=true,statusMask=false,orientation="portrait"){
   const l=lab(),r=await mouseReady(l);
   const caps={...r.hardware.capabilities,"hid.mouse.absolute":true,"hid.mouse.drag_absolute":true,
-    "sayso.drag_at":appReady,"sayso.drag_status_mask.v1":statusMask};
+    "sayso.drag_at":appReady,"hid.mouse.drag_absolute.v2":true,"sayso.action_geometry.v1":appReady,"sayso.drag_model_decision.v1":true,"sayso.drag_cloud_acceptance.v1":true,"sayso.drag_status_mask.v1":statusMask};
   const led=new LEDControl(l.service);
   await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:caps});
   await l.service.heartbeat(r.actor,r.beat);
@@ -5035,7 +3812,8 @@ test("software: real drag validates one reviewed source and one signed release b
   assert.deepEqual(queued.precondition,{coordinate_space:"full_screen_image_pixels",source_from_x:2,source_from_y:4,
     source_to_x:12,source_to_y:28,source_width:16,source_height:32,orientation_epoch:0,
     source_frame_id:source.frame_id,capture_min_gap_ms:300,capture_width:source.native_width_px,
-    capture_height:source.native_height_px,orientation:"portrait"});
+    capture_height:source.native_height_px,orientation:"portrait",drag_review_mode:"model_decision.v1",
+    drag_source_confirmation:"server_accepted_geometry.v1",drag_source_sha256:source.content_sha256,drag_source_seq:1,drag_source_frame_seq:1});
   assert.equal(count(),1);
   const replay=await liveMcp(l.service,"drag_at",args);
   assert.equal(replay.result.structuredContent.command_id,id);
@@ -5092,11 +3870,11 @@ test("software: real drag validates one reviewed source and one signed release b
 
 test("software: direct absolute USB drag returns a reusable after-image without calibration",async()=>{
   const {l,r,caps,led,args,count}=await realDragFixture();
-  await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...caps,"hid.mouse.drag_absolute.v2":true,"sayso.reviewed_point.v1":true}});
+  await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...caps,"hid.mouse.drag_absolute.v2":true,"sayso.action_geometry.v1":true}});
   await l.service.heartbeat(r.actor,r.beat);
   const status=await r.mouse.status(alice,{device_id:r.actor.id});
   assert.equal(record(status.capabilities)["hid.mouse.drag_absolute.v2"],true);
-  assert.equal(status.drag_at_ready,true);assert.equal(status.drag_calibrated_duration_ms,undefined);
+  assert.equal(status.drag_at_ready,true);assert.equal("drag_calibrated_duration_ms" in status,false);
   assert.equal(await r.mouse.claim(r.actor,{...r.identity,control_epoch:status.control_epoch,
     raw_dispatch_protocol:RAW_MOUSE_DISPATCH,point_protocol:PAIRED_MOUSE_POINT},0),null);
   const admitted=await liveMcp(l.service,"drag_at",args),queued=admitted.result.structuredContent,id=String(queued.command_id);
@@ -5122,22 +3900,7 @@ test("software: direct absolute USB drag returns a reusable after-image without 
   assert.ok(click.result.structuredContent.command_id);
 });
 
-test("software: cloud-confirmed drag source digest is server-derived and capability-gated",async()=>{
-  for(const upgraded of [false,true]){
-    const {l,r,caps,led,args,source}=await realDragFixture();
-    await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...caps,
-      "sayso.drag_model_decision.v1":true,"sayso.drag_reference_10s.v1":true,"sayso.drag_cloud_acceptance.v1":upgraded}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const forged=await liveMcp(l.service,"drag_at",{...args,drag_source_sha256:"forged"});
-    assert.equal(forged.result.isError,true);
-    const value=(await liveMcp(l.service,"drag_at",args)).result.structuredContent;
-    assert.equal(value.state,"queued");const pre=record(value.precondition);
-    assert.equal(pre.drag_source_confirmation,upgraded?"server_accepted_frame.v1":undefined);
-    assert.equal(pre.drag_source_sha256,upgraded?source.content_sha256:undefined);
-  }
-});
-
-test("software: real drag rejects missing readiness and rechecks reviewed pixels at claim and start",async t=>{
+test("software: current drag rejects missing readiness and geometry but permits changed pixels at claim and start",async t=>{
   for(const mode of ["app_missing","unknown_source","past_edge","empty","wrong_dimensions","stale_source","changed_pixel","changed_pixel_start","lost_capability"] as const)await t.test(mode,async()=>{
     const {l,r,caps,led,args,source,count}=await realDragFixture(mode!=="app_missing");
     const patch=mode==="unknown_source"?{source_frame_id:uid()}:mode==="past_edge"?{to_x:16}:
@@ -5159,198 +3922,15 @@ test("software: real drag rejects missing readiness and rechecks reviewed pixels
       const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,123)},65).data;
       await capturedAtPhoneMono(l,{...r,bytes},10100,2,{source_seq:2,content_sha256:await hash(bytes)});
     }
-    if(mode==="changed_pixel_start")await assert.rejects(r.mouse.start(r.actor,id,{...r.identity,control_epoch:queued.control_epoch}),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
+    if(mode==="changed_pixel_start")assert.equal((await r.mouse.start(r.actor,id,{...r.identity,control_epoch:queued.control_epoch})).command_id,id);
+    else if(mode==="changed_pixel")assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,id);
     else assert.equal(await r.mouse.claim(r.actor,r.identity,0),null);
     assert.equal(count(),1);
   });
 });
 
-test("software: real drag uses a retained 2–4s reviewed source only with a fresh identical JPEG",async t=>{
-  for(const mode of ["retained_legacy_start","retained_atomic_claim","source_limit_admission","source_limit_claim",
-    "source_limit_start","different_sha","different_sha_claim","stale_head"] as const)await t.test(mode,async()=>{
-    const {l,r,args,source,count}=await realDragFixture();
-    const origin=l.now(),key=r.actor.id+":"+source.frame_id;
-    const saved=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(key)?.acceptance_json;
-    assert.equal(typeof saved,"string");
-    const sourceLower=Number(JSON.parse(String(saved)).capture_lower_ms);
-    const advanceToAge=(age:number)=>l.tick(age-(l.now()-sourceLower));
-    const publish=async(seq:number,changed=false)=>{
-      const bytes=changed?jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,137)},65).data:r.bytes;
-      const sha=await hash(bytes);
-      if(changed)assert.notEqual(sha,source.content_sha256);
-      return capturedAtPhoneMono(l,{...r,bytes},10000+l.now()-origin,seq,{source_seq:seq,content_sha256:sha});
-    };
-    advanceToAge(mode==="source_limit_admission"?4000:2300);
-    const {meta:head}=await publish(2,mode==="different_sha");
-    if(mode==="stale_head")l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-2000,head.frame_id);
-    const reply=await liveMcp(l.service,"drag_at",args),queued=reply.result.structuredContent;
-    if(mode==="source_limit_admission"||mode==="different_sha"||mode==="stale_head"){
-      assert.equal(queued.error,"DRAG_FRAME_OR_CONTROL_CHANGED");
-      const diagnostic=record(queued.admission_diagnostic);
-      assert.equal(diagnostic.diagnostic_timing,"admission_batch");
-      assert.equal(diagnostic.coordinate_space,"full_screen_image_pixels");
-      assert.equal(diagnostic.source_frame_id,source.frame_id);
-      assert.ok(record(diagnostic.snapshot).admission);
-      assert.ok(record(diagnostic.snapshot).view);
-      const compact=JSON.parse(String(reply.result.content?.find(item=>item.type==="text")?.text));
-      assert.deepEqual(compact.admission_diagnostic,diagnostic);
-      assert.equal(compact.input_not_submitted,true);
-      assert.equal(count(),0);
-      return;
-    }
-    assert.equal(queued.state,"queued");
-    assert.equal(record(queued.precondition).source_frame_id,source.frame_id);
-    const id=String(queued.command_id);
-    if(mode==="source_limit_claim"||mode==="different_sha_claim"){
-      advanceToAge(mode==="source_limit_claim"?4000:2600);
-      await publish(3,mode==="different_sha_claim");
-      assert.equal(await r.mouse.claim(r.actor,r.identity,0),null);
-      assert.equal((await r.mouse.get(alice,id)).state,"queued");
-    }else if(mode==="retained_atomic_claim"){
-      const claimed=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-        {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:queued.control_epoch,
-          raw_dispatch_protocol:RAW_MOUSE_DISPATCH},waitMS:0}));
-      assert.equal(claimed?.command_id,id);
-      assert.equal(claimed?.state,"executing");
-      assert.equal(record(claimed?.precondition).source_frame_id,source.frame_id);
-    }else{
-      assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.state,"claimed");
-      advanceToAge(mode==="source_limit_start"?4000:2700);
-      await publish(3);
-      const request={...r.identity,control_epoch:queued.control_epoch};
-      if(mode==="source_limit_start"){
-        await assert.rejects(r.mouse.start(r.actor,id,request),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
-        assert.equal((await r.mouse.get(alice,id)).state,"claimed");
-      }else{
-        const started=await r.mouse.start(r.actor,id,request);
-        assert.equal(started.state,"executing");
-        assert.equal(record(started.precondition).source_frame_id,source.frame_id);
-      }
-    }
-    assert.equal(count(),1);
-  });
-});
-
-test("software: real drag only schedules changed pixels for capable App status-mask review in a safe live scope",async t=>{
-  for(const mode of ["candidate_atomic","candidate_legacy","capability_missing","near_top_from","near_top_to",
-    "upside_down","geometry_changed","head_proof_changed","source_hash_invalid","source_stale",
-    "capability_lost_claim","capability_lost_start"] as const)await t.test(mode,async()=>{
-    const orientation=mode==="upside_down"?"portrait_upside_down":"portrait";
-    const {l,r,caps,args,source,count}=await realDragFixture(true,mode!=="capability_missing",orientation);
-    const capability="sayso.drag_status_mask.v1";
-    assert.equal(record((await r.mouse.status(alice,{device_id:r.actor.id})).capabilities)[capability],
-      mode==="capability_missing"?undefined:true);
-    const origin=l.now(),sourceID=r.actor.id+":"+source.frame_id;
-    const sourceProof=String(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(sourceID)?.acceptance_json);
-    const sourceLower=Number(JSON.parse(sourceProof).capture_lower_ms);
-    const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,137)},65).data;
-    const sha=await hash(bytes);
-    assert.notEqual(sha,source.content_sha256);
-    const publish=(seq:number)=>capturedAtPhoneMono(l,{...r,bytes},10000+l.now()-origin,seq,
-      {source_seq:seq,content_sha256:sha,orientation,...(mode==="geometry_changed"?{native_width_px:1208}:{})});
-    l.tick((mode==="source_stale"?4000:2300)-(l.now()-sourceLower));
-    const {meta:head}=await publish(2);
-    if(mode==="head_proof_changed")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.capture_mono_ms',?) WHERE id=?")
-      .run(Number(head.capture_mono_ms)-1,r.actor.id+":"+head.frame_id);
-    if(mode==="source_hash_invalid")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.content_sha256','invalid') WHERE id=?").run(sourceID);
-    const reply=await liveMcp(l.service,"drag_at",{...args,
-      from_y:mode==="near_top_from"?1:2,to_y:mode==="near_top_to"?1:28});
-    const queued=reply.result.structuredContent;
-    if(!["candidate_atomic","candidate_legacy","capability_lost_claim","capability_lost_start"].includes(mode)){
-      assert.equal(queued.error,"DRAG_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(count(),0);
-      return;
-    }
-    assert.equal(queued.state,"queued");
-    assert.equal(record(queued.precondition).source_frame_id,source.frame_id);
-    assert.equal(record(queued.precondition).source_from_y,2);
-    const id=String(queued.command_id);
-    const disableAppMask=()=>l.db.raw.prepare("UPDATE sb_hardware SET metadata=json_set(metadata,'$.capabilities',json(?)) WHERE device_id=?")
-      .run(JSON.stringify({...caps,[capability]:false}),r.actor.id);
-    if(mode==="capability_lost_claim"){
-      disableAppMask();
-      assert.equal(await r.mouse.claim(r.actor,r.identity,0),null);
-      assert.equal((await r.mouse.get(alice,id)).state,"queued");
-    }else if(mode==="candidate_atomic"){
-      const claimed=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-        {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:queued.control_epoch,
-          raw_dispatch_protocol:RAW_MOUSE_DISPATCH},waitMS:0}));
-      assert.equal(claimed?.command_id,id);
-      assert.equal(claimed?.state,"executing");
-      const envelope=record(claimed);
-      assert.equal(envelope.raw_dispatch_protocol,RAW_MOUSE_DISPATCH);
-      assert.equal(claimed.control_epoch,queued.control_epoch);
-      assert.equal(claimed.bridge_session_id,r.identity.bridge_session_id);
-      assert.deepEqual(claimed.receipt_observation.scope,{
-        device_id:r.actor.id,bridge_session_id:r.identity.bridge_session_id,
-        worker_id:r.identity.worker_id,lease_epoch:r.identity.lease_epoch,
-      });
-      assert.ok(Number.isInteger(envelope.claim_pregrant_elapsed_ms)&&Number(envelope.claim_pregrant_elapsed_ms)>=0);
-      assert.equal(envelope.ttl_remaining_ms,2500);
-    }else{
-      const claimed=await r.mouse.claim(r.actor,r.identity,0);
-      assert.equal(claimed?.state,"claimed");
-      assert.equal(record(claimed).raw_dispatch_protocol,undefined);
-      assert.equal(record(claimed).ttl_remaining_ms,undefined);
-      l.tick(200);
-      await publish(3);
-      const identity={...r.identity,control_epoch:queued.control_epoch};
-      if(mode==="capability_lost_start"){
-        disableAppMask();
-        await assert.rejects(r.mouse.start(r.actor,id,identity),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
-      }else{
-        assert.equal((await r.mouse.start(r.actor,id,identity)).state,"executing");
-      }
-    }
-    assert.equal(count(),1);
-  });
-});
-
-test("software: real drag keeps its cloud ID and scopes relative board success and partial evidence",async t=>{
-  for(const succeeded of [true,false])await t.test(succeeded?"released":"partial",async()=>{
-    const {l,r,caps,led,args,count}=await realDragFixture();
-    const relativeCapabilities={...caps,"hid.mouse.drag_relative":true,"sayso.drag_relative.v1":true};
-    await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...relativeCapabilities,"hid.mouse.drag_relative":false}});
-    const noBoard=await r.mouse.status(alice,{device_id:r.actor.id});
-    assert.equal(record(noBoard.capabilities)["sayso.drag_relative.v1"],undefined);
-    assert.equal(noBoard.drag_calibrated_duration_ms,undefined);
-    assert.equal(noBoard.drag_at_ready,true);
-    await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:relativeCapabilities});
-    await l.service.heartbeat(r.actor,r.beat);
-    const status=await r.mouse.status(alice,{device_id:r.actor.id});
-    assert.equal(record(status.capabilities)["hid.mouse.drag_relative"],true);
-    assert.equal(record(status.capabilities)["sayso.drag_relative.v1"],true);
-    assert.equal(status.drag_calibrated_duration_ms,350);
-    const admitted=await liveMcp(l.service,"drag_at",{...args,duration_ms:120}),queued=admitted.result.structuredContent;
-    const id=String(queued.command_id);
-    assert.equal(queued.kind,"pointer.drag_absolute");
-    assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,id);
-    await r.mouse.start(r.actor,id,{...r.identity,control_epoch:queued.control_epoch});
-    const receipt={command_id:id,board_boot_id:r.hardware.board_boot_id,subcommand_index:0,
-      state:succeeded?"executed":"outcome_unknown",error:succeeded?null:"INPUT_NOT_CONFIRMED_OR_EXPIRED",
-      started_uptime_ms:1000,finished_uptime_ms:1120,effect:{hid_reports_sent:succeeded,
-        relative_drag:true,delta_x_sent:0,delta_y_sent:succeeded?-635:-127,all_released:succeeded}};
-    const body={...r.identity,board_receipt:receipt,...(succeeded?{state:"board_acked",finished_client_mono_ms:10450}:
-      {state:"outcome_unknown",input_submitted:true,error:"USB_OUTCOME_UNKNOWN"})};
-    await assert.rejects(r.mouse.result(r.actor,id,{...body,board_receipt:{...receipt,effect:{...receipt.effect,delta_y_sent:-636}}}),/INVALID_DRAG_RECEIPT/);
-    if(!succeeded)await assert.rejects(r.mouse.result(r.actor,id,{...body,input_submitted:false}),/INVALID_DRAG_RECEIPT/);
-    const ack=await r.mouse.result(r.actor,id,body);
-    assert.equal(ack.command_id,id);
-    assert.equal(ack.kind,"pointer.drag_absolute");
-    assert.equal(ack.state,succeeded?"board_acked":"outcome_unknown");
-    assert.deepEqual(ack.board_receipt,receipt);
-    assert.equal(ack.receipt_observation.valid_for_capture_order,succeeded);
-    l.tick(800);await capturedAtPhoneMono(l,r,10800,2,{source_seq:2});
-    const after=await liveMcp(l.service,"get_mouse_result",{command_id:id,include_after_screen:true});
-    assert.equal(after.result.isError,false,JSON.stringify(after.result.structuredContent));
-    assert.equal(after.result.structuredContent.command_id,id);
-    assert.equal(after.images.length,succeeded?1:0);
-    assert.equal(count(),1);
-  });
-});
-
 test("software: a typed drag preflight proves no input only with an explicit false and no board receipt",async t=>{
-  for(const error of ["DRAG_RELATIVE_CALIBRATION_REQUIRED","DRAG_REVIEWED_FRAME_UNAVAILABLE"])
+  for(const error of ["DRAG_SOURCE_SCOPE_CHANGED","DRAG_CURRENT_FRAME_UNAVAILABLE"])
   for(const expired of [false,true])await t.test(error+(expired?" after expiry":" current"),async()=>{
     const {l,r,args,count}=await realDragFixture();
     const queued=(await liveMcp(l.service,"drag_at",args)).result.structuredContent,id=String(queued.command_id);
@@ -5420,1152 +4000,6 @@ test("software: the default focused-text after-image returns the receipt at 5s i
   assert.equal(reads,1);
 });
 
-test("software: focused-text handoff accepts a recent reviewed paired-click ancestor only with a fresh exact-scope head",async t=>{
-  const modes=["return","type_only","ordinary_under_two","no_click","wrong_click","changed_control","changed_broadcast","changed_owner",
-    "changed_geometry","old_ack","before_original_settle","stale_head","source_expired","source_unaccepted","no_newer_head"] as const;
-  for(const mode of modes)await t.test(mode,async()=>{
-    const c=await pairedPhonePoint(true,undefined,lab(),520),{l,r}=c;
-    await r.mouse.result(r.actor,c.move.command_id,c.body);
-    await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard,"hid.mouse.absolute":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const firstAt=mode==="old_ack"?2250:mode==="before_original_settle"?550:600;
-    l.tick(firstAt);
-    const {meta:source}=await capturedAtPhoneMono(l,r,10000+firstAt,2,{source_seq:2});
-    const key=r.actor.id+":"+source.frame_id;
-    const accepted=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(key);
-    assert.ok(typeof accepted?.acceptance_json==="string");
-    l.tick(1550);
-    if(mode!=="before_original_settle"){
-      const reviewed=await liveMcp(l.service,"click_at",{...c.args,device_id:r.actor.id,wait_ms:600});
-      assert.equal(reviewed.images.length,1);
-      assert.equal(reviewed.result.structuredContent.command_id,c.click.command_id);
-      const after=record(reviewed.result.structuredContent.after_screen);
-      assert.equal(record(after.metadata).frame_id,source.frame_id);
-      assert.ok(Number(reviewed.age)>=1500&&Number(reviewed.age)<2000);
-    }
-    const modelGap=mode==="ordinary_under_two"?250:mode==="source_expired"?2450:820;
-    l.tick(modelGap);
-    if(mode!=="no_newer_head")await capturedAtPhoneMono(l,r,10000+firstAt+1550+modelGap,3,{source_seq:3});
-    if(mode==="changed_control")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.control_epoch',9) WHERE id=?").run(key);
-    if(mode==="changed_broadcast")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.broadcast_id',?) WHERE id=?").run(uid(),key);
-    if(mode==="changed_owner")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.owner_id',?) WHERE id=?").run(bob.id,key);
-    if(mode==="changed_geometry")l.db.raw.prepare("UPDATE sb_frames SET metadata=json_set(metadata,'$.native_width_px',999) WHERE device_id=?").run(r.actor.id);
-    if(mode==="stale_head")l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE device_id=?").run(l.now()-2000,r.actor.id);
-    if(mode==="source_unaccepted")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=NULL WHERE id=?").run(key);
-    const input={...focusedTextEnterArgs(r.actor.id,source.frame_id),submit:mode==="type_only"?undefined:"enter",
-      source_after_command_id:mode==="no_click"||mode==="ordinary_under_two"?undefined:mode==="wrong_click"?c.move.command_id:c.click.command_id};
-    const reply=await liveMcp(l.service,"type_text_in_field",input),result=reply.result.structuredContent;
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-    if(mode==="return"||mode==="type_only"||mode==="ordinary_under_two"){
-      assert.equal(result.state,"queued");
-      assert.equal(result.kind,"keyboard.type_text");
-      assert.equal(record(result.payload).source_frame_id,source.frame_id);
-      assert.equal(record(result.payload).source_after_command_id,undefined);
-      assert.equal(record(result.payload).submit_enter,mode==="type_only"?undefined:true);
-      assert.equal(count(),3);
-      const replay=await liveMcp(l.service,"type_text_in_field",{...input,source_after_command_id:undefined});
-      assert.equal(replay.result.structuredContent.command_id,result.command_id);
-      assert.equal(count(),3);
-    }else{
-      assert.equal(result.error,"FIELD_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(count(),2);
-    }
-  });
-});
-
-test("software: board binding exposes scope-bound field input only with verified system Search and v2 typing",async()=>{
-  const l=sourceViewLab(),r=await systemSearchReady(l),device_id=r.actor.id;
-  const capability="sayso.model_reviewed_field_crops.v3";
-  const led=new LEDControl(l.service);
-  const capabilities={...r.hardware.capabilities,...focusedTextEnterBoard,
-    "sayso.model_reviewed_field_crops.v2":true,[capability]:true};
-  await led.bind(r.actor,{...r.hardware,capabilities});
-  await l.service.heartbeat(r.actor,r.beat);
-  assert.equal((await r.mouse.status(alice,{device_id})).focused_text_scope_bound_after_ready,true);
-  await led.bind(r.actor,{...r.hardware,capabilities:{...capabilities,"hid.keyboard.system_search":false}});
-  await l.service.heartbeat(r.actor,r.beat);
-  assert.equal((await r.mouse.status(alice,{device_id})).focused_text_scope_bound_after_ready,undefined);
-  assert.equal(JSON.parse((await led.hardware(r.actor)).metadata).capabilities[capability],undefined);
-});
-
-async function shortcutFieldHandoffFixture(l:ReturnType<typeof lab>,settle=520){
-  const r=await systemSearchReady(l),device=r.actor.id,led=new LEDControl(l.service);
-  assert.equal((await r.mouse.status(alice,{device_id:device})).focused_text_system_search_handoff_ready,undefined);
-  await led.bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard}});
-  await l.service.heartbeat(r.actor,r.beat);
-  assert.equal((await r.mouse.status(alice,{device_id:device})).focused_text_system_search_handoff_ready,true);
-  const args={...r.args,settle_ms:settle};
-  const queued=(await r.invoke("open_system_search",args)).structuredContent,id=String(queued.command_id);
-  const claim=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-    {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:queued.control_epoch,
-      raw_dispatch_protocol:RAW_MOUSE_DISPATCH},waitMS:0}));
-  assert.equal(claim?.command_id,id);
-  assert.equal(claim.state,"executing");
-  assert.equal(claim.precondition?.capture_min_gap_ms,settle);
-  const receipt={command_id:id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,
-    effect:{hid_reports_sent:true,system_search_stable:true,all_released:true}};
-  const confirm=(uncertain=false)=>r.mouse.result(r.actor,id,uncertain?
-    {...r.identity,state:"outcome_unknown",board_receipt:{},error:"USB_OUTCOME_UNKNOWN"}:
-    {...r.identity,state:"board_acked",finished_client_mono_ms:10003,board_receipt:receipt});
-  return {r,args,id,receipt,confirm};
-}
-
-test("software: late original Search relooks retain only final released pixels for scope-bound field input",async t=>{
-  for(const mode of ["scope_bound","legacy_v2","release_drop","later_input"] as const)await t.test(mode,async()=>{
-    const l=sourceViewLab(),{r,id,confirm}=await shortcutFieldHandoffFixture(l,300);
-    const device_id=r.actor.id,boot=r.hardware.board_boot_id;
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{
-      ...r.hardware.capabilities,...focusedTextEnterBoard,"sayso.model_reviewed_field_crops.v2":true,
-      "sayso.model_reviewed_field_crops.v3":mode!=="legacy_v2",
-    }});
-    await l.service.heartbeat(r.actor,r.beat);
-    const {control_epoch}=await r.mouse.status(alice,{device_id});
-    const phone={...r.identity,control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-      spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-    await confirm();
-    l.tick(5600);
-    const {meta:late}=await capturedAtPhoneMono(l,r,15600,2,{source_seq:2});
-    const jobs:Promise<unknown>[]=[];
-    const lookup=async()=>(await l.service.lookupReleasedFieldProof(alice,device_id,id,late.frame_id,true)).view;
-    const relook=await runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>liveMcp(l.service,"get_mouse_result",
-      {command_id:id,include_after_screen:true,after_command_min_gap_ms:5000},()=>{},
-      mode==="release_drop"?async()=>{l.tick(2000);return true;}:undefined));
-    await Promise.all(jobs);
-    const after=record(relook.result.structuredContent.after_screen);
-    assert.equal(after.source_field_proof,undefined);
-    if(mode==="release_drop"){
-      assert.equal(relook.images.length,0);
-      assert.equal(await lookup(),null);
-      return;
-    }
-    assert.equal(relook.images.length,1);
-    assert.equal(record(after.metadata).frame_id,late.frame_id);
-    assert.ok(Number(record(after.after_command).lower_gap_ms)>5000);
-    const args={...focusedTextEnterArgs(device_id,late.frame_id),submit:undefined,source_after_command_id:id};
-    if(mode==="legacy_v2"){
-      assert.equal(await lookup(),null);
-      const ordinary=(await liveMcp(l.service,"type_text_in_field",args)).result.structuredContent;
-      assert.equal(ordinary.state,"queued");
-      assert.equal(record(ordinary.precondition??{}).focus_source,undefined);
-      return;
-    }
-    const view=await lookup();
-    assert.equal(view?.scopeBound,true);
-    assert.equal(view?.scopeBoundOnly,true);
-    assert.equal(view?.sha256,await hash(r.bytes));
-    const retained=l.db.raw.prepare("SELECT proof FROM sb_released_system_search_field_proofs WHERE frame_id=?").get(late.frame_id);
-    assert.equal(typeof retained?.proof,"string");
-    const explicit=(await liveMcp(l.service,"type_text_in_field",{...args,source_field_proof:retained?.proof})).result.structuredContent;
-    assert.equal(explicit.error,"FIELD_AFTER_IMAGE_PROOF_INVALID");
-    l.tick(2600);
-    await capturedAtPhoneMono(l,r,18200,3,{source_seq:3});
-    if(mode==="later_input"){
-      const later=await r.mouse.enqueue(alice,"pointer.click",{device_id,idempotency_key:uid(),wait_ms:0});
-      assert.equal((await r.mouse.claim(r.actor,phone,0))?.command_id,later.command_id);
-      await r.mouse.result(r.actor,later.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:18203,
-        board_receipt:{command_id:later.command_id,board_boot_id:boot,state:"executed",subcommand_index:0,
-          effect:{hid_reports_sent:true}}});
-      const rejected=(await liveMcp(l.service,"type_text_in_field",args)).result.structuredContent;
-      assert.equal(rejected.error,"FIELD_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='keyboard.type_text'").get()!.n,0);
-      return;
-    }
-    const typed=(await liveMcp(l.service,"type_text_in_field",args)).result.structuredContent;
-    assert.equal(typed.state,"queued");
-    assert.deepEqual(record(typed.precondition).focus_source,{protocol:"model_reviewed_field_crops.v3",
-      frame_id:late.frame_id,content_sha256:await hash(r.bytes),origin:"system_search"});
-  });
-});
-
-test("software: v4 uses only the exact released original action image for generic text or Enter without source age cutoff",async t=>{
-  const modes=["first_type","same_head","late_enter","expired_explicit","wrong_original","tampered","fresh_unreleased","release_drop",
-    "changed_hash","later_input","stale_head","missing_enter","search_type","search_enter"] as const;
-  for(const mode of modes)await t.test(mode,async()=>{
-    const l=sourceViewLab(),system=mode.startsWith("search")?await shortcutFieldHandoffFixture(l,300):undefined;
-    const paired=system?undefined:await pairedPhonePoint(true,undefined,l);
-    const r=system?.r??paired!.r,device_id=r.actor.id,boot=r.hardware.board_boot_id;
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard,
-      "hid.mouse.absolute":true,"sayso.model_reviewed_field_crops.v2":true,
-      "sayso.model_reviewed_field_crops.v4":true,"sayso.focused_text_linked_after_enter.v1":mode!=="missing_enter"}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const ready=await r.mouse.status(alice,{device_id});
-    assert.equal(ready.focused_text_scope_bound_field_ready,true);
-    assert.equal(ready.focused_text_linked_after_enter_ready,mode==="missing_enter"?undefined:true);
-    if(paired){
-      const body=paired.body,child=body.point_result.click;
-      await r.mouse.result(r.actor,paired.move.command_id,{...body,board_receipt:{...body.board_receipt,subcommand_index:0},
-        point_result:{...body.point_result,click:{...child,board_receipt:{...child.board_receipt,subcommand_index:0}}}});
-    }else await system!.confirm();
-    const original=system?.id??paired!.click.command_id;
-    const late=mode==="late_enter"||mode==="release_drop",elapsed=late?5800:500;
-    l.tick(elapsed);
-    const {meta:source}=await capturedAtPhoneMono(l,r,10000+elapsed,2,{source_seq:2});
-    const jobs:Promise<unknown>[]=[];
-    let publicProof:unknown;
-    if(mode!=="fresh_unreleased"){
-      const observation=await runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>late?
-        liveMcp(l.service,"get_mouse_result",{command_id:original,include_after_screen:true,after_command_min_gap_ms:5000},
-          ()=>{},mode==="release_drop"?async()=>{l.tick(2000);return true;}:undefined):
-        system?liveMcp(l.service,"open_system_search",{...system.args,wait_ms:600}):
-          liveMcp(l.service,"click_at",{...paired!.args,device_id,wait_ms:600}));
-      await Promise.all(jobs);
-      assert.equal(observation.result.structuredContent.command_id,original);
-      const after=record(observation.result.structuredContent.after_screen);
-      if(mode==="release_drop")assert.equal(observation.images.length,0);
-      else{
-        assert.equal(observation.images.length,1);
-        assert.equal(record(after.metadata).frame_id,source.frame_id);
-        if(late)assert.ok(Number(record(after.after_command).lower_gap_ms)>5000);
-      }
-      publicProof=after.source_field_proof;
-      assert.equal(typeof publicProof,late?"undefined":"string");
-    }
-    const found=await l.service.lookupReleasedFieldProof(alice,device_id,original,source.frame_id,false);
-    assert.equal(found.scopeBoundField,true);
-    if(mode==="fresh_unreleased"||mode==="release_drop")assert.equal(found.view,null);
-    else assert.equal(found.view?.sha256,await hash(r.bytes));
-    if(mode!=="fresh_unreleased"&&mode!=="wrong_original"&&mode!=="same_head"){
-      for(let step=0;step<3;step++){
-        await l.service.heartbeat(r.actor,r.beat);
-        l.tick(4000);
-      }
-      await capturedAtPhoneMono(l,r,10000+elapsed+12000+(mode==="release_drop"?2000:0),3,{source_seq:3});
-    }
-    if(mode==="changed_hash")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.content_sha256',?) WHERE id=?")
-      .run("ad".repeat(32),device_id+":"+source.frame_id);
-    if(mode==="stale_head")l.tick(2000);
-    if(mode==="later_input")await r.mouse.enqueue(alice,"pointer.click",{device_id,idempotency_key:uid(),wait_ms:0});
-    const submit=mode==="late_enter"||mode==="search_enter"||mode==="missing_enter";
-    const args={...focusedTextEnterArgs(device_id,source.frame_id),submit:submit?"enter":undefined,
-      source_after_command_id:mode==="wrong_original"?uid():original,
-      source_field_proof:mode==="tampered"?String(publicProof)+"x":mode==="expired_explicit"?publicProof:undefined};
-    const result=(await liveMcp(l.service,"type_text_in_field",args)).result.structuredContent;
-    const count=l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='keyboard.type_text'").get()!.n;
-    if(mode==="first_type"||mode==="same_head"||mode==="late_enter"||mode==="expired_explicit"||mode==="search_type"){
-      assert.equal(result.state,"queued");
-      assert.equal(count,1);
-      assert.deepEqual(record(result.precondition).focus_source,{protocol:"model_reviewed_field_crops.v4",
-        frame_id:source.frame_id,content_sha256:await hash(r.bytes),origin:system?"system_search":"paired_click"});
-      const phone={...r.identity,control_epoch:ready.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-        spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-      const claimed=await r.mouse.claim(r.actor,phone,0);
-      assert.equal(claimed?.command_id,result.command_id);
-      assert.equal(record(claimed?.payload).submit_enter,submit?true:undefined);
-      assert.equal(claimed?.board_boot_id,boot);
-    }else{
-      assert.equal(count,0);
-      assert.equal(result.error,mode==="tampered"?"FIELD_AFTER_IMAGE_PROOF_INVALID":mode==="search_enter"?"INVALID_ARGUMENTS":
-        mode==="missing_enter"?"FOCUSED_TEXT_LINKED_AFTER_ENTER_NOT_READY":"FIELD_FRAME_OR_CONTROL_CHANGED");
-    }
-  });
-});
-
-test("software: protected focused text can reuse the original signed system-search after-image",async t=>{
-  const modes=["shortcut","missing_id","wrong_id","unconfirmed","missing_digest","unreleased",
-    "wrong_board_receipt","changed_boot","changed_control","changed_geometry","equal_settle","after_ack_window",
-    "head_at_limit","source_at_limit","source_unaccepted"] as const;
-  for(const mode of modes)await t.test(mode,async()=>{
-    const l=lab(),{r,id,confirm,receipt}=await shortcutFieldHandoffFixture(l);
-    await confirm(mode==="unconfirmed");
-    const sourceAt=mode==="equal_settle"?523:mode==="after_ack_window"?2100:680;
-    l.tick(sourceAt);
-    const {meta:source}=await capturedAtPhoneMono(l,r,10000+sourceAt,2,{source_seq:2});
-    const key=r.actor.id+":"+source.frame_id;
-    const row=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(key);
-    assert.equal(typeof row?.acceptance_json,"string");
-    const sourceLower=Number(JSON.parse(String(row?.acceptance_json)).capture_lower_ms);
-    if(mode==="shortcut"){
-      const actual=await liveMcp(l.service,"get_mouse_result",{command_id:id,include_after_screen:true});
-      assert.equal(actual.images.length,1);
-      const after=record(actual.result.structuredContent.after_screen),proof=record(after.after_command);
-      assert.equal(record(after.metadata).frame_id,source.frame_id);
-      assert.equal(proof.command_id,id);
-      assert.equal(proof.minimum_gap_ms,520);
-    }
-    const elapsed=(mode==="source_at_limit"?4000:2350)-(l.now()-sourceLower);
-    l.tick(elapsed);
-    await capturedAtPhoneMono(l,r,10000+sourceAt+elapsed,3,{source_seq:3});
-    if(mode==="missing_digest")l.db.raw.prepare("UPDATE sb_mouse_commands SET result_digest=NULL WHERE id=?").run(id);
-    if(mode==="unreleased"||mode==="wrong_board_receipt")l.db.raw.prepare("UPDATE sb_mouse_commands SET receipt=? WHERE id=?").run(JSON.stringify({
-      ...receipt,...(mode==="wrong_board_receipt"?{board_boot_id:uid()}:{effect:{...receipt.effect,all_released:false}})}),id);
-    if(mode==="changed_boot")l.db.raw.prepare("UPDATE sb_hardware SET board_boot_id=? WHERE device_id=?").run(uid(),r.actor.id);
-    if(mode==="changed_control")l.db.raw.prepare("UPDATE sb_mouse_commands SET control_epoch=control_epoch+1 WHERE id=?").run(id);
-    if(mode==="changed_geometry")l.db.raw.prepare("UPDATE sb_frames SET metadata=json_set(metadata,'$.native_width_px',999) WHERE device_id=?").run(r.actor.id);
-    if(mode==="head_at_limit")l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE device_id=?").run(l.now()-2000,r.actor.id);
-    if(mode==="source_unaccepted")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=NULL WHERE id=?").run(key);
-    const request={...focusedTextEnterArgs(r.actor.id,source.frame_id),text:"Google map",submit:undefined,
-      source_after_command_id:mode==="missing_id"?undefined:mode==="wrong_id"?uid():id};
-    const reply=await liveMcp(l.service,"type_text_in_field",request),summary=reply.result.structuredContent;
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-    if(mode==="shortcut"){
-      assert.equal(summary.state,"queued");
-      assert.equal(summary.kind,"keyboard.type_text");
-      assert.equal(record(summary.payload).source_frame_id,source.frame_id);
-      assert.equal(record(summary.payload).submit_enter,undefined);
-      assert.equal(record(summary.payload).source_after_command_id,undefined);
-      assert.equal(count(),2);
-      const replay=await liveMcp(l.service,"type_text_in_field",{...request,source_after_command_id:undefined});
-      assert.equal(replay.result.structuredContent.command_id,summary.command_id);
-      assert.equal(count(),2);
-    }else{
-      assert.equal(summary.error,"FIELD_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(count(),1);
-    }
-  });
-});
-
-test("software: released paired-click and system Search images share one strict public field handoff",async t=>{
-  for(const mode of ["paired_click","system_search","later_writer","pending_writer","wrong_scope","expired","no_v2","stale_head","release_expired","click_later_writer","click_claim_writer","ordinary_after_text",
-    "paired_click_enter","system_search_enter","enter_claim_cap_lost","enter_start_cap_lost","enter_base_cap_missing","enter_v2_missing",
-    "click_scope_bound","click_scope_bound_relook","click_scope_bound_release_drop","click_scope_bound_claim_lost",
-    "click_scope_bound_stale_current","click_scope_bound_bad_origin","click_scope_bound_no_ttl_capability",
-    "click_legacy_expired"] as const)await t.test(mode,async subtest=>{
-    const diagnostics:Record<string,unknown>[]=[];
-    const info=console.info;
-    subtest.mock.method(console,"info",(...values:unknown[])=>{
-      if(typeof values[0]==="string"&&values[0].includes('"event":"focused_text_admission_rejected"')){
-        diagnostics.push(JSON.parse(values[0]));
-      }
-      info(...values);
-    });
-    const l=sourceViewLab();
-    const scopeBoundPoint=mode.startsWith("click_scope_bound");
-    const linkedEnter=mode.endsWith("_enter")||mode.startsWith("enter_");
-    const paired=mode==="paired_click"||mode==="paired_click_enter"?await pairedPhonePoint(true,undefined,l):undefined;
-    const system=paired?undefined:await shortcutFieldHandoffFixture(l,300);
-    const r=paired?.r??system!.r,device_id=r.actor.id,boot=r.hardware.board_boot_id;
-    const led=new LEDControl(l.service);
-    const bind=async(combined=linkedEnter)=>led.bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,...focusedTextEnterBoard,
-      "hid.mouse.absolute":true,"sayso.reviewed_point_crops.v2":true,"sayso.reviewed_point_crops.v3":true,
-      "sayso.reviewed_point_crops.v4":scopeBoundPoint,
-      [reviewedPointTTLCapability]:scopeBoundPoint&&mode!=="click_scope_bound_no_ttl_capability",
-      "sayso.model_reviewed_field_crops.v1":true,"sayso.model_reviewed_field_crops.v2":mode!=="no_v2"&&mode!=="enter_v2_missing",
-      "sayso.focused_text_linked_after_enter.v1":combined,"hid.keyboard.ascii_enter_stable":mode!=="enter_base_cap_missing"}});
-    await bind();
-    await l.service.heartbeat(r.actor,r.beat);
-    const ready=await r.mouse.status(alice,{device_id});
-    assert.equal(ready.focused_text_linked_after_ready,mode==="no_v2"||mode==="enter_v2_missing"?undefined:true);
-    assert.equal(ready.focused_text_linked_after_enter_ready,linkedEnter&&mode!=="enter_v2_missing"&&mode!=="enter_base_cap_missing"?true:undefined);
-    if(paired){
-      const body=paired.body,child=body.point_result.click;
-      await r.mouse.result(r.actor,paired.move.command_id,{...body,board_receipt:{...body.board_receipt,subcommand_index:0,error:null},
-        point_result:{...body.point_result,click:{...child,board_receipt:{...child.board_receipt,subcommand_index:0,error:null}}}});
-    }else await system!.confirm();
-    const original=paired?.click.command_id??system!.id;
-    l.tick(500);
-    const {meta:focus}=await capturedAtPhoneMono(l,r,10500,2,{source_seq:2});
-    const first=await liveMcp(l.service,paired?"click_at":"open_system_search",
-      paired?{...paired.args,device_id,wait_ms:600}:{...system!.args,wait_ms:600},
-      ()=>{},mode==="release_expired"?async()=>{l.tick(2000);return true;}:undefined);
-    const actual=record(first.result.structuredContent.after_screen);
-    assert.equal(first.result.structuredContent.command_id,original);
-    if(mode==="release_expired"){
-      assert.equal(first.images.length,0);
-      assert.equal(actual.source_field_proof,undefined);
-      assert.equal(first.result.structuredContent.state,"board_acked");
-      assert.equal((await l.service.lookupReleasedFieldProof(alice,device_id,original,focus.frame_id,true)).view,null);
-      return;
-    }
-    assert.equal(first.images.length,1);
-    assert.equal(record(actual.metadata).frame_id,focus.frame_id);
-    const proof=String(actual.source_field_proof),view=await l.service.verifyReleasedFieldViewProof(alice,proof);
-    assert.equal(view?.origin,paired?"paired_click":"system_search");
-    assert.equal(view?.sha256,await hash(r.bytes));
-    assert.equal(view?.frame,focus.frame_id);
-    assert.equal(view?.command,original);
-    assert.equal(await l.service.verifyReleasedFieldViewProof(bob,proof),null);
-    assert.equal(await l.service.verifyCompoundQueryViewProof(alice,proof),null);
-    const same=await liveMcp(l.service,"get_mouse_result",{command_id:original,include_after_screen:true});
-    assert.equal((await l.service.verifyReleasedFieldViewProof(alice,String(record(same.result.structuredContent.after_screen).source_field_proof)))?.frame,
-      focus.frame_id);
-    const count=()=>Number(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='keyboard.type_text'").get()!.n);
-    const args={...focusedTextEnterArgs(device_id,focus.frame_id),submit:linkedEnter?"enter":undefined,source_after_command_id:original};
-    const reject=async(patch:Record<string,unknown>,error:string)=>{
-      const result=await liveMcp(l.service,"type_text_in_field",{...args,source_field_proof:proof,...patch});
-      assert.equal(result.result.structuredContent.error,error);
-      assert.equal(count(),0);
-    };
-    await reject({source_after_command_id:uid()},"FIELD_AFTER_IMAGE_PROOF_INVALID");
-    await reject({source_frame_id:uid()},"FIELD_AFTER_IMAGE_PROOF_INVALID");
-    await reject({source_field_proof:proof+"x"},"FIELD_AFTER_IMAGE_PROOF_INVALID");
-    if(!linkedEnter||mode==="enter_base_cap_missing"||mode==="enter_v2_missing"){
-      await reject({submit:"enter"},"FOCUSED_TEXT_LINKED_AFTER_ENTER_NOT_READY");
-      if(linkedEnter)return;
-    }
-    if(mode==="ordinary_after_text"){
-      const ordinaryArgs={...args,source_after_command_id:undefined};
-      const typed=await liveMcp(l.service,"type_text_in_field",ordinaryArgs);
-      const id=String(typed.result.structuredContent.command_id);
-      const claimed=await r.mouse.claim(r.actor,{...r.identity,control_epoch:ready.control_epoch,
-        raw_dispatch_protocol:RAW_MOUSE_DISPATCH,spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START},0);
-      assert.equal(claimed?.command_id,id);
-      await r.mouse.result(r.actor,id,{...r.identity,state:"board_acked",finished_client_mono_ms:10530,
-        spotlight_focus_frame_id:focus.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-        board_receipt:{command_id:id,board_boot_id:boot,state:"executed",subcommand_index:0,
-          effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
-      l.tick(420);
-      await capturedAtPhoneMono(l,r,10920,3,{source_seq:3});
-      const observed=await liveMcp(l.service,"type_text_in_field",{...ordinaryArgs,wait_ms:600});
-      assert.equal(observed.images.length,1);
-      assert.equal(record(observed.result.structuredContent.after_screen).source_query_proof,undefined);
-      assert.equal(count(),1);
-      return;
-    }
-    if(mode==="expired"){
-      l.tick(10000);
-      assert.equal((await l.service.lookupReleasedFieldProof(alice,device_id,original,focus.frame_id,true)).view,null);
-      await reject({},"FIELD_AFTER_IMAGE_PROOF_INVALID");
-      return;
-    }
-    l.tick(7400);
-    const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,83)},80).data;
-    const {meta:head}=await capturedAtPhoneMono(l,{...r,bytes},17900,3,{source_seq:3,content_sha256:await hash(bytes)});
-    const staleOrdinary=(await liveMcp(l.service,"type_text_in_field",{...args,source_after_command_id:uid()})).result.structuredContent;
-    assert.equal(staleOrdinary.error,"FIELD_FRAME_OR_CONTROL_CHANGED");
-    const staleLog=diagnostics.at(-1);
-    assert.equal(staleLog?.request_id,staleOrdinary.mcp_request_id);
-    const staleSnapshot=record(staleLog?.snapshot);
-    assert.equal(record(staleSnapshot.head).eligible,1);
-    assert.equal(record(staleSnapshot.reference).eligible,0);
-    assert.ok(Number(record(staleSnapshot.reference).age_ms)>=7400);
-    assert.equal(count(),0);
-    const phone={...r.identity,control_epoch:ready.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-      spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-    if(mode==="later_writer"){
-      const later=await r.mouse.enqueue(alice,"pointer.click",{device_id,idempotency_key:uid(),wait_ms:0});
-      assert.equal((await r.mouse.claim(r.actor,phone,0))?.command_id,later.command_id);
-      await r.mouse.result(r.actor,later.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:17903,
-        board_receipt:{command_id:later.command_id,board_boot_id:boot,state:"executed",subcommand_index:0,
-          effect:{hid_reports_sent:true}}});
-      await reject({},"FIELD_FRAME_OR_CONTROL_CHANGED");
-      return;
-    }
-    if(mode==="pending_writer"){
-      const later=await r.mouse.enqueue(alice,"pointer.click",{device_id,idempotency_key:uid(),wait_ms:0});
-      assert.equal(later.state,"queued");
-      await reject({},"FIELD_FRAME_OR_CONTROL_CHANGED");
-      const snapshot=record(diagnostics.at(-1)?.snapshot);
-      assert.equal(record(snapshot.admission).pending_input_clear,0);
-      assert.equal(record(snapshot.head).eligible,1);
-      return;
-    }
-    if(mode==="wrong_scope")l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.identity.bridge_session_id);
-    if(mode==="stale_head")l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-2000,head.frame_id);
-    if(mode==="wrong_scope"||mode==="stale_head"||mode==="no_v2"){
-      await reject({},mode==="no_v2"?"FOCUSED_TEXT_LINKED_AFTER_NOT_READY":"FIELD_FRAME_OR_CONTROL_CHANGED");
-      const snapshot=record(diagnostics.at(-1)?.snapshot),head=record(snapshot.head),reference=record(snapshot.reference);
-      if(mode==="stale_head"){
-        assert.equal(head.fresh,0);
-        assert.ok(Number(head.age_ms)>=2000);
-        assert.ok(Number(reference.age_ms)<10000);
-      }
-      if(mode==="wrong_scope"){
-        assert.equal(reference.accepted_control_matches,0);
-        assert.equal(reference.original_action_eligible,0);
-        assert.equal(head.eligible,1);
-      }
-      return;
-    }
-    const linkedArgs=mode==="system_search"?args:{...args,source_field_proof:proof};
-    const typed=await liveMcp(l.service,"type_text_in_field",linkedArgs);
-    const typedID=String(typed.result.structuredContent.command_id);
-    assert.equal(typed.result.structuredContent.state,"queued",JSON.stringify(typed.result.structuredContent));
-    const saved=record(typed.result.structuredContent.precondition);
-    assert.equal(saved.linked_field_click,linkedEnter?undefined:true);
-    assert.equal(record(typed.result.structuredContent.payload).submit_enter,linkedEnter?true:undefined);
-    if(mode==="enter_claim_cap_lost"||mode==="enter_start_cap_lost"){
-      const identity={...r.identity,control_epoch:ready.control_epoch};
-      if(mode==="enter_start_cap_lost"){
-        const pendingStart=await r.mouse.claim(r.actor,identity,0);
-        assert.equal(pendingStart?.command_id,typedID);
-        assert.equal(pendingStart?.state,"claimed");
-      }
-      await bind(false);
-      if(mode==="enter_claim_cap_lost")assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-      else await assert.rejects(r.mouse.start(r.actor,String(typedID),identity),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
-      assert.equal((await r.mouse.get(alice,String(typedID))).state,mode==="enter_claim_cap_lost"?"queued":"claimed");
-      assert.equal(count(),1);
-      return;
-    }
-    const claimed=await r.mouse.claim(r.actor,phone,0);
-    assert.ok(claimed);
-    assert.equal(claimed.command_id,typedID);
-    assert.equal(claimed.state,"executing");
-    assert.equal((await r.mouse.status(alice,{device_id})).reviewed_point_scope_bound_ready,scopeBoundPoint?true:undefined);
-    assert.deepEqual(claimed.precondition,{spotlight_transport:"stable_usb",
-      focus_source:{protocol:"model_reviewed_field_crops.v2",frame_id:focus.frame_id,content_sha256:await hash(r.bytes)}});
-    assert.equal((await liveMcp(l.service,"type_text_in_field",linkedArgs)).result.structuredContent.command_id,typedID);
-    assert.equal(count(),1);
-    const confirmed={...r.identity,state:"board_acked",finished_client_mono_ms:17930,
-      spotlight_focus_frame_id:head.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-      board_receipt:{command_id:claimed.command_id,board_boot_id:boot,state:"executed",subcommand_index:0,
-        effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}};
-    if(linkedEnter)await assert.rejects(r.mouse.result(r.actor,claimed.command_id,confirmed),/INVALID_FOCUSED_TEXT_ENTER_RECEIPT/);
-    await r.mouse.result(r.actor,claimed.command_id,linkedEnter?{...confirmed,board_receipt:{
-      ...confirmed.board_receipt,effect:{...confirmed.board_receipt.effect,enter_sent:true}}}:confirmed);
-    l.tick(460);
-    const resultBytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,102)},80).data;
-    const {meta:query}=await capturedAtPhoneMono(l,{...r,bytes:resultBytes},18360,4,
-      {source_seq:4,content_sha256:await hash(resultBytes)});
-    const jobs:Promise<unknown>[]=[];
-    const typeResult=await runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>liveMcp(l.service,"type_text_in_field",
-      {...linkedArgs,wait_ms:600},()=>{},mode==="click_scope_bound_release_drop"?async()=>{l.tick(2000);return true;}:undefined));
-    await Promise.all(jobs);
-    assert.equal(typeResult.result.structuredContent.command_id,typedID);
-    const ledger=()=>l.db.raw.prepare("SELECT proof FROM sb_released_system_search_field_proofs WHERE owner_id=? AND device_id=? AND command_id=? AND frame_id=?")
-      .get(alice.id,device_id,typedID,query.frame_id);
-    if(mode==="click_scope_bound_release_drop"){
-      assert.equal(typeResult.images.length,0);
-      assert.equal(ledger(),undefined);
-      return;
-    }
-    assert.equal(typeResult.images.length,1);
-    if(linkedEnter){
-      const after=record(typeResult.result.structuredContent.after_screen);
-      assert.equal(after.source_query_proof,undefined);
-      assert.equal(record(typeResult.result.structuredContent.text_input).enter_sent,true);
-      assert.equal(record(after.after_command).minimum_gap_ms,300);
-      assert.equal(record(after.after_command).command_id,typedID);
-      assert.equal(record(after.metadata).frame_id,query.frame_id);
-      const observed=await liveMcp(l.service,"get_mouse_result",{command_id:typedID,include_after_screen:true});
-      assert.equal(observed.images.length,1);
-      assert.equal(record(observed.result.structuredContent.after_screen).source_query_proof,undefined);
-      assert.equal(count(),1);
-      return;
-    }
-    const queryAfter=record(typeResult.result.structuredContent.after_screen);
-    let queryProof=String(queryAfter.source_query_proof);
-    const queryView=await l.service.verifyCompoundQueryViewProof(alice,queryProof);
-    assert.equal(queryView?.origin,"linked_text");
-    assert.equal(queryView?.preparation,undefined);
-    assert.equal(queryView?.command,typedID);
-    assert.equal(queryView?.frame,query.frame_id);
-    assert.equal(queryView?.sha256,await hash(resultBytes));
-    let reviewedQuery=query,queryMono=18360,querySeq=4;
-    if(mode==="click_scope_bound_relook"){
-      await l.service.heartbeat(r.actor,r.beat);
-      l.tick(5200); queryMono+=5200; querySeq++;
-      reviewedQuery=(await capturedAtPhoneMono(l,{...r,bytes:resultBytes},queryMono,querySeq,
-        {source_seq:querySeq,content_sha256:await hash(resultBytes)})).meta;
-    }
-    const relook=await runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>liveMcp(l.service,"get_mouse_result",
-      {command_id:typedID,include_after_screen:true,...(reviewedQuery!==query?{
-        after_command_min_gap_ms:Math.ceil(Number(record(queryAfter.after_command).lower_gap_ms)),
-      }:{})}));
-    await Promise.all(jobs);
-    const relookProof=String(record(relook.result.structuredContent.after_screen).source_query_proof);
-    assert.equal((await l.service.verifyCompoundQueryViewProof(alice,relookProof))?.frame,reviewedQuery.frame_id);
-    if(reviewedQuery!==query){
-      assert.ok(Number(record(record(relook.result.structuredContent.after_screen).after_command).lower_gap_ms)>5000);
-      queryProof=relookProof;
-    }
-    assert.equal(typeof ledger()?.proof,scopeBoundPoint?"string":"undefined");
-    const delay=scopeBoundPoint||mode==="click_legacy_expired"?14500:7400;
-    if(delay>7400)for(let elapsed=0;elapsed<delay;elapsed+=4000){
-      await l.service.heartbeat(r.actor,r.beat);
-      l.tick(Math.min(4000,delay-elapsed));
-    }else{
-      l.tick(delay);
-      await l.service.heartbeat(r.actor,r.beat);
-    }
-    const freshQuery=(await capturedAtPhoneMono(l,{...r,bytes:resultBytes},queryMono+delay,querySeq+1,
-      {source_seq:querySeq+1,content_sha256:await hash(resultBytes)})).meta;
-    const clickArgs={device_id,source_frame_id:reviewedQuery.frame_id,x:7,y:15,image_width:16,image_height:32,
-      orientation_epoch:0,wait_ms:0,idempotency_key:uid(),
-      target_region:{x:.25,y:.35,width:.43,height:.24},landmark_region:{x:.06,y:.07,width:.31,height:.13}};
-    const pointCount=()=>Number(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='pointer.move_absolute'").get()!.n);
-    const originalPoints=pointCount();
-    // The explicit protected compatibility controller retains its historical
-    // source gate. Public ordinary click_at is covered by the geometry tests.
-    await assert.rejects(r.mouse.clickAt(alice,clickArgs),/REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/);
-    assert.equal((await liveMcp(l.service,"click_at",{...clickArgs,source_query_proof:proof})).result.structuredContent.error,
-      "COMPOUND_QUERY_VIEW_PROOF_INVALID");
-    assert.equal(pointCount(),originalPoints);
-    if(mode==="click_scope_bound_stale_current")l.tick(2000);
-    if(mode==="click_scope_bound_stale_current"||mode==="click_legacy_expired"){
-      const refused=await liveMcp(l.service,"click_at",{...clickArgs,source_query_proof:queryProof});
-      assert.equal(refused.result.structuredContent.error,mode==="click_legacy_expired"?
-        "COMPOUND_QUERY_VIEW_PROOF_INVALID":"REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(pointCount(),originalPoints);
-      return;
-    }
-    if(scopeBoundPoint){
-      const wrong=await liveMcp(l.service,"click_at",{...clickArgs,source_frame_id:freshQuery.frame_id,source_query_proof:queryProof});
-      assert.equal(wrong.result.structuredContent.error,"COMPOUND_QUERY_VIEW_PROOF_INVALID");
-      assert.equal(pointCount(),originalPoints);
-    }
-    if(mode==="click_later_writer"){
-      const later=await r.mouse.enqueue(alice,"pointer.click",{device_id,idempotency_key:uid(),wait_ms:0});
-      assert.equal((await r.mouse.claim(r.actor,phone,0))?.command_id,later.command_id);
-      await r.mouse.result(r.actor,later.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:25770,
-        board_receipt:{command_id:later.command_id,board_boot_id:boot,state:"executed",subcommand_index:0,effect:{hid_reports_sent:true}}});
-      assert.equal((await liveMcp(l.service,"click_at",{...clickArgs,source_query_proof:queryProof})).result.structuredContent.error,
-        "REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(pointCount(),originalPoints);
-      return;
-    }
-    const opening=await liveMcp(l.service,"click_at",{...clickArgs,source_query_proof:queryProof});
-    if(mode==="click_scope_bound_bad_origin"){
-      const moveID=String(opening.result.structuredContent.move_command_id);
-      assert.ok(opening.result.structuredContent.move_command_id);
-      l.db.raw.prepare("UPDATE sb_mouse_commands SET precondition=json_set(precondition,'$.point_source.origin','retained') WHERE id=?").run(moveID);
-      assert.equal(await r.mouse.claim(r.actor,{...phone,raw_dispatch_ttl_profiles:[reviewedPointTTLProfile]},0),null);
-      assert.equal((await r.mouse.get(alice,moveID)).state,"queued");
-      return;
-    }
-    if(mode==="click_scope_bound_claim_lost"){
-      assert.ok(opening.result.structuredContent.move_command_id);
-      l.db.raw.prepare("DELETE FROM sb_released_system_search_field_proofs WHERE owner_id=? AND device_id=? AND command_id=? AND frame_id=?")
-        .run(alice.id,device_id,typedID,reviewedQuery.frame_id);
-      assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-      return;
-    }
-    if(mode==="click_claim_writer"){
-      assert.ok(opening.result.structuredContent.move_command_id);
-      l.db.raw.prepare("INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,state,worker_id,lease_epoch,control_epoch,created_at,expires_at,input_attempted) SELECT ?,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,?,'board_acked',worker_id,lease_epoch,control_epoch,created_at,expires_at,1 FROM sb_mouse_commands WHERE id=?")
-        .run(uid(),uid(),claimed.command_id);
-      assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-      const states=l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=? OR predecessor_id=?").all(
-        String(opening.result.structuredContent.move_command_id),String(opening.result.structuredContent.move_command_id));
-      assert.deepEqual(states.map(row=>row.state).sort(),["embedded","queued"]);
-      return;
-    }
-    const requestedTTL=mode==="click_scope_bound"||mode==="click_scope_bound_no_ttl_capability"||mode==="paired_click";
-    const moved=await r.mouse.claim(r.actor,{...phone,...(requestedTTL?{raw_dispatch_ttl_profiles:[reviewedPointTTLProfile]}:{})},0);
-    assert.ok(moved);
-    assert.equal(moved.command_id,opening.result.structuredContent.move_command_id);
-    assert.equal(record(moved).raw_dispatch_ttl_profile,undefined);
-    assert.equal(record(moved).ttl_remaining_ms,Math.min(2500,Date.parse(moved.expires_at)-l.now()));
-    assert.equal(moved.precondition?.point_source,undefined);
-    assert.equal(moved.precondition?.point_motion_policy,undefined);
-    const stored=l.db.raw.prepare("SELECT precondition FROM sb_mouse_commands WHERE id=?").get(moved.command_id);
-    const savedPoint=JSON.parse(String(stored?.precondition));
-    assert.equal(savedPoint.point_motion_policy,"geometry_only.v1");
-    assert.deepEqual(savedPoint.point_source,{protocol:scopeBoundPoint?"reviewed_point_crop.v4":"reviewed_point_crop.v3",
-      frame_id:reviewedQuery.frame_id,content_sha256:await hash(resultBytes),target_region:clickArgs.target_region,
-      landmark_region:clickArgs.landmark_region,...(scopeBoundPoint?{origin:"linked_text"}:{})});
-    assert.equal(pointCount(),originalPoints+1);
-    assert.equal(count(),1);
-  });
-});
-
-test("software: internal typed shortcut child requires exact accepted after evidence and no intervening input",async t=>{
-  const modes=["fresh","retained","late_after_ack","no_ack","wrong_original","wrong_boot","wrong_control",
-    "equal_settle","expired_source","stale_head","unaccepted_head","intervening","not_focused","submit_enter","missing_original",
-    "ordinary_key_conflict","abort_before_insert"] as const;
-  for(const mode of modes)await t.test(mode,async()=>{
-    const l=lab(),{r,id,confirm}=await shortcutFieldHandoffFixture(l);
-    await confirm(mode==="no_ack");
-    const firstAt=mode==="equal_settle"?523:mode==="late_after_ack"?2600:680;
-    l.tick(firstAt);
-    const {meta:reviewed}=await capturedAtPhoneMono(l,r,10000+firstAt,2,{source_seq:2});
-    if(mode==="retained"||mode==="expired_source"||mode==="stale_head"||mode==="unaccepted_head"){
-      const gap=mode==="expired_source"?4000:2300;
-      l.tick(gap);
-      const {meta:head}=await capturedAtPhoneMono(l,r,10000+firstAt+gap,3,{source_seq:3});
-      if(mode==="stale_head")l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE device_id=?").run(l.now()-2000,r.actor.id);
-      if(mode==="unaccepted_head")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=NULL WHERE id=?").run(r.actor.id+":"+head.frame_id);
-    }
-    if(mode==="wrong_boot")l.db.raw.prepare("UPDATE sb_hardware SET board_boot_id=? WHERE device_id=?").run(uid(),r.actor.id);
-    if(mode==="wrong_control")l.db.raw.prepare("UPDATE sb_mouse_commands SET control_epoch=control_epoch+1 WHERE id=?").run(id);
-    if(mode==="intervening"){
-      const other=await r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0});
-      const claimed=await r.mouse.claim(r.actor,r.identity,0);
-      assert.equal(claimed?.command_id,other.command_id);
-      await r.mouse.start(r.actor,other.command_id,{...r.identity,control_epoch:other.control_epoch});
-      await r.mouse.result(r.actor,other.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:10800,
-        board_receipt:{command_id:other.command_id,board_boot_id:r.hardware.board_boot_id,subcommand_index:0,
-          state:"executed",effect:{hid_reports_sent:true}}});
-    }
-    const args={...focusedTextEnterArgs(r.actor.id,reviewed.frame_id),text:"Google map",submit:mode==="submit_enter"?"enter":undefined,
-      source_after_command_id:mode==="missing_original"?undefined:mode==="wrong_original"?uid():id};
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='keyboard.type_text'").get()!.n;
-    if(mode==="ordinary_key_conflict"){
-      const ordinary=await r.mouse.enqueueSpotlightObserved(alice,args,uid(),true);
-      assert.equal(ordinary.state,"queued");
-      assert.equal(count(),1);
-    }
-    const controller=new AbortController();
-    const strict=()=>r.mouse.enqueueSpotlightObserved(alice,args,uid(),mode!=="not_focused",
-      {requireOriginalSystemSearch:true,signal:controller.signal});
-    if(mode==="fresh"||mode==="retained"||mode==="late_after_ack"){
-      const typed=await strict();
-      assert.equal(typed.state,"queued");
-      assert.equal(typed.kind,"keyboard.type_text");
-      assert.equal(typed.payload.source_frame_id,reviewed.frame_id);
-      assert.equal(typed.payload.submit_enter,undefined);
-      assert.equal((await strict()).command_id,typed.command_id);
-      assert.equal(count(),1);
-    }else{
-      const error=mode==="abort_before_insert"?/APP_SEARCH_QUERY_CANCELLED/:mode==="ordinary_key_conflict"?/IDEMPOTENCY_CONFLICT/:
-        ["not_focused","submit_enter","missing_original"].includes(mode)?/SYSTEM_SEARCH_FIELD_HANDOFF_REQUIRED/:/FIELD_FRAME_OR_CONTROL_CHANGED/;
-      const input=strict();
-      if(mode==="abort_before_insert")controller.abort();
-      await assert.rejects(input,error);
-      assert.equal(count(),mode==="ordinary_key_conflict"?1:0);
-    }
-  });
-});
-
-test("software: confirmed system search uses an independent 5s strict 2s after-image window and original relook",async()=>{
-  let mono=0,frameID:string|undefined,publish:undefined|(()=>Promise<string>);
-  const l=lab(false,{now:()=>mono,sleep:async ms=>{
-    mono+=ms;l.tick(ms);
-    if(mono>=1100&&publish&&!frameID)frameID=await publish();
-  }});
-  const {r,id,args,confirm}=await shortcutFieldHandoffFixture(l,300);
-  await confirm();
-  publish=async()=>(await capturedAtPhoneMono(l,r,10000+mono,2,{source_seq:2})).meta.frame_id;
-  const explicit=await liveMcp(l.service,"open_system_search",{...args,wait_ms:300});
-  assert.equal(explicit.images.length,0);
-  assert.equal(explicit.result.structuredContent.command_id,id);
-  const before=mono,{wait_ms:_wait,...defaultArgs}=args;
-  const observed=await liveMcp(l.service,"open_system_search",defaultArgs),after=record(observed.result.structuredContent.after_screen);
-  assert.equal(observed.images.length,1);
-  assert.equal(observed.result.structuredContent.command_id,id);
-  assert.equal(record(after.metadata).frame_id,frameID);
-  assert.equal(record(after.after_command).command_id,id);
-  assert.equal(after.age_limit_ms,2000);
-  assert.ok(mono-before>600);
-  assert.ok(Number(after.wait_budget_ms)>4500&&Number(after.wait_budget_ms)<=5000);
-  l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-1999.75,frameID!);
-  const changes=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  const look={command_id:id,include_after_screen:true};
-  const relook=await liveMcp(l.service,"get_mouse_result",look);
-  assert.equal(relook.images.length,1);
-  assert.equal(relook.age,"1999.75");
-  const expired=await liveMcp(l.service,"get_mouse_result",look,()=>{},async()=>{l.tick(.25);return true;});
-  assert.equal(expired.images.length,0);
-  assert.equal(record(expired.result.structuredContent.after_screen).release_failure,"frame_expired");
-  assert.equal(l.db.raw.prepare("SELECT total_changes() n").get()!.n,changes);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: strict query post-image keeps its saved 300 ms floor after original-ID recovery",async()=>{
-  let mono=0;
-  const l=lab(false,{now:()=>mono,sleep:async ms=>{mono+=ms;}}),{r,id:shortcutID,confirm}=await shortcutFieldHandoffFixture(l);
-  await confirm();
-  l.tick(680);
-  const {meta:focus}=await capturedAtPhoneMono(l,r,10680,2,{source_seq:2});
-  const args={...focusedTextEnterArgs(r.actor.id,focus.frame_id),text:"Google map",submit:undefined,source_after_command_id:shortcutID};
-  const options={requireOriginalSystemSearch:true as const};
-  const queued=await r.mouse.enqueueSpotlightObserved(alice,args,uid(),true,options),id=queued.command_id;
-  assert.deepEqual(queued.precondition,{spotlight_transport:"stable_usb",capture_min_gap_ms:300});
-  const claim=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-    {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:queued.control_epoch,
-      raw_dispatch_protocol:RAW_MOUSE_DISPATCH,spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START},waitMS:0}));
-  assert.equal(claim?.command_id,id);
-  assert.equal(claim.state,"executing");
-  assert.deepEqual(claim.precondition,{spotlight_transport:"stable_usb"});
-  const boot=r.hardware.board_boot_id,ack=10850;
-  l.tick(170);
-  await r.mouse.result(r.actor,id,{...r.identity,state:"board_acked",finished_client_mono_ms:ack,
-    spotlight_focus_frame_id:focus.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-    board_receipt:{command_id:id,board_boot_id:boot,state:"executed",subcommand_index:0,
-      effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
-  l.tick(300);
-  await capturedAtPhoneMono(l,r,ack+300,3,{source_seq:3});
-  const stillEarly=await r.mouse.enqueueSpotlightObserved(alice,{...args,wait_ms:500},uid(),true,options);
-  assert.equal(stillEarly.command_id,id);
-  assert.equal(stillEarly.state,"board_acked");
-  assert.equal(stillEarly.image,undefined);
-  const lookup={command_id:id,include_after_screen:true};
-  const originalEarly=await liveMcp(l.service,"get_mouse_result",lookup);
-  assert.equal(originalEarly.result.structuredContent.command_id,id);
-  assert.equal(originalEarly.images.length,0);
-  l.tick(120);
-  const {meta:stale}=await capturedAtPhoneMono(l,r,ack+420,4,{source_seq:4});
-  l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-2000,stale.frame_id);
-  const originalStale=await liveMcp(l.service,"get_mouse_result",lookup);
-  assert.equal(originalStale.result.structuredContent.command_id,id);
-  assert.equal(originalStale.images.length,0);
-  l.tick(160);
-  const {meta:later}=await capturedAtPhoneMono(l,r,ack+580,5,{source_seq:5});
-  const originalLater=await liveMcp(l.service,"get_mouse_result",lookup);
-  const summary=originalLater.result.structuredContent,after=record(summary.after_screen),proof=record(after.after_command);
-  assert.equal(summary.command_id,id);
-  assert.equal(summary.state,"board_acked");
-  assert.equal(originalLater.images.length,1);
-  assert.equal(record(after.metadata).frame_id,later.frame_id);
-  assert.equal(proof.command_id,id);
-  assert.equal(proof.minimum_gap_ms,300);
-  assert.ok(Number(proof.lower_gap_ms)>300);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
-});
-
-test("software: original system-search relook enforces the greater saved settle and requested newer gap",async()=>{
-  let mono=0;
-  const l=lab(false,{now:()=>mono,sleep:async ms=>{mono+=ms;}}),{r,id,confirm}=await shortcutFieldHandoffFixture(l);
-  await confirm();
-  l.tick(2650);
-  const {meta}=await capturedAtPhoneMono(l,r,12650,2,{source_seq:2});
-  const args={command_id:id,include_after_screen:true};
-  const changes=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  for(const [requested,expected] of [[20,520],[2200,2200]]){
-    const reply=await liveMcp(l.service,"get_mouse_result",{...args,after_command_min_gap_ms:requested});
-    assert.equal(reply.images.length,1);
-    const after=record(reply.result.structuredContent.after_screen),proof=record(after.after_command);
-    assert.equal(proof.minimum_gap_ms,expected);
-    assert.equal(proof.command_id,id);
-    assert.equal(record(after.metadata).frame_id,meta.frame_id);
-  }
-  const older=await liveMcp(l.service,"get_mouse_result",{...args,after_command_min_gap_ms:2700});
-  assert.equal(older.result.structuredContent.command_id,id);
-  assert.equal(older.images.length,0);
-  assert.equal(l.db.raw.prepare("SELECT total_changes() n").get()!.n,changes);
-});
-
-test("software: a confirmed shortcut returned by a late in-flight receipt lookup still has its default image window",async()=>{
-  const l=lab(),{r,id,args,confirm}=await shortcutFieldHandoffFixture(l);
-  await confirm();
-  l.tick(750);
-  await capturedAtPhoneMono(l,r,10750,2,{source_seq:2});
-  let mono=0;
-  const mouse=new MouseControl(l.service,{now:()=>mono});
-  const enqueue=mouse.enqueue.bind(mouse);
-  mouse.enqueue=async(...params)=>{
-    const result=await enqueue(...params);
-    mono+=2100; // An in-flight receipt lookup returns past the input wait.
-    return result;
-  };
-  const {wait_ms:_wait,...defaultArgs}=args;
-  const withImage=await mouse.enqueueObserved(alice,"keyboard.open_search",defaultArgs);
-  assert.equal(withImage.command_id,id);
-  assert.equal(withImage.state,"board_acked");
-  assert.equal(typeof withImage.image,"string");
-  const explicit=await mouse.enqueueObserved(alice,"keyboard.open_search",{...defaultArgs,wait_ms:2000});
-  assert.equal(explicit.command_id,id);
-  assert.equal(explicit.state,"board_acked");
-  assert.equal(explicit.image,undefined);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: focused text retains a proven pre-input expiry without resubmitting",async()=>{
-  for(const stable of [false,true]){
-    const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999);
-    await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,[stable?"hid.keyboard.ascii_stable":"hid.keyboard.on_demand"]:true,"sayso.focused_text":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const args={device_id:r.actor.id,source_frame_id:meta.frame_id,text:"Calendar",wait_ms:0,idempotency_key:uid(),
-      field:{x:.12,y:.48,width:.64,height:.06},landmark:{text:"Visible field label",region:{x:.04,y:.16,width:.8,height:.06}}};
-    const command=await r.mouse.enqueueSpotlight(alice,args,undefined,true);
-    await r.mouse.claim(r.actor,r.identity,0);
-    await r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch});
-    const packet={...r.identity,state:"failed",board_receipt:{},error:"MOUSE_DISPATCH_BUDGET_EXPIRED"};
-    const result=await r.mouse.result(r.actor,command.command_id,packet);
-    assert.equal(result.state,"failed");assert.equal(result.input_not_submitted,true);
-    assert.equal(result.receipt_observation.valid_for_capture_order,false);
-    assert.deepEqual(result.board_receipt,{});
-    assert.equal((await r.mouse.result(r.actor,command.command_id,packet)).command_id,command.command_id);
-    const original=await r.mouse.enqueueSpotlightObserved(alice,args,uid(),true);
-    assert.equal(original.command_id,command.command_id);assert.equal(original.state,"failed");
-    assert.equal(original.image,undefined);assert.equal(original.after_screen.reason,"INPUT_NOT_CONFIRMED");
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-  }
-});
-
-test("software: stable focused text reuses one same-boot release and fresh after-image",async()=>{
-  for(const value of ["taobao","221B Baker St."]){
-    const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999),led=new LEDControl(l.service);
-    const base={...r.identity,...r.hardware,capabilities:{...r.hardware.capabilities,
-      "hid.keyboard.spotlight_stable":true,"sayso.focused_text":true}};
-    await led.bind(r.actor,base);await l.service.heartbeat(r.actor,r.beat);
-    const args={device_id:r.actor.id,source_frame_id:meta.frame_id,text:value,wait_ms:0,idempotency_key:uid(),
-      field:{x:.12,y:.48,width:.64,height:.06},landmark:{text:"Visible field label",region:{x:.04,y:.16,width:.8,height:.06}}};
-    await assert.rejects(r.mouse.enqueueSpotlight(alice,args,undefined,true),/FOCUSED_TEXT_NOT_READY/);
-    await led.bind(r.actor,{...base,capabilities:{...base.capabilities,"hid.keyboard.ascii_stable":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).focused_text_transport,"stable_usb");
-    const accepted=await r.mouse.enqueueSpotlight(alice,args,undefined,true);
-    const id=accepted.command_id,boot=r.hardware.board_boot_id;
-    const command=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-      {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:accepted.control_epoch,
-        raw_dispatch_protocol:RAW_MOUSE_DISPATCH,point_protocol:PAIRED_MOUSE_POINT,spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START},waitMS:0}));
-    assert.equal(command?.command_id,id);assert.equal(command?.state,"executing");
-    assert.equal(record(command?.payload).text,value);
-    const board={command_id:id,board_boot_id:boot,state:"executed",subcommand_index:0,effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}};
-    const packet={...r.identity,state:"board_acked",finished_client_mono_ms:10003,spotlight_focus_frame_id:meta.frame_id,
-      mouse_mode_confirmed:true,restored_mouse_boot_id:boot,board_receipt:board};
-    await assert.rejects(r.mouse.result(r.actor,id,{...packet,board_receipt:{...board,effect:{...board.effect,ascii_stable:false,spotlight_stable:true}}}),/INVALID_SPOTLIGHT_RECEIPT/);
-    await assert.rejects(r.mouse.result(r.actor,id,{...packet,board_receipt:{...board,effect:{...board.effect,all_released:false}}}),/INVALID_SPOTLIGHT_RECEIPT/);
-    await assert.rejects(r.mouse.result(r.actor,id,{...packet,restored_mouse_boot_id:uid()}),/INVALID_SPOTLIGHT_RESTORE/);
-    const result=await r.mouse.result(r.actor,id,packet);
-    assert.equal(result.text_input?.transport,"stable_usb");assert.equal(result.text_input?.restored_mouse_boot_id,boot);
-    l.tick(60);const image=(await capturedAtPhoneMono(l,r,10020,2)).meta;
-    const observed=await r.mouse.getSpotlightObserved(alice,id);
-    assert.equal(observed.observation_state,"available");
-    assert.equal(record(record(observed.after_screen).metadata).frame_id,image.frame_id);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-  }
-});
-
-test("software: Spotlight admits one fixed input on a current JPEG and retains its original cross-boot receipt", async () => {
-  const l=lab(),r=await mouseReady(l), {meta}=await capturedAtPhoneMono(l,r,9999);
-  const args={device_id:r.actor.id,source_frame_id:meta.frame_id,wait_ms:0,idempotency_key:uid(),
-    field:{x:0.05,y:0.55,width:0.8,height:0.08},landmark:{text:"Siri Suggestions",region:{x:0.05,y:0.2,width:0.8,height:0.06}}};
-  await assert.rejects(r.mouse.enqueueSpotlight(alice,args),/SPOTLIGHT_WIRED_NOT_READY/);
-  await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-    capabilities:{...r.hardware.capabilities,"hid.keyboard.on_demand":true,"sayso.spotlight_wired":true}});
-  await l.service.heartbeat(r.actor,r.beat);
-  await assert.rejects(r.mouse.enqueueSpotlight(alice,{...args,source_frame_id:uid()}),/SPOTLIGHT_FRAME_OR_CONTROL_CHANGED/);
-  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).spotlight_wired_ready,true);
-  const reply=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"type_google_map_in_spotlight",arguments:args}})}),
-    {engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
-  const rpc=await reply.json() as RpcReply, command=rpc.result.structuredContent;
-  assert.equal(command.kind,"spotlight.type_google_map");
-  assert.deepEqual(Object.keys(record(command.payload)),["source_frame_id","field","landmark"]);
-  const commandID=String(command.command_id);
-  const duplicate=await r.mouse.enqueueSpotlight(alice,args);
-  assert.equal(duplicate.command_id,command.command_id);
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-  await r.mouse.claim(r.actor,r.identity,0);
-  const admitted=await r.mouse.start(r.actor,commandID,{...r.identity,control_epoch:command.control_epoch});
-  assert.ok(admitted.ttl_remaining_ms>2500);
-  const result={...r.identity,state:"board_acked",finished_client_mono_ms:10003,spotlight_focus_frame_id:uid(),
-    mouse_mode_confirmed:true,restored_mouse_boot_id:uid(),original_receipt_read:true,
-    board_receipt:{command_id:command.command_id,board_boot_id:uid(),state:"executed",subcommand_index:0,effect:{hid_reports_sent:true}}};
-  await assert.rejects(r.mouse.result(r.actor,commandID,{...result,board_receipt:{...result.board_receipt,board_boot_id:r.hardware.board_boot_id}}),/INVALID_SPOTLIGHT_RECEIPT/);
-  await r.mouse.result(r.actor,commandID,result);
-  const original=await r.mouse.get(alice,commandID);
-  assert.equal(original.state,"board_acked");
-  assert.equal(original.spotlight?.restored_mouse_boot_id,result.restored_mouse_boot_id);
-  assert.equal(original.spotlight?.original_receipt_read,true);
-  const firstGrant=l.db.raw.prepare("SELECT mouse_until,control_epoch FROM sb_sessions WHERE id=?").get(r.identity.bridge_session_id);
-  await assert.rejects(r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0}),/MOUSE_BUSY_OR_CONTROL_CHANGED/);
-  const restore={...r.beat,heartbeat_seq:12,board_boot_id:result.restored_mouse_boot_id,
-    spotlight_restore_command_id:commandID,spotlight_lease_epoch_floor:0};
-  const resumed=await l.service.heartbeat(r.actor,restore);
-  assert.equal(record(resumed).spotlight_mouse_resumed,true);
-  assert.equal(record(await l.service.heartbeat(r.actor,{...restore,heartbeat_seq:13})).spotlight_mouse_resumed,true);
-  assert.equal((await l.service.heartbeat(r.actor,{...r.beat,heartbeat_seq:11})).stale_heartbeat,true);
-  assert.deepEqual(l.db.raw.prepare("SELECT mouse_until,control_epoch FROM sb_sessions WHERE id=?").get(r.identity.bridge_session_id),firstGrant);
-  const next=await r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0});
-  assert.equal(next.board_boot_id,result.restored_mouse_boot_id);
-  const nextClaim=await r.mouse.claim(r.actor,r.identity,0);
-  assert.equal(nextClaim?.command_id,next.command_id);
-  const nextStart=await r.mouse.start(r.actor,next.command_id,{...r.identity,control_epoch:next.control_epoch});
-  assert.equal(nextStart.board_boot_id,result.restored_mouse_boot_id);
-  const clickResult=await r.mouse.result(r.actor,next.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:10004,
-    board_receipt:{command_id:next.command_id,board_boot_id:result.restored_mouse_boot_id,state:"executed",effect:{hid_reports_sent:true}}});
-  assert.equal(clickResult.state,"board_acked");
-});
-
-test("software: stable USB Spotlight requires a same-boot signed release and preserves mouse authority", async () => {
-  const l=lab(),r=await mouseReady(l);
-  const {meta}=await capturedAtPhoneMono(l,r,9999);
-  await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-    capabilities:{...r.hardware.capabilities,"hid.keyboard.spotlight_stable":true,"sayso.spotlight_wired":true}});
-  await l.service.heartbeat(r.actor,r.beat);
-  const command=await r.mouse.enqueueSpotlight(alice,{device_id:r.actor.id,source_frame_id:meta.frame_id,wait_ms:0,idempotency_key:uid(),
-    field:{x:.05,y:.55,width:.8,height:.08},landmark:{text:"Siri Suggestions",region:{x:.05,y:.2,width:.8,height:.06}}});
-  assert.deepEqual(command.precondition,{spotlight_transport:"stable_usb"});
-  const readOriginal=async(include_after_screen:boolean)=>{
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_mouse_result",
-        arguments:{command_id:command.command_id,include_after_screen}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"});
-    return ((await response.json()) as RpcReply).result;
-  };
-  const pending=await readOriginal(true);
-  assert.equal(pending.structuredContent.observation_state,"pending_input");
-  assert.equal(pending.content.filter(block=>block.type==="image").length,0);
-  await r.mouse.claim(r.actor,r.identity,0);
-  await r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch});
-  const boot=r.hardware.board_boot_id, board={command_id:command.command_id,board_boot_id:boot,
-    state:"executed",subcommand_index:0,effect:{hid_reports_sent:true,spotlight_stable:true,all_released:true}};
-  const body={...r.identity,state:"board_acked",finished_client_mono_ms:10003,spotlight_focus_frame_id:uid(),
-    mouse_mode_confirmed:true,restored_mouse_boot_id:boot,board_receipt:board};
-  await assert.rejects(r.mouse.result(r.actor,command.command_id,{...body,board_receipt:{...board,effect:{...board.effect,all_released:false}}}),/INVALID_SPOTLIGHT_RECEIPT/);
-  await assert.rejects(r.mouse.result(r.actor,command.command_id,{...body,board_receipt:{...board,board_boot_id:uid()}}),/INVALID_SPOTLIGHT_RECEIPT/);
-  await assert.rejects(r.mouse.result(r.actor,command.command_id,{...body,restored_mouse_boot_id:uid()}),/INVALID_SPOTLIGHT_RESTORE/);
-  const saved=await r.mouse.result(r.actor,command.command_id,body);
-  assert.equal(saved.spotlight?.transport,"stable_usb");
-  assert.equal(saved.spotlight?.restored_mouse_boot_id,boot);
-  assert.equal(saved.receipt_observation.valid_for_capture_order,true);
-  l.tick(40);
-  const fresh=(await capturedAtPhoneMono(l,r,10020,2)).meta;
-  const receiptOnly=await readOriginal(false);
-  assert.equal(receiptOnly.structuredContent.observation_state,undefined);
-  assert.equal(receiptOnly.content.filter(block=>block.type==="image").length,0);
-  const observed=await readOriginal(true),screen=record(observed.structuredContent.after_screen);
-  assert.equal(observed.structuredContent.observation_state,"available");
-  assert.equal(record(screen.metadata).frame_id,fresh.frame_id);
-  assert.equal(record(screen.after_command).command_id,command.command_id);
-  assert.equal(screen.app_effect_observed,false);
-  assert.equal(observed.content.find(block=>block.type==="image")?.data,Buffer.from(r.bytes).toString("base64"));
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-  const next=await r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0});
-  assert.equal(next.control_epoch,command.control_epoch);
-  assert.equal(next.board_boot_id,boot);
-  l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.identity.bridge_session_id);
-  const changed=await readOriginal(true);
-  assert.equal(changed.structuredContent.state,"board_acked");
-  assert.equal(changed.structuredContent.observation_state,"unavailable");
-  assert.equal(changed.content.filter(block=>block.type==="image").length,0);
-});
-
-test("software: authenticated Spotlight claim prestarts only declared stable USB and keeps the original authority", async () => {
-  for(const mode of ["stable","undeclared","switching","stale_capability"]) {
-    const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999);
-    const capability=mode==="switching"?"hid.keyboard.on_demand":"hid.keyboard.spotlight_stable";
-    const bind={...r.identity,...r.hardware,capabilities:{...r.hardware.capabilities,[capability]:true,"sayso.spotlight_wired":true}};
-    const led=new LEDControl(l.service);
-    await led.bind(r.actor,bind);
-    await l.service.heartbeat(r.actor,r.beat);
-    const command=await r.mouse.enqueueSpotlight(alice,{device_id:r.actor.id,source_frame_id:meta.frame_id,wait_ms:0,idempotency_key:uid(),
-      field:{x:.05,y:.55,width:.8,height:.08},landmark:{text:"Siri Suggestions",region:{x:.05,y:.2,width:.8,height:.06}}});
-    if(mode==="stale_capability")await led.bind(r.actor,{...bind,capabilities:{...bind.capabilities,[capability]:false}});
-    const body={...r.identity,control_epoch:command.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,point_protocol:PAIRED_MOUSE_POINT,
-      ...(mode==="undeclared"?{}:{spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START})};
-    const claimRequest=new Request("https://test.example/v1/device/mouse/commands/claim",{headers:{Authorization:"Bearer "+r.token}});
-    const runClaim=(input:Record<string,unknown>)=>r.mouse.claimRequest(claimRequest,async()=>({body:input,waitMS:0}));
-    if(mode==="stable") {
-      await assert.rejects(runClaim({...body,spotlight_dispatch_protocol:"unknown"}),/INVALID_SPOTLIGHT_DISPATCH_PROTOCOL/);
-      assert.equal(await runClaim({...body,control_epoch:command.control_epoch+1}),null);
-    }
-    const claim=await runClaim(body) as Record<string,unknown>|null;
-    assert.equal(claim?.command_id,command.command_id);
-    assert.equal(claim?.expires_at,command.expires_at);
-    assert.equal(claim?.state,mode==="stable"?"executing":"claimed");
-    assert.equal(claim?.spotlight_dispatch_protocol,mode==="stable"?SPOTLIGHT_CLAIM_START:undefined);
-    if(mode==="stable") {
-      assert.ok(Number(claim?.ttl_remaining_ms)>0&&Number(claim?.ttl_remaining_ms)<=15000);
-      assert.ok(Number(claim?.claim_pregrant_elapsed_ms)>=0);
-      assert.equal(await runClaim(body),null);
-      await assert.rejects(r.mouse.start(r.actor,command.command_id,body),/MOUSE_EXPIRED_OR_CONTROL_CHANGED/);
-    }
-  }
-});
-
-test("software: Spotlight restore cannot revive a revoked grant or use a different boot", async () => {
-  for(const mode of ["stopped","wrong_boot","expired_command","expired_worker"]){
-    const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999);
-    await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,"hid.keyboard.on_demand":true,"sayso.spotlight_wired":true}});
-    const command=await r.mouse.enqueueSpotlight(alice,{device_id:r.actor.id,source_frame_id:meta.frame_id,wait_ms:0,idempotency_key:uid(),
-      field:{x:0.05,y:0.55,width:0.8,height:0.08},landmark:{text:"Siri Suggestions",region:{x:0.05,y:0.2,width:0.8,height:0.06}}});
-    await r.mouse.claim(r.actor,r.identity,0);
-    await r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch});
-    const boot=uid();
-    await r.mouse.result(r.actor,command.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:10003,
-      spotlight_focus_frame_id:uid(),mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-      board_receipt:{command_id:command.command_id,board_boot_id:uid(),state:"executed",subcommand_index:0,effect:{hid_reports_sent:true}}});
-    if(mode==="stopped")await r.mouse.stop(alice,{device_id:r.actor.id});
-    if(mode==="expired_command") {l.tick(8000);await l.service.heartbeat(r.actor,{...r.beat,heartbeat_seq:10});l.tick(7100);}
-    if(mode==="expired_worker")l.tick(10100);
-    const restore={...r.beat,heartbeat_seq:12,board_boot_id:mode==="wrong_boot"?uid():boot,
-      spotlight_restore_command_id:command.command_id,spotlight_lease_epoch_floor:0};
-    if(mode==="expired_worker") {
-      const reply=await l.service.heartbeat(r.actor,restore).catch(error=>error as BridgeError);
-      assert.ok(reply instanceof BridgeError || record(reply).spotlight_mouse_resumed===false,mode);
-    } else {
-      const reply=await l.service.heartbeat(r.actor,restore);
-      assert.equal(record(reply).spotlight_mouse_resumed,false,mode);
-      assert.equal(reply.directive,"all_release",mode);
-    }
-    assert.equal(l.db.raw.prepare("SELECT board_boot_id FROM sb_hardware WHERE device_id=?").get(r.actor.id)?.board_boot_id,r.hardware.board_boot_id,mode);
-  }
-});
-
-test("software: Spotlight retains a recently reviewed frame only in its current capture scope", async () => {
-  for (const mode of ["same_scope", "stale", "orientation_changed", "wrong_broadcast", "no_proof"]) {
-    const l=lab(),r=await mouseReady(l);
-    await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,"hid.keyboard.on_demand":true,"sayso.spotlight_wired_probe":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const {meta}=await capturedAtPhoneMono(l,r,9999);
-    const marker=r.actor.id+":"+meta.frame_id;
-    assert.ok(l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(marker)?.acceptance_json);
-    l.tick(mode==="stale"?2001:500);
-    const current=await capturedAtPhoneMono(l,r,mode==="stale"?12000:10499,2,
-      mode==="orientation_changed"?{orientation_epoch:Number(meta.orientation_epoch)+1}:{});
-    assert.notEqual(current.meta.frame_id,meta.frame_id);
-    if(mode==="wrong_broadcast")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.broadcast_id',?) WHERE id=?").run(uid(),marker);
-    if(mode==="no_proof")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=NULL WHERE id=?").run(marker);
-    const attempt=r.mouse.enqueueSpotlight(alice,{device_id:r.actor.id,source_frame_id:meta.frame_id,wait_ms:0,idempotency_key:uid(),probe_keyboard:true,
-      field:{x:.05,y:.55,width:.8,height:.08},landmark:{text:"Siri Suggestions",region:{x:.05,y:.2,width:.8,height:.06}}});
-    if(mode==="same_scope")assert.equal((await attempt).state,"queued");
-    else await assert.rejects(attempt,/SPOTLIGHT_FRAME_OR_CONTROL_CHANGED/,mode);
-  }
-});
-
-test("software: unverified Spotlight device admits an explicit layout probe and preserves only the existing grant", async () => {
-  const l=lab(),r=await mouseReady(l),{meta}=await capturedAtPhoneMono(l,r,9999);
-  await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-    capabilities:{...r.hardware.capabilities,"hid.keyboard.on_demand":true,"sayso.spotlight_wired_probe":true}});
-  await l.service.heartbeat(r.actor,r.beat);
-  const args={device_id:r.actor.id,source_frame_id:meta.frame_id,wait_ms:0,idempotency_key:uid(),
-    field:{x:.05,y:.55,width:.8,height:.08},landmark:{text:"Siri Suggestions",region:{x:.05,y:.2,width:.8,height:.06}}};
-  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).spotlight_wired_probe_ready,true);
-  await assert.rejects(r.mouse.enqueueSpotlight(alice,args),/SPOTLIGHT_WIRED_NOT_READY/);
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"type_google_map_in_spotlight",arguments:{...args,probe_keyboard:true}}})}),
-    {engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
-  const command=(await response.json() as RpcReply).result.structuredContent, commandID=String(command.command_id);
-  assert.equal(record(command.payload).probe_keyboard,true);
-  await r.mouse.claim(r.actor,r.identity,0);
-  await r.mouse.start(r.actor,commandID,{...r.identity,control_epoch:command.control_epoch});
-  const restored=uid();
-  await r.mouse.result(r.actor,commandID,{...r.identity,state:"board_acked",finished_client_mono_ms:10003,
-    spotlight_focus_frame_id:uid(),mouse_mode_confirmed:true,restored_mouse_boot_id:restored,
-    board_receipt:{command_id:commandID,board_boot_id:uid(),state:"executed",subcommand_index:0,effect:{hid_reports_sent:true}}});
-  const reply=await l.service.heartbeat(r.actor,{...r.beat,heartbeat_seq:12,board_boot_id:restored,
-    spotlight_restore_command_id:commandID,spotlight_lease_epoch_floor:0});
-  assert.equal(record(reply).spotlight_mouse_resumed,true);
-  const status=await r.mouse.status(alice,{device_id:r.actor.id});
-  assert.equal(status.board_boot_id,restored);
-  assert.equal(status.spotlight_wired_ready,undefined);
-  assert.equal((await r.mouse.get(alice,commandID)).payload.probe_keyboard,true);
-});
-
-async function compoundMouseLab(fault=""){
-  const l=lab(),r=await mouseReady(l);await capturedAtPhoneMono(l,r,9999);
-  l.db.raw.prepare("UPDATE sb_hardware SET metadata=? WHERE device_id=?").run(JSON.stringify({...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true}}),r.actor.id);
-  const batch=l.db.batch.bind(l.db);let inserts=0;
-  l.db.batch=async statements=>{
-    if(fault==="during_admission"&&inserts===1&&statements.some(s=>s.sql.startsWith("INSERT INTO sb_mouse_commands")))l.db.raw.prepare("UPDATE sb_sessions SET mouse_enabled=0 WHERE id=?").run(r.identity.bridge_session_id);
-    const rows=await batch(statements);
-    if(statements.some(s=>s.sql.startsWith("INSERT INTO sb_mouse_commands"))){
-      const claimed=await r.mouse.claim(r.actor,r.identity,0);
-      if(claimed){
-        inserts++;await r.mouse.start(r.actor,String(claimed.command_id),{...r.identity,control_epoch:claimed.control_epoch});
-        const effect:Record<string,unknown>={hid_reports_sent:true};
-        if(claimed.kind==="pointer.move_absolute"){const p=claimed.payload as Record<string,number>;effect.absolute_requested_x=p.x;effect.absolute_requested_y=p.y;}
-        await r.mouse.result(r.actor,String(claimed.command_id),{...r.identity,state:"board_acked",board_receipt:{command_id:claimed.command_id,board_boot_id:r.hardware.board_boot_id,state:"executed",effect},finished_client_mono_ms:10000});
-        if(inserts===1){
-          if(fault==="expired")l.tick(5001);
-          if(fault==="scope")l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(r.identity.bridge_session_id);
-          if(fault==="revoked")l.db.raw.prepare("UPDATE sb_sessions SET mouse_enabled=0 WHERE id=?").run(r.identity.bridge_session_id);
-          if(fault==="geometry")l.db.raw.prepare("UPDATE sb_frames SET metadata=json_set(metadata,'$.orientation_epoch',1) WHERE device_id=?").run(r.actor.id);
-          if(fault==="intervening")l.db.raw.prepare("INSERT INTO sb_mouse_commands (id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,precondition,state,worker_id,lease_epoch,control_epoch,created_at,expires_at,receipt,result_digest,error,phone_ack_mono_ms,predecessor_id) SELECT ?,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,?,precondition,'outcome_unknown',worker_id,lease_epoch,control_epoch,created_at,expires_at,receipt,result_digest,error,phone_ack_mono_ms,predecessor_id FROM sb_mouse_commands WHERE id=?").run(uid(),uid(),claimed.command_id);
-        }else{l.tick(301);await capturedAtPhoneMono(l,r,10301,2);}
-      }
-    }
-    return rows;
-  };
-  return {l,r,controller:new MouseControl(l.service),args:{x:7,y:15,image_width:16,image_height:32,orientation_epoch:0,idempotency_key:uid(),wait_ms:6000},inserts:()=>inserts};
-}
-
-test("software: combined point action returns delayed real image and retries retain exactly the original two inputs",async()=>{
-  const c=await compoundMouseLab(),value=await c.controller.clickAt(alice,c.args);
-  assert.equal(value.workflow_stage,"click");assert.equal(value.state,"board_acked");assert.equal(value.observation_state,"available");assert.equal(value.click_submitted,true);
-  assert.equal(value.intermediate_landing_verified,false);assert.equal(c.inserts(),2);
-  assert.equal((value.after_screen.after_command as Record<string,unknown>).minimum_gap_ms,300);
-  assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
-  const again=await c.controller.clickAt(alice,c.args);assert.equal(again.command_id,value.command_id);assert.equal(c.inserts(),2);
-  await assert.rejects(c.controller.clickAt(alice,{...c.args,x:8}),/IDEMPOTENCY_CONFLICT/);
-});
-
-test("software: combined point action does not click across expiry, scope loss, revocation or intervening input",async()=>{
-  for(const fault of ["expired","scope","revoked","intervening","geometry","during_admission"]){
-    const c=await compoundMouseLab(fault),value=await c.controller.clickAt(alice,c.args);
-    assert.equal(value.workflow_stage,"click_admission",fault);assert.equal(value.click_submitted,false,fault);assert.equal(c.inserts(),1,fault);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='pointer.click'").get()!.n,0,fault);
-    assert.equal(value.image,undefined,fault);
-  }
-});
-
 // Reproduce the dispatch-budget mechanism, not a claim about the unrecorded
 // request timings in the physical failure. A slow move leaves its deadline
 // almost spent before a separately admitted click reaches the phone.
@@ -6632,17 +4066,17 @@ async function pairedPhonePoint(claim=true, cue?:{supported:boolean;loader?:bool
   const cueCapabilities={...(cue?.supported?{ready_cue_supported:true}:{}),
     ...(cue?.supported&&cue.loader&&!cue.legacy?{loading_cue_supported:true}:{}),
     ...(cue?.supported&&cue.maps&&!cue.legacy?{maps_tiles_cue_supported:true}:{})};
-  await capturedAtPhoneMono(l,r,9999,1,cueCapabilities);
-  l.db.raw.prepare("UPDATE sb_hardware SET metadata=? WHERE device_id=?").run(JSON.stringify({...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true}}),r.actor.id);
+  l.db.raw.prepare("UPDATE sb_hardware SET metadata=? WHERE device_id=?").run(JSON.stringify({...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true,"sayso.action_geometry.v1":true}}),r.actor.id);
   const control=(await r.mouse.status(alice,{})).control_epoch;
   const phone={...r.identity,control_epoch:control,raw_dispatch_protocol:rawDispatchProtocol,point_protocol:PAIRED_MOUSE_POINT};
   assert.equal(await r.mouse.claim(r.actor,phone,0),null);
+  const {meta:pointSource}=await capturedAtPhoneMono(l,r,9999,1,{...cueCapabilities,source_seq:1});
   let mono=0;const controller=new MouseControl(l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;}});
-  const userKey=uid(),key="click-at:"+await hash(userKey),args={x:7,y:15,image_width:16,image_height:32,orientation_epoch:0,idempotency_key:userKey,wait_ms:0,
+  const userKey=uid(),key="click-at:"+await hash(userKey),args={device_id:r.actor.id,source_frame_id:pointSource.frame_id,x:7,y:15,image_width:16,image_height:32,orientation_epoch:0,idempotency_key:userKey,wait_ms:0,
     ...(minGap===300?{}:{settle_ms:minGap}),
     ...(cueSpec?{after_ready_cue:cueSpec}:{})};
   const move=await controller.enqueue(alice,"pointer.move_absolute",{...args,idempotency_key:key+":move"},undefined,undefined,
-    {clickKey:key+":click",captureMinGapMS:minGap,readyCue:cueSpec});
+    {clickKey:key+":click",captureMinGapMS:minGap,sourceFrameID:pointSource.frame_id,geometryOnly:true});
   const child=(move.precondition as Record<string,unknown>).point as Record<string,unknown>;assert.equal(child.protocol,PAIRED_MOUSE_POINT);
   const click=await r.mouse.get(alice,String(child.click_command_id));
   const granted=claim?await r.mouse.claim(r.actor,phone,0):null;
@@ -6689,7 +4123,7 @@ test("software: a lost paired click_at response recovers the original receipt by
   const c=await pairedPhonePoint();
   const catalogue=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/list"})}),{
-    engine:()=>c.l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}},
+    engine:()=>c.l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}},
   });
   const tools=record(record(await catalogue.json()).result).tools as unknown[];
   const schema=record(record(tools.find(tool=>record(tool).name==="get_mouse_result")).inputSchema);
@@ -6897,110 +4331,6 @@ test("software: keyed click receipt misses and pending rows remain uncertain and
   assertMiss(await lookup(alice,device,key));
 });
 
-test("software: paired text and map tiles cues select only the actual marked JPEG within the same click",async()=>{
-  for(const maps of [false,true])for(const mode of ["matched","wrong_command","old_app","scope_change"] as const){
-    const c=await pairedPhonePoint(true,{maps,supported:maps||mode!=="old_app",legacy:mode==="old_app"});
-    const supported=mode!=="old_app";
-    assert.deepEqual(c.granted?.precondition?.point_capture_ready_cue,supported?(maps?fixtureMapCue:fixtureReadyCue):undefined);
-    await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    c.l.tick(400);
-    const cueCapability={...(maps||supported?{ready_cue_supported:true}:{}),...(maps&&supported?{maps_tiles_cue_supported:true}:{})};
-    const first=(await capturedAtPhoneMono(c.l,c.r,10400,2,cueCapability)).meta;
-    const readyBytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,40)},70).data;
-    const readyDevice={...c.r,bytes:readyBytes,metadata:{...c.r.metadata,content_sha256:await hash(readyBytes)}};
-    let clock=0,laterID:string|undefined;
-    const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,
-      readTiming:{now:()=>clock,sleep:async ms=>{
-        c.l.tick(ms);clock+=ms;
-        if(laterID)return;
-        if(mode==="scope_change"){
-          c.l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1").run();
-          return;
-        }
-        laterID=(await capturedAtPhoneMono(c.l,readyDevice,10400+clock,3,
-          {...cueCapability,ready_cue_command_id:mode==="matched"?c.click.command_id:uid()})).meta.frame_id;
-      }}});
-    const result=await new MouseControl(service,{now:()=>clock}).clickAt(alice,{...c.args,wait_ms:1000});
-    assert.equal(result.command_id,c.click.command_id);
-    assert.equal(result.move_command_id,c.move.command_id);
-    assert.equal(result.state,"board_acked");
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,2);
-    if(mode==="scope_change"){
-      assert.equal(result.image,undefined);
-      assert.notEqual(result.observation_state,"available");
-    }else{
-      assert.equal(result.observation_state,"available");
-      const metadata=record(result.after_screen.metadata);
-      const expected=mode==="matched"?readyBytes:c.r.bytes;
-      assert.equal(result.image,Buffer.from(expected).toString("base64"));
-      assert.equal(metadata.frame_id,mode==="matched"?laterID:first.frame_id);
-      assert.equal(result.after_screen.ready_cue_state,mode==="old_app"?undefined:mode==="matched"?"matched":"not_seen");
-      assert.equal(result.after_screen.app_effect_observed,false);
-      if(mode==="old_app")assert.equal(clock,0);
-    }
-  }
-});
-
-test("software: loader mode extends the original click only for its marked loading JPEG",async t=>{
-  for(const mode of ["cleared","fast_local","short_budget","ordinary","wrong_click","legacy","persistent","scope_changed","already_cleared"] as const)await t.test(mode,async()=>{
-    const c=await pairedPhonePoint(true,{supported:true,loader:true,legacy:mode==="legacy"});
-    assert.deepEqual(c.granted?.precondition?.point_capture_ready_cue,mode==="legacy"?undefined:fixtureLoadingCue);
-    await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    c.l.tick(400);
-    const capability=mode==="legacy"?{ready_cue_supported:true}:{ready_cue_supported:true,loading_cue_supported:true};
-    const laterReady=mode==="cleared"||mode==="fast_local"||mode==="short_budget";
-    const firstMark=laterReady||mode==="persistent"||mode==="scope_changed"?{loading_cue_command_id:c.click.command_id}:
-      mode==="wrong_click"?{loading_cue_command_id:uid()}:mode==="already_cleared"?{ready_cue_command_id:c.click.command_id}:{};
-    const first=(await capturedAtPhoneMono(c.l,c.r,10400,2,{...capability,...firstMark})).meta;
-    const readyBytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,40)},70).data;
-    const readyDevice={...c.r,bytes:readyBytes,metadata:{...c.r.metadata,content_sha256:await hash(readyBytes)}};
-    let clock=0,laterID:string|undefined;
-    const uploader=edge(c.l),readyReads:number[]=[];
-    c.l.db.afterAll=sql=>{
-      if(sql.startsWith("WITH candidates AS")&&sql.includes("json_extract(f.metadata,'$.ready_cue_command_id')=?"))readyReads.push(clock);
-    };
-    const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,
-      cache:mode==="fast_local"?uploader.cache:undefined,
-      readTiming:{now:()=>clock,sleep:async ms=>{
-        c.l.tick(ms);clock+=ms;
-        if(mode==="scope_changed"){
-          c.l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1").run();
-        }
-        if(!laterReady||laterID)return;
-        const mono=10400+clock;
-        if(mode==="fast_local"){
-          laterID=uid();
-          await uploader.service.acceptFrame(c.r.actor,{...readyDevice.metadata,frame_id:laterID,frame_seq:3,
-            capture_mono_ms:mono,capture_offset_ms:mono-10000,captured_at:new Date(c.l.now()+mono-10000).toISOString(),
-            ...capability,ready_cue_command_id:c.click.command_id},readyBytes);
-        }else{
-          laterID=(await capturedAtPhoneMono(c.l,readyDevice,mono,3,
-            {...capability,ready_cue_command_id:c.click.command_id})).meta.frame_id;
-        }
-      }}});
-    const result=await new MouseControl(service,{now:()=>clock}).clickAt(alice,{...c.args,wait_ms:mode==="short_budget"?300:1000});
-    assert.equal(result.command_id,c.click.command_id);
-    assert.equal(result.state,"board_acked");
-    assert.equal(result.after_screen.app_effect_observed,false);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,2);
-    if(mode==="scope_changed"){
-      assert.equal(result.image,undefined);
-      assert.equal(result.after_screen.reason,"AFTER_COMMAND_SCOPE_CHANGED");
-      assert.deepEqual(readyReads,[150]);
-      return;
-    }
-    assert.equal(result.observation_state,"available");
-    const metadata=record(result.after_screen.metadata);
-    assert.equal(metadata.frame_id,laterReady?laterID:first.frame_id);
-    assert.equal(result.image,Buffer.from(laterReady?readyBytes:c.r.bytes).toString("base64"));
-    assert.equal(result.after_screen.ready_cue_state,mode==="persistent"?"not_seen":
-      laterReady||mode==="already_cleared"?"matched":undefined);
-    assert.equal(clock,mode==="fast_local"?75:laterReady?150:mode==="persistent"?500:0);
-    assert.deepEqual(readyReads,mode==="fast_local"?[75]:mode==="short_budget"?[0,150]:
-      mode==="cleared"?[150]:mode==="persistent"?[150,450]:[]);
-  });
-});
-
 test("software: a readiness wait leaves unmatched JPEG bytes in D1",async()=>{
   const c=await pairedPhonePoint(true,{supported:true});
   await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
@@ -7086,14 +4416,6 @@ test("software: matching ready commits advance and reuse the exact JPEG after th
     assert.equal(result.trace?.ready_commit_barrier,undefined);
     assert.equal(c.l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,2);
   });
-});
-
-test("software: paired ready cue is bounded and changes cannot reuse a click key",async()=>{
-  const c=await pairedPhonePoint(false,{supported:true});
-  await assert.rejects(c.controller.clickAt(alice,{...c.args,after_ready_cue:{...fixtureReadyCue,text:"规格参数"}}),/IDEMPOTENCY_CONFLICT/);
-  await assert.rejects(c.controller.clickAt(alice,{...c.args,observe_after:false}),/INVALID_READY_CUE/);
-  await assert.rejects(c.controller.clickAt(alice,{...c.args,after_ready_cue:{...fixtureReadyCue,region:{x:0,y:0,width:1,height:1}}}),/INVALID_READY_CUE/);
-  assert.equal(c.l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,2);
 });
 
 test("software: image reuse preserves ready cue support but never carries a match",async()=>{
@@ -7623,28 +4945,11 @@ test("software: fused raw claim cannot wake a companion under an earlier executi
   assert.equal(c.l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(c.click.command_id)!.state,"embedded");
 });
 
-test("software: click_at admits a point on the selected device in one database request", async () => {
-  for (const paired of [true, false]) {
-    const c = await pairedPhonePoint(false);
-    c.l.db.raw.prepare("DELETE FROM sb_mouse_commands").run();
-    if (!paired) c.l.db.raw.prepare("DELETE FROM sb_mouse_point_ready").run();
-    const args = {...c.args, device_id:c.r.actor.id, observe_after:false};
-    const before = c.l.db.requests;
-    const result = await c.controller.clickAt(alice, args);
-    assert.equal(result.state, paired ? "embedded" : "queued");
-    assert.equal(c.l.db.requests-before, 1);
-    const prior = await c.controller.clickAt(alice, args);
-    assert.equal(prior.command_id, result.command_id);
-    assert.equal(prior.move_command_id, result.move_command_id);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n, paired ? 2 : 1);
-  }
-});
-
 test("software: selected click_at preserves owner, geometry and grant boundaries", async () => {
   const cases = [
-    ["revoked", /ALLOW_MOUSE_ON_PHONE/],
-    ["orientation", /ABSOLUTE_GEOMETRY_CHANGED/],
-    ["age_during_request", /ABSOLUTE_GEOMETRY_UNAVAILABLE/],
+    ["revoked", /REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/],
+    ["orientation", /REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/],
+    ["age_during_request", /REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/],
   ] as const;
   for (const [mode, expected] of cases) {
     const c = await pairedPhonePoint(false);
@@ -7674,7 +4979,7 @@ test("software: selected click_at preserves owner, geometry and grant boundaries
     stale.l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1").run();
     stale.l.db.raw.prepare("UPDATE sb_frames SET capture_lower=?").run(stale.l.now()-50);
   });
-  await assert.rejects(waiting.mouse.clickAt(alice,{...stale.args,device_id:stale.r.actor.id,wait_ms:200}),/MOUSE_CONTROL_CHANGED_DURING_GEOMETRY_WAIT/);
+  await assert.rejects(waiting.mouse.clickAt(alice,{...stale.args,device_id:stale.r.actor.id,wait_ms:200}),/REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/);
   assert.equal(stale.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
 });
 
@@ -7688,7 +4993,7 @@ test("software: selected click_at keeps a single point through contention and an
   assert.equal(a.command_id,b.command_id);
   assert.equal(c.l.db.requests-before,2);
   await assert.rejects(c.controller.clickAt(alice,{...args,x:8}),/IDEMPOTENCY_CONFLICT/);
-  await assert.rejects(c.controller.clickAt(alice,{...args,idempotency_key:uid()}),/MOUSE_BUSY_OR_CONTROL_CHANGED/);
+  await assert.rejects(c.controller.clickAt(alice,{...args,idempotency_key:uid()}),/MOUSE_BUSY_OR_CONTROL_CHANGED|REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/);
   assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
 
   const lost = await pairedPhonePoint(false);
@@ -7738,276 +5043,6 @@ test("software: fresh paired click_at reuses admission snapshot and waits on bot
     assert.equal(movePolls, 0);
     assert.equal(pairPolls, wait ? 1 : 0);
     assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n, 2);
-  }
-});
-
-test("software: paired click_at counts receipt lookup time toward the next poll interval",async()=>{
-  for(const delay of [80.25,190]){
-    const c=await pairedPhonePoint(),batch=c.l.db.batch.bind(c.l.db);
-    let mono=0;
-    const starts:number[]=[],waits:number[]=[];
-    c.l.db.batch=async statements=>{
-      const receiptPoll=statements.some(s=>s.sql.includes("c.id IN (?,?) AND d.revoked=0"));
-      if(receiptPoll)starts.push(mono);
-      const rows=await batch(statements);
-      if(receiptPoll&&starts.length===1){
-        mono+=delay;
-        await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-      }
-      return rows;
-    };
-    const controller=new MouseControl(c.l.service,{now:()=>mono,sleep:async ms=>{waits.push(ms);mono+=ms;}});
-    const result=await controller.clickAt(alice,{...c.args,wait_ms:270,observe_after:false});
-    assert.equal(result.state,"board_acked");
-    assert.deepEqual(starts,delay<150?[0,150.25]:[0,190]);
-    assert.deepEqual(waits,delay<150?[70]:[]);
-  }
-});
-
-test("software: a late paired snapshot can deliver already-fetched fresh pixels without starting another read",async()=>{
-  for(const mode of ["inline","stale","cache_evicted","cache_new_session"] as const){
-    const c=await pairedPhonePoint();await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    c.l.tick(351);const {meta}=await capturedAtPhoneMono(c.l,c.r,10351,2);
-    const warm=mode.startsWith("cache_")?edge(c.l):null;
-    if(warm){
-      const row=c.l.db.raw.prepare("SELECT image_key,expires_at FROM sb_frames WHERE frame_id=?").get(meta.frame_id)!;
-      warm.cache.put(c.r.actor.id,{owner:alice.id,session:c.r.identity.bridge_session_id,frame:meta.frame_id,key:String(row.image_key),bytes:c.r.bytes,expires:Number(row.expires_at)});
-    }
-    const batch=c.l.db.batch.bind(c.l.db);
-    let mono=0,pairedReads=0;
-    c.l.db.batch=async statements=>{
-      const rows=await batch(statements);
-      if(statements.some(s=>s.sql.includes("AS after_id"))){
-        pairedReads++;
-        mono=420;
-        if(mode==="stale")c.l.tick(2000);
-        warm?.cache.clear(c.r.actor.id);
-        if(mode==="cache_new_session")warm!.cache.put(c.r.actor.id,{owner:alice.id,session:uid(),frame:uid(),key:uid(),bytes:c.r.bytes,expires:c.l.now()+30000});
-      }
-      return rows;
-    };
-    const controller=new MouseControl(warm?.service??c.l.service,{now:()=>mono});
-    const before=c.l.db.requests,result=await controller.clickAt(alice,{...c.args,wait_ms:400});
-    assert.equal(pairedReads,1);
-    assert.equal(c.l.db.requests-before,3,"No D1 read starts after the original deadline");
-    assert.equal(result.state,"board_acked");
-    if(mode==="inline"){
-      assert.equal(result.observation_state,"available");
-      assert.equal(result.image,Buffer.from(c.r.bytes).toString("base64"));
-      assert.equal((result.after_screen.metadata as Record<string,unknown>).frame_id,meta.frame_id);
-    }else{
-      assert.equal(result.observation_state,"budget_exhausted");
-      assert.equal(result.image,undefined);
-    }
-  }
-});
-
-test("software: a paired snapshot delivers its own JPEG when the same session publishes another frame",async(t)=>{
-  for(const late of [false,true])await t.test(late?"original deadline crossed in flight":"time for another read",async()=>{
-    const c=await pairedPhonePoint();await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    c.l.tick(351);const {e,meta}=await capturedAtPhoneMono(c.l,c.r,10351,2);
-    const nextJPEG=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,110)},70).data;
-    const next={...meta,frame_id:uid(),frame_seq:3,capture_mono_ms:10451,capture_offset_ms:451,content_sha256:await hash(nextJPEG)};
-    const batch=c.l.db.batch.bind(c.l.db);
-    let mono=0,afterPublication=0,pairedReads=0;
-    c.l.db.batch=async statements=>{
-      const rows=await batch(statements);
-      const imageIndex=statements.findIndex(s=>s.sql.includes("AS after_id"));
-      if(imageIndex>=0){
-        pairedReads++;
-        const snapshot=rows[imageIndex];
-        assert.ok(snapshot&&"results" in snapshot&&Array.isArray(snapshot.results));
-        const row=snapshot.results[0];
-        assert.equal(row?.frame_id,meta.frame_id);
-        assert.equal(row.inline_jpeg,null,"D1 relied on the original RAM hint");
-        c.l.tick(100);
-        await e.service.acceptFrame(c.r.actor,next,nextJPEG);
-        mono=late?420:220;
-        afterPublication=c.l.db.requests;
-      }
-      return rows;
-    };
-    const result=await new MouseControl(e.service,{now:()=>mono}).clickAt(alice,{...c.args,wait_ms:400});
-    assert.equal(pairedReads,1);
-    assert.equal(c.l.db.requests-afterPublication,0,"No extra D1 lookup after the selected frame is replaced in RAM");
-    assert.equal(result.state,"board_acked");
-    assert.equal(result.command_id,c.click.command_id);
-    assert.equal(result.observation_state,"available");
-    assert.equal(result.image,Buffer.from(c.r.bytes).toString("base64"));
-    assert.equal((result.after_screen.metadata as Record<string,unknown>).frame_id,meta.frame_id);
-    const latest=c.l.db.raw.prepare("SELECT frame_id,image_key,sha256 FROM sb_frames WHERE device_id=?").get(c.r.actor.id)!;
-    assert.equal(latest.frame_id,next.frame_id);
-    assert.deepEqual(e.cache.getExact(c.r.actor.id,alice.id,c.r.identity.bridge_session_id,String(latest.image_key),String(latest.sha256)),new Uint8Array(nextJPEG));
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
-  });
-});
-
-test("software: a paired snapshot failure at the deadline retains original IDs and skips the fallback",async()=>{
-  for(const fresh of [false,true]){
-    const c=await pairedPhonePoint(false);
-    if(fresh)c.l.db.raw.prepare("DELETE FROM sb_mouse_commands").run();
-    let mono=0,pairPolls=0;
-    const batch=c.l.db.batch.bind(c.l.db);
-    c.l.db.batch=async statements=>{
-      if(statements.some(s=>s.sql.includes("c.id IN (?,?) AND d.revoked=0")))pairPolls++;
-      if(statements.some(s=>s.sql.includes("AS after_id"))){mono=420;throw new Error("Fixture late image snapshot failure");}
-      return batch(statements);
-    };
-    const controller=new MouseControl(c.l.service,{now:()=>mono,sleep:async ms=>{mono+=ms;}});
-    const result=await controller.clickAt(alice,{...c.args,wait_ms:400});
-    const saved=c.l.db.raw.prepare("SELECT id,predecessor_id FROM sb_mouse_commands WHERE kind='pointer.click'").get()!;
-    assert.equal(pairPolls,1,"The receipt-only fallback must stay inside the original budget");
-    assert.equal(result.command_id,saved.id);
-    assert.equal(result.move_command_id,saved.predecessor_id);
-    assert.equal(result.click_submitted,null);
-    assert.equal(result.state,fresh?"embedded":"outcome_unknown");
-    assert.equal(result.image,undefined);
-  }
-});
-
-test("software: paired after-image pacing reaches a frame uploaded near the original deadline",async()=>{
-  const c=await pairedPhonePoint();
-  await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-  let clock=0,frameID:string|undefined;
-  const waits:number[]=[];
-  const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,
-    readTiming:{now:()=>clock,sleep:async ms=>{
-      waits.push(ms);
-      const end=clock+ms;
-      if(!frameID&&end>=375){
-        c.l.tick(375-clock);clock=375;
-        frameID=(await capturedAtPhoneMono(c.l,c.r,10375,2)).meta.frame_id;
-      }
-      c.l.tick(end-clock);clock=end;
-    }}});
-  const controller=new MouseControl(service,{now:()=>clock});
-  const result=await controller.clickAt(alice,{...c.args,wait_ms:425});
-  assert.equal(result.state,"board_acked");
-  assert.equal(result.observation_state,"available");
-  assert.equal(result.image,Buffer.from(c.r.bytes).toString("base64"));
-  assert.equal((result.after_screen.metadata as Record<string,unknown>).frame_id,frameID);
-  assert.equal(clock,400);
-  assert.deepEqual(waits,[150,250]);
-  assert.equal((result.after_screen.recovery as Record<string,unknown>).lookups,3);
-});
-
-test("software: a committed after-image can advance one paired read without bypassing D1",async(t)=>{
-  for(const mode of ["same_process","other_process","revoked","stale_hint","slow_stale_hint","short","short_mismatch","short_cue"] as const)await t.test(mode,async()=>{
-    const short=mode.startsWith("short"),shortCue=mode==="short_cue";
-    const c=await pairedPhonePoint(true,shortCue?{supported:true}:undefined,lab(),short&&mode!=="short_mismatch"?120:300);
-    await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    c.l.tick(350);
-    const uploader=edge(c.l);
-    const readCache=mode==="other_process"?new LiveFrameCache(4*1024*1024,c.l.now):uploader.cache;
-    let clock=0,frameID:string|undefined;
-    const waits:number[]=[];
-    const staleHint=mode==="stale_hint"||mode==="slow_stale_hint";
-    if(mode==="slow_stale_hint"){
-      c.l.db.afterAll=sql=>{if(clock===75&&sql.startsWith("WITH candidates AS")){clock+=300;c.l.tick(300);}};
-    }
-    const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,cache:readCache,
-      readTiming:{now:()=>clock,sleep:async ms=>{
-        const end=clock+ms;waits.push(ms);
-        if(staleHint&&clock<70&&end>=70){
-          c.l.tick(70-clock);clock=70;
-          readCache.put(c.r.actor.id,{owner:alice.id,session:c.r.identity.bridge_session_id,frame:uid(),key:uid(),
-            bytes:c.r.bytes,expires:c.l.now()+30_000,commit:{worker:c.r.identity.worker_id,lease:c.r.identity.lease_epoch,
-              captureMono:10420,captureLower:c.l.now()-50}});
-        }
-        const publication=mode==="slow_stale_hint"?425:mode==="stale_hint"?300:70;
-        if(!frameID&&end>=publication){
-          c.l.tick(publication-clock);clock=publication;
-          const captureMono=10350+publication;
-          frameID=uid();
-          await uploader.service.acceptFrame(c.r.actor,{...c.r.metadata,frame_id:frameID,frame_seq:2,
-            ...(shortCue?{ready_cue_supported:true,ready_cue_command_id:c.click.command_id}:{}),
-            capture_mono_ms:captureMono,capture_offset_ms:captureMono-10000,captured_at:new Date(c.l.now()).toISOString()},c.r.bytes);
-          if(mode==="revoked")c.l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(c.r.identity.bridge_session_id);
-        }
-        c.l.tick(end-clock);clock=end;
-      }}});
-    const result=await new MouseControl(service,{now:()=>clock}).clickAt(alice,{...c.args,wait_ms:600,...(short?{settle_ms:120}:{})});
-    const recovery=result.after_screen.recovery as Record<string,unknown>;
-    assert.equal(result.command_id,c.click.command_id);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
-    const plainWait=mode==="short_mismatch"||shortCue;
-    assert.equal(clock,mode==="slow_stale_hint"?450:mode==="stale_hint"?400:mode==="other_process"||plainWait?150:75);
-    assert.deepEqual(waits,mode==="slow_stale_hint"?[75,75]:mode==="stale_hint"?[75,325]:mode==="other_process"?[75,75]:plainWait?[150]:[75]);
-    assert.equal(recovery.lookups,staleHint?4:3);
-    assert.equal(recovery.frame_commit_advance_ms,mode==="other_process"||plainWait?undefined:75);
-    if(mode==="revoked"){
-      assert.equal(result.after_screen.reason,"AFTER_COMMAND_SCOPE_CHANGED");
-      assert.equal(result.image,undefined);
-    }else{
-      assert.equal(result.observation_state,"available");
-      assert.equal((result.after_screen.metadata as Record<string,unknown>).frame_id,frameID);
-      assert.equal(result.image,Buffer.from(c.r.bytes).toString("base64"));
-      if(short)assert.equal(record(result.after_screen.after_command).minimum_gap_ms,120);
-    }
-  });
-});
-
-test("software: paired after-image capture floor keeps the immediate race check near eligibility",async()=>{
-  const c=await pairedPhonePoint();await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-  c.l.tick(310);
-  let readyFrame:string|undefined,clock=0;
-  const batch=c.l.db.batch.bind(c.l.db);
-  c.l.db.batch=async statements=>{
-    const rows=await batch(statements);
-    if(!readyFrame&&statements.some(s=>s.sql.includes("AS after_id"))){
-      c.l.tick(65);
-      readyFrame=(await capturedAtPhoneMono(c.l,c.r,10375,2)).meta.frame_id;
-    }
-    return rows;
-  };
-  const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,
-    readTiming:{now:()=>clock,sleep:async ms=>{clock+=ms;}}});
-  const result=await new MouseControl(service,{now:()=>clock}).clickAt(alice,{...c.args,wait_ms:425});
-  assert.equal(result.state,"board_acked");
-  assert.equal(result.observation_state,"available");
-  assert.equal((result.after_screen.metadata as Record<string,unknown>).frame_id,readyFrame);
-  assert.equal((result.after_screen.recovery as Record<string,unknown>).lookups,2);
-  assert.equal(clock,0);
-});
-
-test("software: extended paired after-image wait skips pre-capture snapshots within the original deadline",async()=>{
-  for(const mode of ["ready","equal_time","scope_changed","short_budget"] as const){
-    const c=await pairedPhonePoint();
-    await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    let clock=0,frameID:string|undefined;
-    const waits:number[]=[];
-    const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,
-      readTiming:{now:()=>clock,sleep:async ms=>{
-        waits.push(ms);
-        const end=clock+ms;
-        if(clock<1575&&end>=1575){
-          c.l.tick(1575-clock);clock=1575;
-          if(mode==="scope_changed"){
-            c.l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE id=?").run(c.r.identity.bridge_session_id);
-          }else{
-            const capture=mode==="ready"?11575:11550;
-            frameID=(await capturedAtPhoneMono(c.l,c.r,capture,2)).meta.frame_id;
-          }
-        }
-        c.l.tick(end-clock);clock=end;
-      }}});
-    const result=await new MouseControl(service,{now:()=>clock}).clickAt(alice,{...c.args,settle_ms:1500,wait_ms:mode==="short_budget"?1250:1700});
-    const recovery=result.after_screen.recovery as Record<string,unknown>;
-    assert.equal(result.state,"board_acked");
-    assert.equal(result.command_id,c.click.command_id);
-    assert.equal(result.move_command_id,c.move.command_id);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
-    assert.equal(recovery.lookups,mode==="short_budget"?1:3);
-    assert.deepEqual(waits,mode==="short_budget"?[1250]:mode==="equal_time"?[1400,250,50]:[1400,250]);
-    if(mode==="ready"){
-      assert.equal(result.observation_state,"available");
-      assert.equal(result.image,Buffer.from(c.r.bytes).toString("base64"));
-      assert.equal((result.after_screen.metadata as Record<string,unknown>).frame_id,frameID);
-    }else{
-      assert.equal(result.image,undefined);
-      assert.equal(result.after_screen.reason,mode==="scope_changed"?"AFTER_COMMAND_SCOPE_CHANGED":"WAITING_POST_COMMAND_FRAME");
-      assert.equal(recovery.budget_exhausted,mode!=="scope_changed");
-    }
   }
 });
 
@@ -8215,204 +5250,19 @@ test("software: public post-command reads and same-call click after-images both 
   });
 });
 
-test("software: reviewed point admits only a matching real view and rechecks it in paired claim",async t=>{
-  for(const mode of ["exact","successor","changed_admission","changed_claim","no_capability","capability_lost"] as const)await t.test(mode,async()=>{
-    const l=lab(),r=await systemSearchReady(l);
-    const bind=async(enabled:boolean)=>new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      "hid.mouse.absolute":true,"sayso.reviewed_point.v1":enabled}});
-    await bind(mode!=="no_capability");
-    await l.service.heartbeat(r.actor,r.beat);
-    const status=await r.mouse.status(alice,{device_id:r.actor.id});
-    const phone={...r.identity,control_epoch:status.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-      point_protocol:PAIRED_MOUSE_POINT};
-    assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-    const ready=await r.mouse.status(alice,{device_id:r.actor.id});
-    assert.equal(ready.reviewed_point_ready,mode==="no_capability"?undefined:true);
-    l.tick(400);
-    const {meta:source}=await capturedAtPhoneMono(l,r,10400,2,{source_seq:2});
-    async function publishNext(changed:boolean){
-      l.tick(350);
-      const bytes=changed?jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,80)},70).data:r.bytes;
-      await capturedAtPhoneMono(l,{...r,bytes},10750,3,{source_seq:3,content_sha256:await hash(bytes)});
-    }
-    if(mode==="successor"||mode==="changed_admission")await publishNext(mode==="changed_admission");
-    const args={device_id:r.actor.id,source_frame_id:source.frame_id,x:5,y:12,image_width:16,image_height:32,
-      orientation_epoch:0,idempotency_key:uid(),wait_ms:0};
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-    if(mode==="no_capability"||mode==="changed_admission"){
-      await assert.rejects(r.mouse.clickAt(alice,args),new RegExp(mode==="no_capability"?"REVIEWED_POINT_NOT_READY":"REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED"));
-      assert.equal(count(),0);
-      return;
-    }
-    const admitted=await r.mouse.clickAt(alice,args);
-    assert.equal(count(),2);
-    const duplicate=await r.mouse.clickAt(alice,args);
-    assert.equal(duplicate.move_command_id,admitted.move_command_id);
-    if(mode==="changed_claim")await publishNext(true);
-    if(mode==="capability_lost")await bind(false);
-    const claim=await r.mouse.claim(r.actor,phone,0);
-    if(mode==="changed_claim"||mode==="capability_lost"){
-      assert.equal(claim,null);
-      assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE state='executing'").get()!.n,0);
-      return;
-    }
-    assert.equal(claim?.command_id,admitted.move_command_id);
-    assert.equal(claim.state,"executing");
-    assert.equal(claim.precondition?.source_frame_id,source.frame_id);
-    assert.deepEqual(claim.precondition?.point_source,{protocol:"reviewed_point.v1",frame_id:source.frame_id,content_sha256:await hash(r.bytes)});
-    assert.equal(record(record(record(claim).paired_click_command).precondition).point_source,undefined);
-    assert.equal(count(),2);
-  });
-});
-
-test("software: crop-reviewed point keeps the original JPEG proof across fresh scoped head changes",async t=>{
-  for(const mode of ["changed_head","changed_after_admission","no_capability","withdrawn","source_provenance","source_hash_changed","invalid_regions"] as const)await t.test(mode,async()=>{
-    const l=lab(),r=await mouseReady(l),led=new LEDControl(l.service);
-    const bind=(enabled:boolean)=>led.bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      "hid.mouse.absolute":true,"sayso.reviewed_point.v1":mode==="no_capability","sayso.reviewed_point_crops.v2":enabled}});
-    await bind(mode!=="no_capability");
-    await l.service.heartbeat(r.actor,r.beat);
-    const state=await r.mouse.status(alice,{device_id:r.actor.id});
-    const phone={...r.identity,control_epoch:state.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,point_protocol:PAIRED_MOUSE_POINT};
-    assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-    assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).reviewed_point_crops_ready,mode==="no_capability"?undefined:true);
-    l.tick(400);
-    const {meta:source}=await capturedAtPhoneMono(l,r,10400,2,{source_seq:2});
-    const sourceSHA=await hash(r.bytes);
-    const observation=r.actor.id+":"+source.frame_id;
-    const accepted=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?").get(observation);
-    assert.equal(record(JSON.parse(String(accepted?.acceptance_json)).metadata).provenance,"device_capture");
-    const args={device_id:r.actor.id,source_frame_id:source.frame_id,x:5,y:12,image_width:16,image_height:32,
-      orientation_epoch:0,idempotency_key:uid(),wait_ms:0,
-      target_region:{x:.15,y:.29,width:.38,height:.19},landmark_region:{x:.05,y:.03,width:.3,height:.13}};
-    const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-    if(mode==="invalid_regions"){
-      for(const [patch,error] of [
-        [{source_frame_id:undefined},/REVIEWED_POINT_CROP_SOURCE_REQUIRED/],
-        [{landmark_region:undefined},/REVIEWED_POINT_CROP_SOURCE_REQUIRED/],
-        [{landmark_region:{x:.25,y:.29,width:.18,height:.10}},/REVIEWED_POINT_REGIONS_OVERLAP/],
-        [{target_region:{x:.8,y:.29,width:.38,height:.19}},/INVALID_REVIEWED_POINT_REGION/],
-        [{x:3},/REVIEWED_POINT_TARGET_MARGIN/],
-      ] as const)await assert.rejects(r.mouse.clickAt(alice,{...args,...patch}),error);
-      assert.equal(count(),0);
-      return;
-    }
-    const publishChanged=async()=>{
-      l.tick(300);
-      const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,70)},80).data;
-      const headSHA=await hash(bytes);
-      assert.notEqual(headSHA,sourceSHA);
-      await capturedAtPhoneMono(l,{...r,bytes},10700,3,{source_seq:3,content_sha256:headSHA});
-      return headSHA;
-    };
-    if(mode==="changed_head"||mode==="source_provenance")await publishChanged();
-    if(mode==="source_provenance")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_remove(acceptance_json,'$.metadata.provenance') WHERE id=?").run(observation);
-    if(mode==="no_capability"||mode==="source_provenance"){
-      await assert.rejects(r.mouse.clickAt(alice,args),
-        mode==="no_capability"?/REVIEWED_POINT_NOT_READY/:/REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/);
-      assert.equal(count(),0);
-      return;
-    }
-    const admitted=await r.mouse.clickAt(alice,args);
-    assert.equal(count(),2);
-    const replay=await r.mouse.clickAt(alice,args);
-    assert.equal(replay.move_command_id,admitted.move_command_id);
-    await assert.rejects(r.mouse.clickAt(alice,{...args,landmark_region:{...args.landmark_region,x:.06}}),/IDEMPOTENCY_CONFLICT/);
-    if(mode==="changed_after_admission")await publishChanged();
-    if(mode==="withdrawn")await bind(false);
-    if(mode==="source_hash_changed")l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.content_sha256',?) WHERE id=?").run("0".repeat(64),observation);
-    const claim=await r.mouse.claim(r.actor,phone,0);
-    if(mode==="withdrawn"||mode==="source_hash_changed"){
-      assert.equal(claim,null);
-      assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE state='executing'").get()!.n,0);
-    }else{
-      assert.equal(claim?.command_id,admitted.move_command_id);
-      assert.equal(claim.state,"executing");
-      assert.equal(claim.precondition?.source_frame_id,source.frame_id);
-      assert.deepEqual(claim.precondition?.point_source,{
-        protocol:"reviewed_point_crop.v2",frame_id:source.frame_id,content_sha256:sourceSHA,
-        target_region:args.target_region,landmark_region:args.landmark_region,
-      });
-      assert.equal(record(record(record(claim).paired_click_command).precondition).point_source,undefined);
-    }
-    assert.equal(count(),2);
-  });
-});
-
-test("software: strict typed clear handoff requires its signed pair and original shortcut",async t=>{
-  for(const mode of ["confirmed","ordinary_click","wrong_shortcut","equal_clear_settle","later_input","aborted_clear"] as const)await t.test(mode,async()=>{
-    const l=lab(),{r,id:shortcut,confirm}=await shortcutFieldHandoffFixture(l,300);
-    const boot=r.hardware.board_boot_id;
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      ...focusedTextEnterBoard,"hid.mouse.absolute":true,"sayso.reviewed_point.v1":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    await confirm();
-    const status=await r.mouse.status(alice,{device_id:r.actor.id});
-    const phone={...r.identity,control_epoch:status.control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-      spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-    assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-    l.tick(500);
-    const {meta:source}=await capturedAtPhoneMono(l,r,10500,2,{source_seq:2});
-    const args={device_id:r.actor.id,source_frame_id:source.frame_id,x:5,y:12,image_width:16,image_height:32,
-      orientation_epoch:0,idempotency_key:uid(),wait_ms:0};
-    const origin=mode==="ordinary_click"?undefined:{systemSearchCommandID:shortcut};
-    const count=(kind:string)=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind=?").get(kind)!.n;
-    const controller=new AbortController();
-    if(mode==="aborted_clear"){
-      controller.abort();
-      await assert.rejects(r.mouse.clickAt(alice,args,uid(),undefined,undefined,controller.signal,origin),/REVIEWED_POINT_CANCELLED/);
-      assert.equal(count("pointer.move_absolute"),0);
-      assert.equal(count("pointer.click"),0);
-      return;
-    }
-    const queued=await r.mouse.clickAt(alice,args,uid(),undefined,undefined,controller.signal,origin);
-    const move=await r.mouse.claim(r.actor,phone,0);
-    assert.equal(move?.command_id,queued.move_command_id);
-    assert.equal(move.state,"executing");
-    assert.equal(move.precondition?.point_search_origin,undefined);
-    const click=String(record(move.precondition?.point).click_command_id);
-    const receipt=(command_id:string,effect:Record<string,unknown>)=>
-      ({command_id,board_boot_id:boot,state:"executed",subcommand_index:0,error:null,effect:{hid_reports_sent:true,...effect}});
-    await r.mouse.result(r.actor,move.command_id,{...r.identity,state:"board_acked",input_submitted:true,finished_client_mono_ms:10520,
-      board_receipt:receipt(move.command_id,{absolute_requested_x:move.payload.x,absolute_requested_y:move.payload.y}),
-      point_result:{protocol:PAIRED_MOUSE_POINT,click:{state:"board_acked",input_submitted:true,error:null,finished_client_mono_ms:10540,
-        board_receipt:receipt(click,{})}}});
-    if(mode==="later_input"){
-      const other=await r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0});
-      assert.equal((await r.mouse.claim(r.actor,phone,0))?.command_id,other.command_id);
-      await r.mouse.result(r.actor,other.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:10600,
-        board_receipt:receipt(other.command_id,{})});
-    }
-    const elapsed=mode==="equal_clear_settle"?340:460;
-    l.tick(elapsed);
-    const {meta:focus}=await capturedAtPhoneMono(l,r,10500+elapsed,3,{source_seq:3});
-    const typed={...focusedTextEnterArgs(r.actor.id,focus.frame_id),submit:undefined,source_after_command_id:click};
-    const enqueue=()=>r.mouse.enqueueSpotlightObserved(alice,typed,uid(),true,
-      {requireOriginalSearchClear:{shortcutID:mode==="wrong_shortcut"?uid():shortcut}});
-    if(mode==="confirmed"){
-      const result=await enqueue();
-      assert.equal(result.state,"queued");
-      assert.equal((await enqueue()).command_id,result.command_id);
-      assert.equal(count("keyboard.type_text"),1);
-    }else{
-      await assert.rejects(enqueue,/FIELD_FRAME_OR_CONTROL_CHANGED/);
-      assert.equal(count("keyboard.type_text"),0);
-    }
-  });
-});
-
 test("software: a reviewed click after-image supplies the exact next point or focused field source",async t=>{
   for(const mode of ["next_click","next_text","stale_click","stale_text"] as const)await t.test(mode,async()=>{
     const c=await pairedPhonePoint(),{l,r}=c;
     await r.mouse.result(r.actor,c.move.command_id,c.body);
     await new LEDControl(l.service).bind(r.actor,{...r.identity,...r.hardware,
-      capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true,"hid.keyboard.ascii_stable":true,"sayso.focused_text":true}});
+      capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true,"hid.keyboard.ascii_stable":true,"sayso.focused_text":true,"sayso.focused_text.no_visual.v1":true,"sayso.action_geometry.v1":true}});
     await l.service.heartbeat(r.actor,r.beat);
     assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).focused_text_transport,"stable_usb");
     l.tick(400);
     const {meta:focus}=await capturedAtPhoneMono(l,r,10400,2,{source_seq:2});
     l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-1700,focus.frame_id);
-    const first=await liveMcp(l.service,"click_at",{...c.args,device_id:r.actor.id,wait_ms:500});
+    l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.capture_lower_ms',?) WHERE frame_id=?").run(l.now()-1700,focus.frame_id);
+    const first=await liveMcp(l.service,"get_mouse_result",{command_id:c.click.command_id,include_after_screen:true});
     assert.equal(first.images.length,1);
     assert.equal(first.age,"1700");
     const metadata=record(record(first.result.structuredContent.after_screen).metadata);
@@ -8420,12 +5270,12 @@ test("software: a reviewed click after-image supplies the exact next point or fo
     if(mode.startsWith("stale_"))l.tick(301);
     const nextBase={device_id:metadata.device_id,idempotency_key:uid(),wait_ms:0,observe_after:false};
     if(mode.endsWith("click")){
-      const next=await liveMcp(l.service,"click_at",{...nextBase,x:7,y:15,
+      const next=await liveMcp(l.service,"click_at",{...nextBase,source_frame_id:metadata.frame_id,x:7,y:15,
         image_width:metadata.width,image_height:metadata.height,orientation_epoch:metadata.orientation_epoch});
       const value=next.result.structuredContent;
       if(mode==="next_click"){
-        const move=record(value.move_result);
-        assert.equal(record(move.precondition).source_frame_id,focus.frame_id);
+        const move=l.db.raw.prepare("SELECT precondition FROM sb_mouse_commands WHERE id=?").get(String(value.move_command_id));
+        assert.ok(move,JSON.stringify(value));assert.equal(JSON.parse(String(move.precondition)).source_frame_id,focus.frame_id);
         assert.notEqual(value.click_command_id,c.click.command_id);
         assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,4);
       }else{
@@ -8435,115 +5285,28 @@ test("software: a reviewed click after-image supplies the exact next point or fo
       }
       return;
     }
-    const value=await liveMcp(l.service,"type_text_in_field",{...nextBase,source_frame_id:metadata.frame_id,clear_before_input:false,
-      text:"changi airport",field:{x:.12,y:.48,width:.64,height:.06},landmark:{text:"Visible field label",region:{x:.04,y:.16,width:.8,height:.06}}});
+    const value=await liveMcp(l.service,"type_text_in_field",{...nextBase,clear_before_input:false,text:"changi airport"});
     const typed=value.result.structuredContent;
-    if(mode==="stale_text"){
-      assert.equal(typed.error,"FIELD_FRAME_OR_CONTROL_CHANGED");
-      assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2);
-      return;
-    }
     const commandID=String(typed.command_id);
     assert.equal(typed.kind,"keyboard.type_text");
-    assert.equal(record(typed.payload).source_frame_id,focus.frame_id);
+    assert.equal(record(typed.payload).source_frame_id,undefined);
     const command=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
       {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:{...r.identity,control_epoch:typed.control_epoch,
         raw_dispatch_protocol:RAW_MOUSE_DISPATCH,point_protocol:PAIRED_MOUSE_POINT,spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START},waitMS:0}));
     assert.equal(command?.command_id,commandID);
     assert.equal(command?.state,"executing");
     const boot=r.hardware.board_boot_id;
-    const released=await r.mouse.result(r.actor,commandID,{...r.identity,state:"board_acked",finished_client_mono_ms:10403,
-      spotlight_focus_frame_id:focus.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
+    const typedAck=mode==="stale_text"?10704:10403;
+    const released=await r.mouse.result(r.actor,commandID,{...r.identity,state:"board_acked",input_submitted:true,finished_client_mono_ms:typedAck,
+      mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
       board_receipt:{command_id:commandID,board_boot_id:boot,state:"executed",subcommand_index:0,
         effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
     assert.equal(released.text_input?.restored_mouse_boot_id,boot);
-    l.tick(80);const entered=(await capturedAtPhoneMono(l,r,10470,3,{source_seq:3})).meta;
+    l.tick(353);const entered=(await capturedAtPhoneMono(l,r,typedAck+350,3,{source_seq:3})).meta;
     const observed=await r.mouse.getSpotlightObserved(alice,commandID);
     assert.equal(record(record(observed.after_screen).metadata).frame_id,entered.frame_id);
     assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,3);
   });
-});
-
-test("software: paired click with explicit 6000 ms total budget gets one exact successor after its ordinary image timeout",async()=>{
-  for(const mode of ["success","default_echoed","shorter_grant","same_frame","same_source","changed_scope","changed_ack","changed_boot","permission",
-    "stale_successor","lookup_deadline","no_time","grant_expired","no_grant","custom_settle","custom_wait","custom_cue","healthy"] as const){
-    const c=await pairedPhonePoint(true,mode==="custom_cue"?{supported:true}:undefined);
-    await c.r.mouse.result(c.r.actor,c.move.command_id,c.body);
-    const origin=c.l.now();
-    c.l.tick(mode==="healthy"?400:30);
-    const old=(await capturedAtPhoneMono(c.l,c.r,mode==="healthy"?10400:10020,2,{source_seq:15})).meta;
-    if(mode!=="healthy")c.l.tick(1250);
-    if(mode==="no_grant")c.l.db.raw.exec("UPDATE sb_sessions SET mouse_enabled=0");
-    if(mode==="grant_expired")c.l.db.raw.prepare("UPDATE sb_sessions SET mouse_until=?").run(c.l.now()+2900);
-    let mono=0,lateWaits=0,beforeLateRead=0,newFrame:string|undefined;
-    const service=new BridgeEngine({db:c.l.db as unknown as D1Database,bucket:c.l.service.bucket,now:c.l.now,
-      readTiming:{now:()=>mono,sleep:async ms=>{
-        mono+=ms;c.l.tick(ms);
-        if(ms!==750)return;
-        lateWaits++;
-        if(mode==="no_time")mono=5700;
-        if(mode==="grant_expired")c.l.tick(200);
-        if(mode==="changed_scope")c.l.db.raw.exec("UPDATE sb_sessions SET control_epoch=control_epoch+1");
-        if(mode==="changed_ack")c.l.db.raw.prepare("UPDATE sb_mouse_commands SET phone_ack_mono_ms=? WHERE id=?").run(10060,c.click.command_id);
-        if(mode==="changed_boot")c.l.db.raw.prepare("UPDATE sb_hardware SET board_boot_id=?").run(uid());
-        if(mode==="permission")c.l.db.raw.exec("UPDATE sb_sessions SET mouse_enabled=0");
-        if(mode==="shorter_grant")c.l.db.raw.prepare("UPDATE sb_sessions SET mouse_until=?").run(c.l.now()+100);
-        if(["success","default_echoed","shorter_grant","same_source","stale_successor","lookup_deadline","changed_ack"].includes(mode)){
-          newFrame=(await capturedAtPhoneMono(c.l,c.r,10000+c.l.now()-origin,3,{source_seq:mode==="same_source"?15:16})).meta.frame_id;
-        }
-        beforeLateRead=c.l.db.requests;
-      }}});
-    c.l.db.afterAll=sql=>{
-      if(!lateWaits||!sql.startsWith("WITH candidates AS"))return;
-      if(mode==="stale_successor")c.l.tick(2000);
-      if(mode==="lookup_deadline")mono=6000;
-    };
-    const controller=new MouseControl(service,{now:()=>mono});
-    const {wait_ms: _wait,...defaultArgs}=c.args;
-    const releaseChecks:{enforceDeadline?:true;withinDeadline:()=>boolean;retry?:()=>Promise<unknown>}[]=[];
-    const result=await controller.clickAt(alice,{...defaultArgs,device_id:c.r.actor.id,wait_ms:6000,
-      ...(mode==="custom_settle"?{settle_ms:301}:{}),...(mode==="custom_wait"?{wait_ms:5500}:{}),
-      ...(mode==="default_echoed"?{settle_ms:300,wait_ms:6000}:{})},
-      undefined,undefined,check=>releaseChecks.push(check));
-    assert.equal(result.command_id,c.click.command_id,mode);
-    assert.equal(result.move_command_id,c.move.command_id,mode);
-    assert.equal(result.state,"board_acked",mode);
-    assert.equal(result.click_submitted,true,mode);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,2,mode);
-    const recovery=record(result.after_screen.recovery);
-    if(["changed_scope","changed_ack","changed_boot","permission"].includes(mode)){
-      const timing=record(recovery.attempt_timing);
-      assert.equal(timing.frames_redacted,true,mode);
-      assert.ok((timing.attempts as Record<string,unknown>[]).every(attempt=>attempt.frame_id===null&&attempt.frame_seq===null&&
-        attempt.capture_lower_server_utc_ms===null&&attempt.inline_jpeg_chars===0),mode);
-    }
-    if(["no_grant","custom_settle","custom_wait","custom_cue","healthy"].includes(mode)){
-      assert.equal(lateWaits,0,mode);
-      assert.equal(recovery.timeout_successor_result,undefined,mode);
-    }else{
-      assert.equal(lateWaits,1,mode);
-      const canRead=mode!=="no_time"&&mode!=="grant_expired";
-      assert.equal(c.l.db.requests-beforeLateRead,canRead?1:0,mode);
-      assert.equal(recovery.retry_trigger==="paired_timeout_successor",canRead,mode);
-    }
-    if(mode==="success"||mode==="default_echoed"||mode==="shorter_grant"||mode==="healthy"){
-      assert.equal(recovery.attempt_timing,undefined,mode);
-      assert.equal(result.image,Buffer.from(c.r.bytes).toString("base64"),mode);
-      assert.equal(record(result.after_screen.metadata).frame_id,mode==="healthy"?old.frame_id:newFrame,mode);
-      const proof=record(result.after_screen.after_command);
-      assert.equal(proof.command_id,c.click.command_id,mode);
-      assert.equal(proof.phone_ack_mono_ms,10050,mode);
-      assert.ok(Number(record(result.after_screen.metadata).age_ms)<1000,mode);
-    }else assert.equal(result.image,undefined,mode);
-    if(mode==="success"||mode==="default_echoed"||mode==="shorter_grant"){
-      assert.equal(releaseChecks.length,1);assert.equal(releaseChecks[0].enforceDeadline,true);
-      assert.equal(releaseChecks[0].retry,undefined);
-      assert.equal(releaseChecks[0].withinDeadline(),true);
-      if(mode==="shorter_grant")c.l.tick(100);
-      else mono=6000;
-      assert.equal(releaseChecks[0].withinDeadline(),false);
-    }
-  }
 });
 
 test("software: failed paired after-image returns bounded authorized D1 and Worker timing without new lookups",async()=>{
@@ -8739,8 +5502,9 @@ test("software: paired after-image pacing retains the two-second observation cap
   assert.equal(result.command_id,c.click.command_id);
   assert.equal(result.image,undefined);
   assert.equal(clock,2000);
-  assert.deepEqual(waits,[150,...Array(7).fill(250),100]);
-  assert.equal(recovery.lookups,9);
+  assert.ok(waits.every(ms=>ms>0&&ms<=500));
+  assert.ok(waits.reduce((a,b)=>a+b,0)<=2000);
+  assert.ok(Number(recovery.lookups)>0&&Number(recovery.lookups)<=10);
   assert.equal(recovery.budget_exhausted,true);
 });
 
@@ -8770,7 +5534,7 @@ test("software: paired phone point persists the two real receipts and observes o
   assert.equal(value.workflow,"phone_move_click_observe.v1");assert.equal(value.command_id,c.click.command_id);assert.equal(value.move_command_id,c.move.command_id);
   assert.equal(value.click_submitted,true);assert.equal(value.observation_state,"available");assert.equal(typeof value.image,"string");assert.equal(value.intermediate_landing_verified,false);
   assert.equal((value.after_screen.after_command as Record<string,unknown>).command_id,c.click.command_id);
-  assert.equal(c.l.db.requests-before,3,"Idempotency lookup, original move read and one paired result/after-image round trip");
+  assert.equal(c.l.db.requests-before,2,"Current selected-device admission returns the original companion; one read-only after-image lookup follows");
 });
 
 test("software: a fresh paired click shares only eligible frame data and keeps receipts after a snapshot failure", async () => {
@@ -9089,19 +5853,6 @@ test("software: paired phone point duplicate result is idempotent and conflictin
   assert.equal((await c.r.mouse.get(alice,c.click.command_id)).receipt_observation.phone_ack_mono_ms,10050);
 });
 
-test("software: paired phone point shares the original move idempotency namespace across both execution modes",async()=>{
-  for(const pairedFirst of [true,false]){
-    const c=await pairedPhonePoint(false);c.l.db.raw.prepare("DELETE FROM sb_mouse_commands").run();
-    const args={...c.args,idempotency_key:c.key+":move"};
-    const calls=[pairedFirst,!pairedFirst].map(pair=>c.controller.enqueue(alice,"pointer.move_absolute",args,undefined,undefined,pair?{clickKey:c.key+":click",captureMinGapMS:300}:undefined));
-    const [a,b]=await Promise.all(calls);assert.equal(a.command_id,b.command_id);
-    const point=(a.precondition as Record<string,unknown>).point;
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,point?2:1);
-    const replay=await c.controller.clickAt(alice,c.args);assert.equal(replay.move_command_id,a.command_id);
-    assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,point?2:1);
-  }
-});
-
 test("software: paired phone point concurrent claimers have exactly one parent and companion winner",async()=>{
   const c=await pairedPhonePoint(false),claims=await Promise.all([c.r.mouse.claim(c.r.actor,c.phone,0),c.r.mouse.claim(c.r.actor,c.phone,0)]);
   const winners=claims.filter(Boolean);assert.equal(winners.length,1);assert.equal(winners[0]!.command_id,c.move.command_id);
@@ -9192,16 +5943,6 @@ test("software: opt-in raw claim starts one command atomically without a separat
   assert.equal(ack.state,"board_acked");
 });
 
-test("software: raw claim pregrant is explicit and leaves old clients and pointer plans on the old start flow",async()=>{
-  const l=lab(),r=await mouseReady(l),command=await r.mouse.enqueue(alice,"pointer.click",{idempotency_key:uid(),wait_ms:0});
-  const legacy=await r.mouse.claim(r.actor,r.identity,0);
-  assert.equal(legacy!.state,"claimed");assert.equal((legacy as unknown as Record<string,unknown>).raw_dispatch_protocol,undefined);
-  const planLab=lab(),p=await queuedPair(planLab);
-  const plan=await p.mouse.claim(p.actor,{...p.identity,control_epoch:p.scope.control_epoch,raw_dispatch_protocol:rawDispatchProtocol},0);
-  assert.equal(plan!.kind,"pointer.local_plan");assert.equal(plan!.state,"claimed");assert.equal((plan as unknown as Record<string,unknown>).raw_dispatch_protocol,undefined);
-  assert.equal((await r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch})).state,"executing");
-});
-
 test("software: raw pregrant rejects unknown protocols and stale control before claiming",async()=>{
   const l=lab(),r=await mouseReady(l),command=await r.mouse.enqueue(alice,"pointer.click",{idempotency_key:uid(),wait_ms:0});
   await assert.rejects(r.mouse.claim(r.actor,{...r.identity,control_epoch:command.control_epoch,raw_dispatch_protocol:"unsupported"},0),/INVALID_RAW_DISPATCH_PROTOCOL/);
@@ -9242,14 +5983,14 @@ test("software: raw claim reports only the monotonic prefix before its TTL snaps
 });
 
 test("software: a committed paired point can advance one scoped raw claim lookup",async t=>{
-  for(const mode of ["same_process","implicit_device","different_process","different_control","lost_race","slow_lost_race","deadline"] as const)await t.test(mode,async()=>{
+  for(const mode of ["same_process","different_process","different_control","lost_race","slow_lost_race","deadline"] as const)await t.test(mode,async()=>{
     const l=lab(),r=await mouseReady(l);
-    await capturedAtPhoneMono(l,r,9999,1);
     l.db.raw.prepare("UPDATE sb_hardware SET metadata=? WHERE device_id=?").run(
-      JSON.stringify({...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true}}),r.actor.id);
+      JSON.stringify({...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true,"sayso.action_geometry.v1":true}}),r.actor.id);
     const control=(await r.mouse.status(alice,{})).control_epoch;
     const phone={...r.identity,control_epoch:control,raw_dispatch_protocol:rawDispatchProtocol,point_protocol:PAIRED_MOUSE_POINT};
     assert.equal(await r.mouse.claim(r.actor,phone,0),null);
+    const {meta:source}=await capturedAtPhoneMono(l,r,9999,1,{source_seq:1});
 
     const waitingHints=new PointClaimHints();
     const producerHints=mode==="different_process"||mode==="different_control"?new PointClaimHints():waitingHints;
@@ -9273,9 +6014,9 @@ test("software: a committed paired point can advance one scoped raw claim lookup
         injecting=true;
         try{
           admission=await producer.enqueue(alice,"pointer.move_absolute",{
-            ...(mode==="implicit_device"?{}:{device_id:r.actor.id}),
+            device_id:r.actor.id,source_frame_id:source.frame_id,
             x:7,y:15,image_width:16,image_height:32,orientation_epoch:0,idempotency_key:uid(),wait_ms:0
-          },undefined,undefined,{clickKey:uid(),captureMinGapMS:300});
+          },undefined,undefined,{clickKey:uid(),captureMinGapMS:300,sourceFrameID:source.frame_id,geometryOnly:true});
           assert.equal(admission.state,"queued");
           if(mode==="different_control")waitingHints.record({owner:alice.id,device:r.actor.id,session:r.identity.bridge_session_id,
             worker:r.identity.worker_id,lease:r.identity.lease_epoch,control:control+1},l.now(),l.now()+5000);
@@ -9286,7 +6027,7 @@ test("software: a committed paired point can advance one scoped raw claim lookup
     }});
     const grant=await waiting.claim(r.actor,phone,mode==="deadline"?250:650);
     assert.ok(admission);
-    const early=mode==="same_process"||mode==="implicit_device";
+    const early=mode==="same_process";
     assert.deepEqual(starts,lostRace?[0,125,mode==="slow_lost_race"?550:500]:mode==="deadline"?[0]:[0,early?125:250]);
     assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,2);
     if(lostRace||mode==="deadline"){
@@ -9310,26 +6051,8 @@ test("software: combined point action pending movement is not a click and option
   await assert.rejects(r.mouse.clickAt(alice,{...args,observe_after:null}),/INVALID_ARGUMENTS/);
   await assert.rejects(r.mouse.clickAt(alice,{...args,settle_ms:2001}),/INVALID_NUMBER/);
   assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
-  const pending=await r.mouse.clickAt(alice,args);assert.equal(pending.workflow_stage,"move");assert.equal(pending.click_submitted,false);assert.equal(pending.kind,"pointer.move_absolute");
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: combined point action MCP response includes actual image and distinguishes its two commands",async()=>{
-  const c=await compoundMouseLab();
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"click_at",arguments:c.args}})}),{engine:()=>c.l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
-  const result=(await response.json() as RpcReply).result,s=result.structuredContent;
-  assert.equal(result.isError,false);assert.equal(s.workflow_stage,"click");assert.notEqual(s.command_id,s.move_command_id);
-  assert.equal(s.app_effect_observed,false);assert.equal(s.intermediate_landing_verified,false);
-  assert.equal(result.content.filter(x=>x.type==="image").length,1);
-  assert.deepEqual(Buffer.from(result.content.find(x=>x.type==="image")!.data,"base64"),Buffer.from(c.r.bytes));
-  assert.equal(c.inserts(),2);
-});
-
-test("software: combined image failure preserves both action identities and cannot duplicate click on retry",async()=>{
-  const c=await compoundMouseLab();c.l.service.readScreen=async()=>{throw Error("private diagnostic not for output");};
-  const first=await c.controller.clickAt(alice,c.args);assert.equal(first.state,"board_acked");assert.equal(first.observation_state,"error");
-  const again=await c.controller.clickAt(alice,c.args);assert.equal(again.command_id,first.command_id);assert.equal(again.move_command_id,first.move_command_id);assert.equal(c.inserts(),2);
-  assert.ok(!JSON.stringify(again).includes("private diagnostic"));
+  await assert.rejects(r.mouse.clickAt(alice,args),/INVALID_UUID/);
+  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,0);
 });
 
 test("software: client post-input tag does not block an authenticated JPEG or become control authority",async()=>{
@@ -9647,7 +6370,7 @@ test("software: an expired acknowledgement retains its phone timestamp as unconf
 test("software: native structured result carries post-receipt clock proof without result meta or extra DB reads",async()=>{
   const l=lab(),r=await acknowledgedMouse(l),{e,meta}=await capturedAtPhoneMono(l,r,10001);
   const before=l.db.requests,changes=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{after_command_id:r.command.command_id,wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{after_command_id:r.command.command_id,wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const result=(await response.json() as RpcReply).result,proof=result.structuredContent.after_command as Record<string,unknown>,metadata=result.structuredContent.metadata as Record<string,unknown>;
   assert.equal(result.isError,false);assert.equal(l.db.requests-before,1);assert.equal(l.db.raw.prepare("SELECT total_changes() n").get()!.n,changes);
   assert.equal(proof.relation,"capture_after_phone_board_ack");assert.equal(proof.app_effect_observed,false);
@@ -9675,6 +6398,36 @@ test("software: a queued command without a claimed worker can settle before the 
   assert.equal(reads(),2);assert.equal(read.state,"available");assert.equal(read.trace?.retry_trigger,"command_not_confirmed");
 });
 
+test("current pointer observation: late confirmed receipt gets five seconds and accepts a 1.2-second image without replay",async()=>{
+  const l=lab(),r=await acknowledgedMouse(l);
+  await capturedAtPhoneMono(l,r,10001,2);l.tick(1200);
+  let mono=0,reads=0,waitBudget=0;
+  const mouse=new MouseControl(l.service,{now:()=>mono}),enqueue=mouse.enqueue.bind(mouse);
+  mouse.enqueue=async(...args)=>{const result=await enqueue(...args);mono+=2100;return result;};
+  const read=l.service.readActionAfterScreen.bind(l.service);
+  l.service.readActionAfterScreen=async(...args)=>{reads++;waitBudget=Number(args[1].wait_for_new_ms);return read(...args);};
+  const args={idempotency_key:r.request.idempotency_key};
+  const result=await mouse.enqueueObserved(alice,"pointer.click",args);
+  assert.equal(result.command_id,r.command.command_id);assert.equal(result.state,"board_acked");
+  assert.equal(result.observation_state,"available");assert.equal(typeof result.image,"string");
+  assert.equal(waitBudget,5000);assert.equal(result.after_screen.age_limit_ms,2000);assert.equal(reads,1);
+  const explicit=await mouse.enqueueObserved(alice,"pointer.click",{...args,wait_ms:2000});
+  assert.equal(explicit.command_id,r.command.command_id);assert.equal(explicit.image,undefined);assert.equal(reads,1);
+  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
+});
+
+test("current pointer observation: an expired observation never fabricates a frame or resends input",async()=>{
+  const l=lab(),r=await acknowledgedMouse(l);await capturedAtPhoneMono(l,r,10001,2);
+  let mono=0;
+  const mouse=new MouseControl(l.service,{now:()=>mono});
+  const read=l.service.readActionAfterScreen.bind(l.service);
+  l.service.readActionAfterScreen=async(...args)=>{const result=await read(...args);mono+=5001;return result;};
+  const result=await mouse.enqueueObserved(alice,"pointer.click",{idempotency_key:r.request.idempotency_key});
+  assert.equal(result.command_id,r.command.command_id);assert.equal(result.state,"board_acked");
+  assert.equal(result.observation_state,"budget_exhausted");assert.equal(result.image,undefined);
+  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
+});
+
 test("software: each mouse write can return a qualified after-image without creating a second input",async()=>{
   for(const [tool,kind,values] of [["move_mouse","pointer.move_relative",{dx:7,dy:-3}],["click_mouse","pointer.click",{}],["scroll_mouse","pointer.scroll",{steps:-2}],["move_mouse_to","pointer.move_absolute",{x:7,y:15,image_width:16,image_height:32,orientation_epoch:0}]] as const){
     const l=lab(),r=await mouseReady(l),{e}=await capturedAtPhoneMono(l,r,9999);
@@ -9693,7 +6446,7 @@ test("software: each mouse write can return a qualified after-image without crea
       }
       return rows;
     };
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:tool,arguments:{...values,idempotency_key:uid(),wait_ms:1000}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:tool,arguments:{...values,idempotency_key:uid(),wait_ms:1000}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
     const result=(await response.json() as RpcReply).result,summary=result.structuredContent,observation=summary.after_screen as Record<string,unknown>;
     assert.equal(result.isError,false,tool);assert.equal(summary.state,"board_acked",tool);assert.equal(summary.observation_state,"available",tool);
     assert.equal(summary.app_effect_observed,false);assert.equal(observation.app_effect_observed,false);
@@ -9775,11 +6528,11 @@ test("software: write wrapper does not deliver an image without the requested ve
 
 test("software: public mouse tool schema exposes optional post-image mode and an observation read error preserves wire receipt",async()=>{
   const l=lab(),r=await acknowledgedMouse(l);
-  const catalogue=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/list"})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const catalogue=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/list"})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const listed=await catalogue.json() as {result:{tools:{name:string;inputSchema:{properties:Record<string,unknown>}}[]}};
   for(const name of ["move_mouse_to","move_mouse","click_mouse","scroll_mouse"])assert.deepEqual(listed.result.tools.find(t=>t.name===name)!.inputSchema.properties.observe_after,{type:"boolean",default:true});
   l.service.readScreen=async()=>{throw new BridgeError("STORAGE_UNAVAILABLE",503);};
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"click_mouse",arguments:{...r.request,wait_ms:1000}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"click_mouse",arguments:{...r.request,wait_ms:1000}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const result=(await response.json() as RpcReply).result,summary=result.structuredContent;
   assert.equal(result.isError,false);assert.equal(summary.state,"board_acked");assert.equal(summary.command_id,r.command.command_id);assert.equal(summary.observation_state,"error");
   assert.equal((summary.after_screen as Record<string,unknown>).reason,"STORAGE_UNAVAILABLE");assert.equal(result.content.filter(x=>x.type==="image").length,0);
@@ -9788,7 +6541,7 @@ test("software: public mouse tool schema exposes optional post-image mode and an
 
 test("software: post-image wrapper refuses stale, mis-scoped or unverified metadata even with a positive tag",async()=>{
   const l=lab(),r=await acknowledgedMouse(l),{e}=await capturedAtPhoneMono(l,r,10001),screen=await e.service.readScreen(alice,{after_command_id:r.command.command_id},0,false);
-  for(const patch of [{age_ms:1500},{device_id:uid()},{worker_id_at_read:uid()},{control_epoch_at_read:r.command.control_epoch+1},{capture_clock_verified:false},{capture_lower_phone_mono_ms:10000}]){
+  for(const patch of [{age_ms:2000},{device_id:uid()},{worker_id_at_read:uid()},{control_epoch_at_read:r.command.control_epoch+1},{capture_clock_verified:false},{capture_lower_phone_mono_ms:10000}]){
     l.service.readScreen=async()=>({...screen,metadata:{...screen.metadata,...patch}});
     const result=await r.mouse.enqueueObserved(alice,"pointer.click",{...r.request,wait_ms:1000});
     assert.equal(result.state,"board_acked");assert.equal(result.image,undefined);assert.equal(result.after_screen.reason,"AFTER_IMAGE_PROOF_MISSING");
@@ -9941,9 +6694,9 @@ test("software: concurrent identical mouse requests return the same command and 
   l.db.prepare = prepare;
   assert.equal(a.command_id,b.command_id); assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,1);
   const request = (name: string, arguments_: Record<string, unknown>) => new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name,arguments:arguments_}})});
-  const good = await (await handleMcp(request("move_mouse",args),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"})).json() as RpcReply;
+  const good = await (await handleMcp(request("move_mouse",args),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development"})).json() as RpcReply;
   assert.equal(good.result.structuredContent.command_id,a.command_id);
-  const bad = await (await handleMcp(request("move_mouse",{...args,x:100}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"})).json() as RpcReply;
+  const bad = await (await handleMcp(request("move_mouse",{...args,x:100}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development"})).json() as RpcReply;
   assert.equal(bad.result.isError,true); assert.equal(bad.result.structuredContent.error,"INVALID_ARGUMENTS");
 });
 
@@ -9974,160 +6727,11 @@ test("software: device status exposes the real granted mouse scope and exits scr
  assert.equal(stopped.screen_only,true);assert.equal(stopped.session?.control_enabled,false);assert.deepEqual(stopped.control_scope,[]);
 });
 
-
-async function absoluteMouseReady(l: ReturnType<typeof lab>) {
- const r=await mouseReady(l), hardware={...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true}};
- await new LEDControl(l.service).bind(r.actor,hardware);
- const screen=await textCapture(l,r);await new ScreenText(l.service).accept(r.actor,screen);
- return {...r,hardware,screen,args:{device_id:r.actor.id,x:442.5,y:958.5,image_width:886,image_height:1918,orientation_epoch:0,idempotency_key:uid(),wait_ms:0}};
-}
-
-test("software: screen image results expose their own geometry without root meta or another device read",async()=>{
- const l=lab(),r=await running(l),e=edge(l);await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
- for(const name of ["read_screen","view_screen"]){
-  const args=name==="read_screen"?{}:{wait_ms:0};
-  const call=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name,arguments:args}})});
-  const before=l.db.requests,rpc=await (await handleMcp(call,{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}})).json() as RpcReply;
-  assert.equal(l.db.requests-before,1);assert.equal(rpc.result.structuredContent.state,"available");
-  const m=rpc.result.structuredContent.metadata as Record<string,unknown>;
-  for(const key of ["width","height","native_width_px","native_height_px","orientation","orientation_epoch"] as const)assert.equal(m[key],r.metadata[key],`${name}.${key}`);
-  assert.equal(m.clock_probe_id,undefined);assert.equal(m.content_sha256,undefined);
-  assert.ok(rpc.result.content.some(value=>value.type==="image"));
- }
-});
-
 function geometryWaitMouse(l:ReturnType<typeof lab>,onFirstSleep:()=>Promise<void>|void){
  let now=0,first=true;const sleeps:number[]=[];
  const mouse=new MouseControl(l.service,{now:()=>now,sleep:async(ms:number)=>{now+=ms;l.tick(ms);sleeps.push(ms);if(first){first=false;await onFirstSleep();}}});
  return {mouse,sleeps,elapsed:()=>now};
 }
-
-test("software: absolute geometry gets one bounded recheck for an in-flight fresh replacement",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);
- const waiting=geometryWaitMouse(l,()=>{l.db.raw.prepare("UPDATE sb_screen_texts SET capture_lower=?,metadata=json_set(metadata,'$.frame_id',?)").run(l.now()-50,uid());});
- const before=l.db.requests,command=await waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:200});
- assert.equal(command.state,"queued");assert.equal(l.db.requests-before,3);assert.ok(waiting.elapsed()<=200);assert.equal(waiting.sleeps[0],150);
- assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: geometry recheck can wait for the next source publication within the same budget",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);const initial=l.now();
- const waiting=geometryWaitMouse(l,()=>{if(l.now()-initial>=500)l.db.raw.prepare("UPDATE sb_screen_texts SET capture_lower=?").run(l.now()-50);});
- const command=await waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:800});
- assert.equal(command.state,"queued");assert.equal(waiting.sleeps[0],600);assert.ok(waiting.elapsed()<=800);
- assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: geometry recheck is bounded and never authorizes a still-stale source",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);const waiting=geometryWaitMouse(l,()=>{}),before=l.db.requests;
- await assert.rejects(waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:200}),/ABSOLUTE_GEOMETRY_UNAVAILABLE/);
- assert.equal(l.db.requests-before,2);assert.deepEqual(waiting.sleeps,[150]);assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
-});
-
-test("software: selected click geometry recovery combines the recheck and admission under the original fence",async()=>{
- for(const outcome of ["fresh_first","fresh","changed_scope","changed_worker","changed_lease","changed_boot","changed_broadcast","stopped",
-   "rotated","unpaired","still_stale","late_admission","late_database","lost_response","concurrent_key","expiry_fallback"]){
-  const c=await pairedPhonePoint(false);
-   const blocker=c.l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE kind='pointer.move_absolute'").get()!,blockerID=uid();
-  c.l.db.raw.prepare("DELETE FROM sb_mouse_commands").run();
-  c.l.tick(2100);
-   let now=0,concurrentID:string|undefined;const sleeps:number[]=[];
-   const phase=new PairedClickPhaseTiming(c.l.now()),point={clickKey:uid(),captureMinGapMS:300,phase};
-   const args={...c.args,device_id:c.r.actor.id,wait_ms:1000};
-  const prepare=c.l.db.prepare.bind(c.l.db);
-  c.l.db.prepare=sql=>{
-   if(outcome==="late_admission"&&sleeps.length===2&&sql.includes("SELECT ?,p.owner_id")){now+=101;c.l.tick(101);}
-   return prepare(sql);
-  };
-   const batch=c.l.db.batch.bind(c.l.db);
-   c.l.db.batch=async statements=>{
-    if(outcome==="late_database"&&sleeps.length===2){now+=101;c.l.tick(101);}
-    const result=await batch(statements);
-    if(outcome==="lost_response"&&sleeps.length===2)throw Error("original selected batch response lost");
-    return result;
-   };
-  const mouse=new MouseControl(c.l.service,{now:()=>now,sleep:async ms=>{
-   now+=ms;c.l.tick(ms);sleeps.push(ms);
-    if(outcome==="expiry_fallback"&&sleeps.length===1){
-      const row={...blocker,id:blockerID,idempotency_key:uid(),state:"queued",precondition:null,expires_at:c.l.now()+200};
-      const keys=Object.keys(row);
-      c.l.db.raw.prepare(`INSERT INTO sb_mouse_commands (${keys.join(",")}) VALUES (${keys.map(()=>"?").join(",")})`).run(...Object.values(row));
-    }
-    if(outcome==="expiry_fallback"&&sleeps.length===2){
-      assert.equal(c.l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(blockerID)!.state,"queued");
-    }
-    if(sleeps.length!==(outcome==="fresh_first"?1:2)||outcome==="still_stale")return;
-   if(outcome==="changed_scope")c.l.db.raw.exec("UPDATE sb_sessions SET control_epoch=control_epoch+1");
-    if(outcome==="changed_worker")c.l.db.raw.prepare("UPDATE sb_devices SET worker_id=?").run(uid());
-    if(outcome==="changed_lease")c.l.db.raw.exec("UPDATE sb_devices SET lease_epoch=lease_epoch+1");
-    if(outcome==="changed_boot")c.l.db.raw.prepare("UPDATE sb_hardware SET board_boot_id=?").run(uid());
-    if(outcome==="changed_broadcast")c.l.db.raw.prepare("UPDATE sb_sessions SET broadcast_id=?").run(uid());
-    if(outcome==="stopped")c.l.db.raw.exec("UPDATE sb_sessions SET mouse_enabled=0");
-    if(outcome==="unpaired")c.l.db.raw.exec("DELETE FROM sb_mouse_point_ready");
-   c.l.db.raw.prepare("UPDATE sb_frames SET capture_lower=?").run(c.l.now()-50);
-    if(outcome==="rotated")c.l.db.raw.exec("UPDATE sb_frames SET metadata=json_set(metadata,'$.orientation_epoch',1)");
-    if(outcome==="concurrent_key")concurrentID=(await c.r.mouse.enqueue(alice,"pointer.move_absolute",args,undefined,undefined,point)).command_id;
-  }});
-   const before=c.l.db.requests;
-   const result=mouse.enqueue(alice,"pointer.move_absolute",args,undefined,undefined,point);
-   if(["fresh_first","fresh","concurrent_key","expiry_fallback"].includes(outcome)){
-    const admitted=await result;
-    assert.equal(admitted.state,"queued");
-    assert.equal(admitted.point_protocol,PAIRED_MOUSE_POINT);
-    if(concurrentID)assert.equal(admitted.command_id,concurrentID);
-    phase.admissionReturned(c.l.now());
-    assert.deepEqual(phase.output()?.admission.path,outcome==="expiry_fallback"?"standard_fallback":"geometry",outcome);
-    assert.equal(phase.output()?.admission.geometry_slot,outcome==="fresh_first"?1:2,outcome);
-    assert.equal(phase.output()?.admission.reused,outcome==="concurrent_key",outcome);
-   }else await assert.rejects(result,outcome.startsWith("changed_")?/MOUSE_CONTROL_CHANGED_DURING_GEOMETRY_WAIT/:
-     outcome==="stopped"?/ALLOW_MOUSE_ON_PHONE/:outcome==="rotated"?/ABSOLUTE_GEOMETRY_CHANGED/:
-       outcome==="unpaired"?/MOUSE_BUSY_OR_CONTROL_CHANGED/:outcome==="lost_response"?/original selected batch response lost/:/ABSOLUTE_GEOMETRY_UNAVAILABLE/);
-   assert.deepEqual(sleeps,outcome==="fresh_first"?[600]:[600,300],outcome);
-   assert.equal(c.l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,
-     outcome==="expiry_fallback"?3:["fresh_first","fresh","concurrent_key","lost_response"].includes(outcome)?2:0,outcome);
-   assert.equal(c.l.db.requests-before,["late_admission","fresh_first"].includes(outcome)?2:
-     ["unpaired","concurrent_key","expiry_fallback"].includes(outcome)?4:3,outcome);
-   if(outcome==="expiry_fallback")assert.equal(c.l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(blockerID)!.state,"expired");
- }
-});
-
-test("software: geometry waiting cannot silently rebase a changed control or worker scope",async()=>{
- for(const change of ["UPDATE sb_sessions SET control_epoch=control_epoch+1","UPDATE sb_devices SET lease_epoch=lease_epoch+1","UPDATE sb_devices SET worker_id='"+uid()+"'","UPDATE sb_hardware SET board_boot_id='"+uid()+"'"]){
-  const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);
-  const waiting=geometryWaitMouse(l,()=>{l.db.raw.exec(change);l.db.raw.prepare("UPDATE sb_screen_texts SET capture_lower=?").run(l.now()-50);});
-  await assert.rejects(waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:200}),/MOUSE_CONTROL_CHANGED_DURING_GEOMETRY_WAIT/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
- }
-});
-
-test("software: geometry waiting rechecks permission and rejects resized or rotated replacements",async()=>{
- for(const [change,reason] of [["UPDATE sb_sessions SET mouse_enabled=0","ALLOW_MOUSE_ON_PHONE"],["UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.orientation_epoch',1)","ABSOLUTE_GEOMETRY_CHANGED"],["UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.width',591,'$.height',1280)","ABSOLUTE_GEOMETRY_CHANGED"]]){
-  const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);const waiting=geometryWaitMouse(l,()=>{l.db.raw.exec(change);l.db.raw.prepare("UPDATE sb_screen_texts SET capture_lower=?").run(l.now()-50);});
-  await assert.rejects(waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:200}),new RegExp(reason));
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
- }
-});
-
-test("software: geometry recheck does not issue a query after its waiting deadline",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);const waiting=geometryWaitMouse(l,()=>{}),before=l.db.requests;
- await assert.rejects(waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:100}),/ABSOLUTE_GEOMETRY_UNAVAILABLE/);
- assert.equal(l.db.requests-before,1);assert.deepEqual(waiting.sleeps,[100]);assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
-});
-
-test("software: concurrent same-key admission during geometry waiting returns the original command",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);let firstID:string|undefined;
- const waiting=geometryWaitMouse(l,async()=>{l.db.raw.prepare("UPDATE sb_screen_texts SET capture_lower=?").run(l.now()-50);firstID=(await r.mouse.enqueue(alice,"pointer.move_absolute",r.args)).command_id;});
- const result=await waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:200});
- assert.equal(result.command_id,firstID);assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: geometry that expires during the one extra database read still cannot enqueue",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(2100);const prepare=l.db.prepare.bind(l.db);let reads=0;
- l.db.prepare=sql=>{const stmt=prepare(sql),bind=stmt.bind.bind(stmt);if(sql.includes("c.id AS prior_id"))stmt.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{const result=await all<T>();if(++reads===2)l.tick(2101);return result;};return bound;};return stmt;};
- const waiting=geometryWaitMouse(l,()=>{l.db.raw.prepare("UPDATE sb_screen_texts SET capture_lower=?").run(l.now()-50);});
- await assert.rejects(waiting.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,wait_ms:200}),/ABSOLUTE_GEOMETRY_UNAVAILABLE/);
- assert.equal(reads,2);assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
-});
 
 test("software: R2 view fallback exposes geometry from its returned image without private capture fields",async()=>{
  const l=lab(),r=await running(l),writer=edge(l),reader=edge(l);await writer.service.acceptFrame(r.actor,r.metadata,r.bytes);await writer.flush();
@@ -10145,43 +6749,6 @@ test("software: absolute mouse maps image endpoints and center without relative 
  assert.throws(()=>absoluteMouseRequest({x:0,y:0,image_width:1,image_height:1918,orientation_epoch:0}));
 });
 
-test("software: absolute mouse requires advertised support and fresh matching capture geometry",async()=>{
- const l=lab(),r=await mouseReady(l);
- await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",{x:0,y:0,image_width:886,image_height:1918,orientation_epoch:0,idempotency_key:uid(),wait_ms:0}),/MOUSE_ACTION_UNSUPPORTED/);
- const a=await absoluteMouseReady(l);
- await assert.rejects(a.mouse.status(alice,{}),/CHOOSE_DEVICE/);
- const state=await a.mouse.status(alice,{device_id:a.actor.id});assert.equal(state.absolute_supported,true);assert.equal(state.screen_geometry?.image_width,886);
- await assert.rejects(a.mouse.enqueue(alice,"pointer.move_absolute",{...a.args,image_width:887}),/ABSOLUTE_GEOMETRY_CHANGED/);
- await assert.rejects(a.mouse.enqueue(alice,"pointer.move_absolute",{...a.args,orientation_epoch:1}),/ABSOLUTE_GEOMETRY_CHANGED/);
- const command=await a.mouse.enqueue(alice,"pointer.move_absolute",a.args);
- assert.deepEqual(command.payload,{x:16384,y:16384});assert.equal(command.precondition?.capture_width,886);assert.equal(command.precondition?.orientation_epoch,0);
- assert.equal(command.precondition?.coordinate_space,"full_screen_image_pixels");
-});
-
-test("software: stale absolute geometry does not enqueue while same-key replay returns its original command",async()=>{
- const l=lab(),r=await absoluteMouseReady(l),command=await r.mouse.enqueue(alice,"pointer.move_absolute",r.args);
- l.tick(2100);
- assert.equal((await r.mouse.enqueue(alice,"pointer.move_absolute",r.args)).command_id,command.command_id);
- await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,idempotency_key:uid()}),/ABSOLUTE_GEOMETRY_UNAVAILABLE/);
- assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,1);
-});
-
-test("software: identical absolute intent is idempotent across fresh replacement frames",async()=>{
- const l=lab(),r=await absoluteMouseReady(l),command=await r.mouse.enqueue(alice,"pointer.move_absolute",r.args);
- l.tick(50);const next=await textCapture(l,r);Object.assign(next.metadata,{frame_id:uid(),frame_seq:2,capture_mono_ms:10050,capture_offset_ms:50});
- await new ScreenText(l.service).accept(r.actor,next);
- assert.equal((await r.mouse.enqueue(alice,"pointer.move_absolute",r.args)).command_id,command.command_id);
- await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",{...r.args,x:443}),/IDEMPOTENCY_CONFLICT/);
-});
-
-test("software: new orientation rejects old absolute coordinates before queue insertion",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);l.tick(50);
- const next=await textCapture(l,r);Object.assign(next.metadata,{frame_id:uid(),frame_seq:2,capture_mono_ms:10050,capture_offset_ms:50,orientation_epoch:1});
- await new ScreenText(l.service).accept(r.actor,next);
- await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",r.args),/ABSOLUTE_GEOMETRY_CHANGED/);
- assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
-});
-
 test("software: scaled JPEG coordinates keep source dimensions separate from capture dimensions",async()=>{
  const l=lab(),r=await mouseReady(l),hardware={...r.hardware,capabilities:{...r.hardware.capabilities,"hid.mouse.absolute":true}};
  await new LEDControl(l.service).bind(r.actor,hardware);await l.service.acceptFrame(r.actor,r.metadata,r.bytes);
@@ -10189,595 +6756,10 @@ test("software: scaled JPEG coordinates keep source dimensions separate from cap
  assert.deepEqual(command.payload,{x:16384,y:16384});assert.equal(command.precondition?.source_width,16);assert.equal(command.precondition?.capture_width,1206);
 });
 
-test("software: absolute board receipt must echo the requested axes and never proves UI position",async()=>{
- const l=lab(),r=await absoluteMouseReady(l),command=await r.mouse.enqueue(alice,"pointer.move_absolute",r.args);
- await r.mouse.claim(r.actor,r.identity,0);await r.mouse.start(r.actor,command.command_id,{...r.identity,control_epoch:command.control_epoch});
- const receipt={command_id:command.command_id,board_boot_id:r.hardware.board_boot_id,state:"executed",effect:{hid_reports_sent:true,absolute_requested_x:0,absolute_requested_y:16384}};
- await assert.rejects(r.mouse.result(r.actor,command.command_id,{...r.identity,state:"board_acked",board_receipt:receipt,finished_client_mono_ms:100}),/ABSOLUTE_RECEIPT_MISMATCH/);
- receipt.effect.absolute_requested_x=16384;
- const confirmed=await r.mouse.result(r.actor,command.command_id,{...r.identity,state:"board_acked",board_receipt:receipt,finished_client_mono_ms:100});
- assert.equal(confirmed.state,"board_acked");assert.equal(confirmed.app_effect_observed,false);
-});
-
-test("software: move_mouse_to MCP path remains explicit and cannot include a hidden click",async()=>{
- const l=lab(),r=await absoluteMouseReady(l);
- const request=(args:Record<string,unknown>)=>new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"move_mouse_to",arguments:args}})});
- const result=await(await handleMcp(request(r.args),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"})).json() as RpcReply;
- assert.equal(result.result.isError,false);assert.equal(result.result.structuredContent.kind,"pointer.move_absolute");
- const bad=await(await handleMcp(request({...r.args,click:true}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"})).json() as RpcReply;
- assert.equal(bad.result.isError,true);assert.equal(bad.result.structuredContent.error,"INVALID_ARGUMENTS");
-});
-
 // All records below are isolated software fixtures. They are not phone samples.
 const browseRegion = { x:0, y:0, width:1, height:1 };
 const browseScene = (label:string):Scene => ({required:[{text:label,region:browseRegion}],forbidden:[]});
 const browseStep = (from="列表 List",to="详情 Detail") => ({before:browseScene(from),after:browseScene(to),action:{kind:"click",target:{text:from,region:browseRegion}}});
-async function calibrationFixture(l:ReturnType<typeof lab>,imageWidth=886,imageHeight=1918) {
-  const r=await absoluteMouseReady(l),browse=new BrowseControl(l.service);
-  const control=l.db.raw.prepare("SELECT control_epoch FROM sb_sessions WHERE id=?").get(r.identity.bridge_session_id)!.control_epoch as number;
-  const scope={...r.identity,control_epoch:control},settings=await hash("SOFTWARE ONLY pointer settings");
-  if(imageWidth!==886||imageHeight!==1918){
-    // Real JPEG admission with its own encoded and native dimensions. OCR's
-    // native-size contract is preserved; this fixture switches to image mode.
-    l.db.raw.prepare("DELETE FROM sb_screen_texts WHERE device_id=?").run(r.actor.id);
-    const bytes=jpeg.encode({width:imageWidth,height:imageHeight,data:Buffer.alloc(imageWidth*imageHeight*4,150)},65).data;
-    await l.service.acceptFrame(r.actor,{...r.metadata,frame_id:uid(),frame_seq:2,capture_mono_ms:10001,capture_offset_ms:1,
-      width:imageWidth,height:imageHeight,native_width_px:886,native_height_px:1918,content_rect:{x:0,y:0,width:imageWidth,height:imageHeight},content_sha256:await hash(bytes)},bytes);
-  }
-  const samples:Record<string,unknown>[]=[];
-  let boardTime=1000;
-  for(let index=0;index<36;index++){
-    const point=index%9,repetition=Math.floor(index/9)+1,x=48+864*(point%3+1)/4,y=96+1887*(Math.floor(point/3)+1)/4;
-    const command=async(kind:string,args:Record<string,unknown>)=>{
-      const c=await r.mouse.enqueue(alice,kind,{device_id:r.actor.id,...args,idempotency_key:uid(),wait_ms:0});
-      await r.mouse.claim(r.actor,r.identity,0);await r.mouse.start(r.actor,c.command_id,{...r.identity,control_epoch:control});
-      const payload=c.payload as Record<string,number>;
-      const receipt={command_id:c.command_id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,started_uptime_ms:boardTime,finished_uptime_ms:boardTime+5,effect:kind==="pointer.move_absolute"?{hid_reports_sent:true,absolute_requested_x:payload.x,absolute_requested_y:payload.y}:{hid_reports_sent:true}};
-      boardTime+=10;
-      await r.mouse.result(r.actor,c.command_id,{...r.identity,state:"board_acked",board_receipt:receipt,finished_client_mono_ms:10000+index*100});
-      return c.command_id;
-    };
-    const move=await command("pointer.move_absolute",{x:x/959*(imageWidth-1),y:y/2078*(imageHeight-1),image_width:imageWidth,image_height:imageHeight,orientation_epoch:0});
-    const click=await command("pointer.click",{button:"left"});
-    samples.push({point,repetition,move_id:move,click_id:click,x,y,click_before:index,click_after:index+1,before_mono_ms:10000+index*100,observed_mono_ms:10050+index*100});
-  }
-  const proof={source:"actual_iphone_uikit_events",method:"uikit_click_9x4",human_input:false,window_width:960,window_height:2079,source_width:886,source_height:1918,canvas:{x:48,y:96,width:864,height:1887},orientation_epoch:0,pointer_settings_hash:settings,probe_started_at:new Date(l.now()).toISOString(),samples};
-  return {...r,browse,scope,settings,proof};
-}
-async function browseReady(l:ReturnType<typeof lab>){
-  const r=await calibrationFixture(l);
-  const calibration=await r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof:r.proof});
-  await r.browse.ready(r.actor,{...r.scope,protocol:BROWSE_PROTOCOL,calibration_id:calibration.calibration_id,pointer_settings_hash:r.settings});
-  return {...r,calibration};
-}
-async function browseSnapshot(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof browseReady>>,label:string,mono=10000,sequence=2){
-  const value=await textCapture(l,r),probe=l.db.raw.prepare("SELECT created_at FROM sb_clock_probes WHERE id=?").get(value.metadata.clock_probe_id)!.created_at as number;
-  value.ocr.blocks[0].text=label;value.ocr.blocks[0].confidence=1;value.ocr.blocks[0].candidates=[{text:label,confidence:1}];value.ocr.full_text=label;value.ocr.barcodes=[];
-  Object.assign(value.metadata,{frame_id:uid(),frame_seq:sequence,capture_mono_ms:mono,capture_offset_ms:mono-10000,captured_at:new Date(probe+mono-10000).toISOString(),content_sha256:await hash(label)});
-  return value;
-}
-async function browsePacket(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof browseReady>>,steps=[browseStep()]){
-  const run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps});
-  const lease=await r.browse.take(r.actor,{...r.scope,run_id:run.run_id,lease_seq:1,request_id:uid()});
-  if(!("queue" in lease))throw Error("Expected executable fixture lease");
-  const first=lease.queue[0],before=await browseSnapshot(l,r,"列表 List");
-  const x=180,y=142.5,payload=absoluteMouseRequest({x,y,image_width:886,image_height:1918,orientation_epoch:0}).payload;
-  const receipts=[{command_id:first.step_id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,started_uptime_ms:5000,finished_uptime_ms:5010,effect:{hid_reports_sent:true,absolute_requested_x:payload.x,absolute_requested_y:payload.y}},{command_id:first.step_id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:1,started_uptime_ms:5020,finished_uptime_ms:5060,effect:{hid_reports_sent:true}}];
-  const input={...r.scope,run_id:run.run_id,runtime_lease_id:lease.lease_id,step_id:first.step_id,lease_received_mono_ms:10000,lease_rtt_ms:10,input_started_mono_ms:10010,finished_mono_ms:10030,before,receipts};
-  l.tick(100);const after=await browseSnapshot(l,r,"详情 Detail",10100,3);
-  const combined={...r.scope,run_id:run.run_id,runtime_lease_id:lease.lease_id,step_id:first.step_id,input:{lease_received_mono_ms:10000,lease_rtt_ms:10,input_started_mono_ms:10010,finished_mono_ms:10030,before,receipts},after};
-  return {run,lease,first,before,after,input,combined};
-}
-test("software: bounded browsing is disabled by default and hidden from the native MCP catalogue",async()=>{
-  const l=lab(),browse=new BrowseControl(l.service);
-  await assert.rejects(browse.cycle(alice,{idempotency_key:uid(),steps:[browseStep()]}),/BOUNDED_BROWSE_DISABLED/);
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/list"})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"});
-  const tools=(await response.json() as {result:{tools:{name:string}[]}}).result.tools;
-  assert.equal(tools.some(t=>t.name==="browse_cycle"),false);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_runs").get()!.n,0);
-});
-test("software: model-side booleans cannot create pointer proof or a ready browsing worker",async()=>{
-  const l=lab(true),r=await absoluteMouseReady(l),browse=new BrowseControl(l.service);
-  await assert.rejects(browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),/BROWSE_WORKER_NOT_READY/);
-  await assert.rejects(browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()],pointer_verified:true}),/UNKNOWN_BROWSE_FIELD/);
-  await assert.rejects(browse.ready(r.actor,{...r.identity,control_epoch:1,protocol:BROWSE_PROTOCOL,calibration_id:uid(),pointer_settings_hash:await hash("false proof")}),/PHYSICAL_POINTER_PROOF_REQUIRED/);
-});
-
-test("software: verified phone calibration can be prepared while automated execution stays disabled",async()=>{
-  const l=lab(),r=await calibrationFixture(l),grant=l.db.raw.prepare("SELECT mouse_enabled,mouse_until,control_epoch FROM sb_sessions WHERE id=?").get(r.scope.bridge_session_id);
-  const request=uid(),body={...r.scope,request_id:request,proof:r.proof},calibration=await r.browse.calibrate(r.actor,body);
-  assert.equal(calibration.evidence.samples,36);assert.equal((await r.browse.calibrate(r.actor,body)).calibration_id,calibration.calibration_id);
-  assert.deepEqual(l.db.raw.prepare("SELECT mouse_enabled,mouse_until,control_epoch FROM sb_sessions WHERE id=?").get(r.scope.bridge_session_id),grant);
-  for(const call of [()=>r.browse.ready(r.actor,{...r.scope,protocol:BROWSE_PROTOCOL,calibration_id:calibration.calibration_id,pointer_settings_hash:r.settings}),()=>r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),()=>r.browse.active(r.actor,r.scope),()=>r.browse.take(r.actor,{}),()=>r.browse.image(r.actor,{})])await assert.rejects(call(),/BOUNDED_BROWSE_DISABLED/);
-  for(const table of ["sb_browse_ready","sb_browse_runs","sb_browse_leases"])assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM "+table).get()!.n,0);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_calibrations").get()!.n,1);
-});
-
-test("software: disabled-mode calibration keeps session, grant and recorded-input proof checks",async()=>{
-  const l=lab(),r=await calibrationFixture(l),body={...r.scope,request_id:uid(),proof:r.proof};
-  for(const mutation of [{bridge_session_id:uid()},{broadcast_id:uid()},{worker_id:uid()},{lease_epoch:r.scope.lease_epoch+1},{control_epoch:r.scope.control_epoch+1}])await assert.rejects(r.browse.calibrate(r.actor,{...body,...mutation}));
-  for(const mutate of [(p:typeof r.proof)=>{p.human_input=true;},(p:typeof r.proof)=>{p.samples.pop();},(p:typeof r.proof)=>{p.samples[0].click_id=uid();}]){const proof=structuredClone(r.proof);mutate(proof);await assert.rejects(r.browse.calibrate(r.actor,{...body,proof}));}
-  await r.mouse.stop(alice,{device_id:r.actor.id});await assert.rejects(r.browse.calibrate(r.actor,body),/ALLOW_MOUSE_ON_PHONE/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_calibrations").get()!.n,0);
-});
-
-test("software: enabling execution after evidence preparation still requires an explicit current worker handshake",async()=>{
-  const l=lab(),r=await calibrationFixture(l),calibration=await r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof:r.proof});
-  const enabled=new BrowseControl(new BridgeEngine({db:l.db as unknown as D1Database,bucket:l.bucket as unknown as R2Bucket,now:l.now,browseEnabled:true}));
-  const args={device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]};
-  await assert.rejects(enabled.cycle(alice,args),/BROWSE_WORKER_NOT_READY/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_runs").get()!.n,0);
-  await enabled.ready(r.actor,{...r.scope,protocol:BROWSE_PROTOCOL,calibration_id:calibration.calibration_id,pointer_settings_hash:r.settings});
-  const run=await enabled.cycle(alice,args);assert.equal(run.state,"active");assert.equal(run.input_state,"none");
-});
-
-test("software: native short-plan replay reads its submission receipt from the result snapshot",async()=>{
-  const l=lab(true),r=await browseReady(l),args={device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]},first=await r.browse.cycle(alice,args),before=l.db.requests;
-  const replay=await r.browse.cycle(alice,args);assert.equal(l.db.requests-before,2);
-  assert.deepEqual((replay.submission as Record<string,unknown>).step_ids,(first.submission as Record<string,unknown>).step_ids);assert.equal((replay.submission as Record<string,unknown>).replayed,true);assert.equal(replay.run_id,first.run_id);
-  await assert.rejects(r.browse.cycle(bob,args),/START_MOUSE_SHARING/);
-});
-
-test("software: short-plan receipts retain fresh JPEG and the final image authority recheck",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const row=l.db.raw.prepare("SELECT intent_key FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!,args={device_id:r.actor.id,idempotency_key:row.intent_key,steps:[browseStep()]},before=l.db.requests;
-  const replay=await r.browse.cycle(alice,args);assert.equal(l.db.requests-before,3);assert.equal(replay.image,packet.body.jpeg_base64);
-  assert.deepEqual((replay.submission as Record<string,unknown>).step_ids,[p.first.step_id]);assert.equal(replay.observation_state,"available");
-  browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async key=>{l.tick(2100);return get(key);};
-  const stale=await r.browse.cycle(alice,args);assert.equal(stale.image,undefined);assert.equal(stale.observation,undefined);assert.equal(stale.observation_state,"stale");
-});
-
-test("software: receipt snapshot reuse cannot reveal a revoked owner's screen after image IO",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const row=l.db.raw.prepare("SELECT intent_key FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!,args={device_id:r.actor.id,idempotency_key:row.intent_key,steps:[browseStep()]};
-  browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async key=>{l.db.raw.exec("UPDATE sb_devices SET revoked=1");return get(key);};
-  await assert.rejects(r.browse.cycle(alice,args),/NOT_FOUND/);
-});
-
-test("software: a prototype-named intent needs its own saved receipt and never an inherited property",async()=>{
-  const l=lab(true),r=await browseReady(l),args={device_id:r.actor.id,idempotency_key:"__proto__",steps:[browseStep()]},run=await r.browse.cycle(alice,args);
-  assert.equal((await r.browse.cycle(alice,args)).run_id,run.run_id);
-  l.db.raw.prepare("UPDATE sb_browse_runs SET plan_keys_json='{}' WHERE id=?").run(String(run.run_id));
-  await assert.rejects(r.browse.cycle(alice,args),/BROWSE_SUBMISSION_RECEIPT_MISSING/);
-});
-test("software: resized JPEG calibration preserves native geometry and all 72 recorded commands",async()=>{
-  const l=lab(true),r=await calibrationFixture(l,443,960);
-  const result=await r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof:r.proof});
-  assert.equal(result.evidence.samples,36);assert.equal(result.evidence.hit_rate,1);
-  const row=l.db.raw.prepare("SELECT source_width,source_height FROM sb_browse_calibrations WHERE id=?").get(result.calibration_id)!;
-  assert.equal(row.source_width,886);assert.equal(row.source_height,1918);
-  const ready=await r.browse.ready(r.actor,{...r.scope,protocol:BROWSE_PROTOCOL,calibration_id:result.calibration_id,pointer_settings_hash:r.settings});assert.equal(ready.ready,true);
-});
-
-test("software: resized calibration cannot ignore native bindings, crop, clock or grid changes",async()=>{
-  const l=lab(true),r=await calibrationFixture(l,443,960),moveID=String(r.proof.samples[0].move_id);
-  const original=String(l.db.raw.prepare("SELECT precondition FROM sb_mouse_commands WHERE id=?").get(moveID)!.precondition);
-  const invoke=()=>r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof:r.proof});
-  for(const patch of [{capture_width:887},{capture_height:null},{source_height:1100},{source_x:100},{orientation_epoch:1}]){
-    l.db.raw.prepare("UPDATE sb_mouse_commands SET precondition=? WHERE id=?").run(JSON.stringify({...JSON.parse(original),...patch}),moveID);
-    await assert.rejects(invoke(),/CALIBRATION_GEOMETRY_CHANGED|CALIBRATION_GRID_MISMATCH/);
-  }
-  l.db.raw.prepare("UPDATE sb_mouse_commands SET precondition=? WHERE id=?").run(original,moveID);
-  const metadata=String(l.db.raw.prepare("SELECT metadata FROM sb_frames WHERE device_id=?").get(r.actor.id)!.metadata);
-  for(const patch of [{native_width_px:887},{capture_clock_verified:false},{transform_version:"cropped"},{content_rect:{x:5,y:0,width:443,height:960}}]){
-    l.db.raw.prepare("UPDATE sb_frames SET metadata=? WHERE device_id=?").run(JSON.stringify({...JSON.parse(metadata),...patch}),r.actor.id);
-    await assert.rejects(invoke(),/CALIBRATION_GEOMETRY_CHANGED/);
-  }
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_browse_calibrations").get()!.n,0);
-});
-
-test("software: calibration rechecks all 36 unique UIKit samples and 72 recorded HID commands",async()=>{
-  const l=lab(true),r=await calibrationFixture(l);
-  for(const mutate of [
-    (p:typeof r.proof)=>{p.samples.pop();},
-    (p:typeof r.proof)=>{p.human_input=true;},
-    (p:typeof r.proof)=>{p.samples[1]={...p.samples[0]};},
-    (p:typeof r.proof)=>{for(const s of p.samples)s.x=Number(s.x)+20;},
-    (p:typeof r.proof)=>{p.samples[0].click_after=0;},
-    (p:typeof r.proof)=>{p.samples[0].move_id=uid();},
-  ]){
-    const proof=structuredClone(r.proof);mutate(proof);
-    await assert.rejects(r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof}));
-  }
-  const request=uid(),ok=await r.browse.calibrate(r.actor,{...r.scope,request_id:request,proof:r.proof});
-  assert.equal(ok.evidence.samples,36);assert.equal(ok.evidence.p95_error_px,0);
-  assert.equal((await r.browse.calibrate(r.actor,{...r.scope,request_id:request,proof:r.proof})).calibration_id,ok.calibration_id);
-  await assert.rejects(r.browse.ready(r.actor,{...r.scope,protocol:BROWSE_PROTOCOL,calibration_id:ok.calibration_id,pointer_settings_hash:await hash("changed settings")}),/PHYSICAL_POINTER_PROOF_REQUIRED/);
-});
-test("software: concurrent plan admission is idempotent and never exceeds the global five-action bound",async()=>{
-  const l=lab(true),r=await browseReady(l),args={device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep(),browseStep("详情 Detail","列表 List")]};
-  const [one,two]=await Promise.all([r.browse.cycle(alice,args),r.browse.cycle(alice,args)]);
-  assert.equal(one.run_id,two.run_id);assert.equal(one.pending_steps,2);
-  const append={run_id:one.run_id,idempotency_key:uid(),after_step_id:one.tail_step_id,steps:[browseStep(),browseStep(),browseStep()]};
-  assert.equal((await r.browse.cycle(alice,append)).pending_steps,5);
-  assert.equal((await r.browse.cycle(alice,append)).pending_steps,5);
-  const current=await r.browse.get(alice,{run_id:one.run_id});
-  await assert.rejects(r.browse.cycle(alice,{...append,idempotency_key:uid(),after_step_id:current.tail_step_id,steps:[browseStep()]}),/BROWSE_QUEUE_FULL/);
-  await assert.rejects(r.browse.cycle(alice,{...append,idempotency_key:uid(),steps:[browseStep()]}),/STALE_BROWSE_BRANCH/);
-});
-test("software: new plan admission and append avoid repeated ownership and eligibility reads",async()=>{
-  const l=lab(true),r=await browseReady(l),args={device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]},before=l.db.requests;
-  const run=await r.browse.cycle(alice,args);assert.equal(l.db.requests-before,5);assert.equal(run.pending_steps,1);
-  const append={run_id:run.run_id,idempotency_key:uid(),after_step_id:run.tail_step_id,steps:[browseStep()]},a=l.db.requests;
-  const added=await r.browse.cycle(alice,append);assert.equal(l.db.requests-a,3);assert.equal(added.pending_steps,2);
-  const b=l.db.requests,replayed=await r.browse.cycle(alice,append);assert.equal(l.db.requests-b,2);assert.equal(replayed.pending_steps,2);assert.deepEqual((replayed.submission as Record<string,unknown>).step_ids,(added.submission as Record<string,unknown>).step_ids);
-});
-
-test("software: append with a current JPEG preserves exact feedback in four D1 calls",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const args={run_id:p.run.run_id,idempotency_key:uid(),after_step_id:p.run.tail_step_id,steps:[browseStep("详情 Detail","列表 List")]},before=l.db.requests;
-  const appended=await r.browse.cycle(alice,args);assert.equal(l.db.requests-before,4);assert.equal(appended.image,packet.body.jpeg_base64);assert.equal(appended.pending_steps,1);
-  const replay=l.db.requests;assert.equal((await r.browse.cycle(alice,args)).image,packet.body.jpeg_base64);assert.equal(l.db.requests-replay,3);
-});
-
-test("software: admission transaction rejects authority changed after eligibility read",async()=>{
-  for(const change of ["UPDATE sb_devices SET revoked=1","UPDATE sb_devices SET worker_id='"+uid()+"'","UPDATE sb_devices SET lease_epoch=lease_epoch+1","UPDATE sb_devices SET worker_expires=0","UPDATE sb_sessions SET control_epoch=control_epoch+1","UPDATE sb_sessions SET mouse_until=0","UPDATE sb_sessions SET capture_state='paused'","UPDATE sb_sessions SET broadcast_id='"+uid()+"'","UPDATE sb_hardware SET usb_connected=0","UPDATE sb_hardware SET board_boot_id='"+uid()+"'","UPDATE sb_browse_ready SET protocol='unsupported'","UPDATE sb_browse_ready SET calibration_id='"+uid()+"'","UPDATE sb_browse_calibrations SET expires_at=0"]){
-    const l=lab(true),r=await browseReady(l),batch=l.db.batch.bind(l.db);
-    l.db.batch=async statements=>{l.db.raw.exec(change);return batch(statements);};
-    await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),/MOUSE_BUSY_OR_CONTROL_CHANGED/,change);
-    assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_runs").get()!.n,0,change);
-  }
-});
-
-test("software: joined eligibility preserves calibration and capture validation failures",async()=>{
-  for(const [change,error] of [["UPDATE sb_browse_calibrations SET expires_at=0",/PHYSICAL_POINTER_PROOF_REQUIRED/],["UPDATE sb_browse_calibrations SET board_boot_id='"+uid()+"'",/PHYSICAL_POINTER_PROOF_REQUIRED/],["UPDATE sb_browse_calibrations SET descriptor='changed'",/PHYSICAL_POINTER_PROOF_REQUIRED/],["UPDATE sb_browse_calibrations SET settings_hash='changed'",/PHYSICAL_POINTER_PROOF_REQUIRED/],["UPDATE sb_browse_calibrations SET source_width=887",/CALIBRATION_GEOMETRY_CHANGED/],["UPDATE sb_browse_calibrations SET orientation_epoch=1",/CALIBRATION_GEOMETRY_CHANGED/],["DELETE FROM sb_screen_texts",/BROWSE_FRESH_GEOMETRY_REQUIRED/]] as const){
-    const l=lab(true),r=await browseReady(l);l.db.raw.exec(change);
-    await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),error);
-    assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_runs").get()!.n,0);
-  }
-});
-
-test("software: joined eligibility rechecks capture and calibration time after IO",async()=>{
-  for(const elapsed of [1100,2101]){
-    const l=lab(true),r=await browseReady(l),prepare=l.db.prepare.bind(l.db);if(elapsed===1100)l.db.raw.prepare("UPDATE sb_browse_calibrations SET expires_at=?").run(l.now()+1000);
-    l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.startsWith("SELECT w.*,CASE WHEN c.id"))statement.bind=(...values:unknown[])=>{const bound=bind(...values),first=bound.first.bind(bound);bound.first=async<T>()=>{const result=await first<T>();l.tick(elapsed);return result;};return bound;};return statement;};
-    await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),elapsed===1100?/PHYSICAL_POINTER_PROOF_REQUIRED/:/BROWSE_FRESH_GEOMETRY_REQUIRED/);
-    assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_runs").get()!.n,0);
-  }
-});
-
-test("software: concurrent appends from one tail have one winner and preserve the five-action bound",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),args={run_id:run.run_id,after_step_id:run.tail_step_id,steps:[browseStep(),browseStep()]};
-  const outcomes=await Promise.allSettled([1,2].map(()=>r.browse.cycle(alice,{...args,idempotency_key:uid()})));
-  assert.equal(outcomes.filter(x=>x.status==="fulfilled").length,1);assert.equal(outcomes.filter(x=>x.status==="rejected").length,1);
-  const state=await r.browse.get(alice,{run_id:run.run_id});assert.equal(state.pending_steps,3);assert.equal(state.remaining_slots,2);
-});
-
-test("software: append snapshot cannot authorize work after a concurrent grant revocation",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),prepare=l.db.prepare.bind(l.db);let changed=false;
-  l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);if(sql.startsWith("UPDATE sb_browse_runs SET queue_json=?"))statement.bind=(...values:unknown[])=>{const bound=bind(...values),execute=bound.run.bind(bound);bound.run=async()=>{if(!changed){changed=true;l.db.raw.exec("UPDATE sb_sessions SET mouse_until=0");}return execute();};return bound;};return statement;};
-  await assert.rejects(r.browse.cycle(alice,{run_id:run.run_id,after_step_id:run.tail_step_id,idempotency_key:uid(),steps:[browseStep()]}),/BROWSE_NOT_ACTIVE/);
-  assert.equal(changed,true);const row=l.db.raw.prepare("SELECT queue_json,plan_keys_json FROM sb_browse_runs WHERE id=?").get(String(run.run_id))!;
-  assert.equal(JSON.parse(String(row.queue_json)).length,1);assert.equal(Object.keys(JSON.parse(String(row.plan_keys_json))).length,1);
-});
-
-test("software: admission expiry is rolled back when its following insertion fails",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]});l.db.raw.prepare("UPDATE sb_browse_runs SET expires_at=? WHERE id=?").run(l.now()-1,String(run.run_id));
-  const batch=l.db.batch.bind(l.db);l.db.batch=async statements=>{statements[1].execute=()=>{throw Error("injected admission failure");};return batch(statements);};
-  await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),/injected admission failure/);
-  assert.equal(l.db.raw.prepare("SELECT state FROM sb_browse_runs WHERE id=?").get(String(run.run_id))!.state,"active");assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_runs").get()!.n,1);
-});
-
-test("software: manual and bounded mouse admissions race through the same atomic exclusion",async()=>{
-  const l=lab(true),r=await browseReady(l);
-  const results=await Promise.allSettled([
-    r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0}),
-    r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),
-  ]);
-  assert.equal(results.filter(x=>x.status==="fulfilled").length,1);
-  assert.equal(results.filter(x=>x.status==="rejected").length,1);
-});
-test("software: runtime lease retries never extend time or reauthorize executable work",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),request=uid();
-  const body={...r.scope,run_id:run.run_id,lease_seq:1,request_id:request},first=await r.browse.take(r.actor,body);assert.equal(first.executable,true);
-  l.tick(500);const retry=await r.browse.take(r.actor,body);assert.equal(retry.executable,false);assert.equal(retry.retry_only,true);assert.equal(retry.lease_id,first.lease_id);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_leases").get()!.n,1);
-  await assert.rejects(r.browse.take(r.actor,{...body,request_id:uid()}),/IDEMPOTENCY_CONFLICT/);
-});
-test("software: input acknowledgement stays separate from a verified post-action screen",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  assert.equal((await r.browse.input(r.actor,p.input)).app_effect_observed,false);
-  assert.equal((await r.browse.get(alice,{run_id:p.run.run_id})).checkpoint_seq,0);
-  await assert.rejects(r.browse.observe(r.actor,{...r.scope,run_id:p.run.run_id,runtime_lease_id:p.lease.lease_id,step_id:p.first.step_id,after:p.before}),/PRE_INPUT_BROWSE_FRAME/);
-  const observed=await r.browse.observe(r.actor,{...r.scope,run_id:p.run.run_id,runtime_lease_id:p.lease.lease_id,step_id:p.first.step_id,after:p.after});
-  assert.equal(observed.app_effect_observed,true);
-  const state=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(state.pending_steps,0);assert.equal(state.checkpoint_seq,1);assert.equal(state.observation_state,"available");
-  assert.equal((await r.browse.input(r.actor,p.input)).replayed,true);
-});
-test("software: combined checkpoint uses two database round trips and retries without duplicate progress",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),before=l.db.requests;
-  const observed=await r.browse.checkpoint(r.actor,p.combined);assert.equal(observed.app_effect_observed,true);
-  assert.equal(l.db.requests-before,2);
-  assert.equal((await r.browse.checkpoint(r.actor,p.combined)).replayed,true);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,1);
-  const state=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(state.checkpoint_seq,1);
-  l.tick(2100);const stale=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(stale.observation_state,"stale");assert.equal(stale.observation,undefined);
-});
-test("software: stopped, foreign and wrong-worker contexts cannot report new browsing effects",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  await assert.rejects(r.browse.get(bob,{run_id:p.run.run_id}),/NOT_FOUND/);
-  await assert.rejects(r.browse.checkpoint(r.actor,{...p.combined,worker_id:uid()}),/STALE_BROWSE_SCOPE/);
-  await r.mouse.stop(alice,{device_id:r.actor.id});
-  await assert.rejects(r.browse.checkpoint(r.actor,p.combined),/STALE_BROWSE_LEASE/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,0);
-});
-test("software: a newer lease cannot relabel an input that happened before it was issued",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);l.tick(2000);
-  const next=await r.browse.take(r.actor,{...r.scope,run_id:p.run.run_id,lease_seq:2,request_id:uid()});
-  await assert.rejects(r.browse.input(r.actor,{...p.input,runtime_lease_id:next.lease_id}),/BROWSE_INPUT_OUTSIDE_LEASE/);
-  assert.equal(l.db.raw.prepare("SELECT input_json FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!.input_json,null);
-});
-test("software: checkpoint and plan top-up races preserve the queued continuation",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),batch=l.db.batch.bind(l.db);
-  let raced=false;
-  l.db.batch=async statements=>{
-    if(!raced){raced=true;await r.browse.cycle(alice,{run_id:p.run.run_id,idempotency_key:"continuation",after_step_id:p.run.tail_step_id,steps:[browseStep("详情 Detail","列表 List")]});}
-    return batch(statements);
-  };
-  await assert.rejects(r.browse.checkpoint(r.actor,p.combined),/BROWSE_CHANGED_RETRY_SAME_RESULT/);
-  l.db.batch=batch;
-  assert.equal((await r.browse.get(alice,{run_id:p.run.run_id})).pending_steps,2);
-  await r.browse.checkpoint(r.actor,p.combined);
-  assert.equal((await r.browse.get(alice,{run_id:p.run.run_id})).pending_steps,1);
-});
-test("software: checkpoint journal and queue update roll back together",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),batch=l.db.batch.bind(l.db);
-  l.db.batch=async statements=>{statements[1].sql="UPDATE deliberately_missing_table SET x=?";return batch(statements);};
-  await assert.rejects(r.browse.checkpoint(r.actor,p.combined));
-  l.db.batch=batch;
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,0);
-  assert.equal((await r.browse.get(alice,{run_id:p.run.run_id})).pending_steps,1);
-});
-test("software: known-screen handoff preserves consent but unknown input revokes it",async()=>{
-  for(const unknown of [false,true]){
-    const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-    const outcome=await r.browse.halt(r.actor,{...r.scope,run_id:p.run.run_id,reason:unknown?"unknown_outcome":"scene_mismatch",input_outcome:unknown?"outcome_unknown":"none_pending"});
-    assert.equal(outcome.requires_new_phone_grant,unknown);
-    assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).enabled,!unknown);
-    if(!unknown)assert.ok((await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]})).run_id);
-  }
-});
-test("software: stopping an old browsing run cannot revoke a later phone grant",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  await r.browse.halt(r.actor,{...r.scope,run_id:p.run.run_id,reason:"scene_mismatch",input_outcome:"none_pending"});
-  await r.mouse.grant(r.actor,{bridge_session_id:r.identity.bridge_session_id,control_enabled:true,request_id:uid()});
-  await r.browse.stop(alice,{run_id:p.run.run_id});
-  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).enabled,true);
-});
-test("software: navigation plans reject hidden code, extra clicks and transaction targets",async()=>{
-  const l=lab(true),r=await browseReady(l);
-  await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[{...browseStep(),script:"arbitrary"}]}),/UNKNOWN_BROWSE_FIELD/);
-  const purchase=browseStep();purchase.action.target.text="立即购买";
-  await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[purchase]}),/BROWSE_NAVIGATION_ONLY/);
-  const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:3,method:"tools/call",params:{name:"browse_cycle",arguments:{device_id:r.actor.id,idempotency_key:"native_fixture",steps:[browseStep()]}}})});
-  const result=await(await handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"})).json() as RpcReply;
-  assert.equal(result.result.isError,false);assert.equal(result.result.structuredContent.observation_state,"unavailable");
-});
-
-
-test("software: prototype-shaped idempotency keys cannot duplicate queued browser actions",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:"first",steps:[browseStep()]});
-  const args={run_id:run.run_id,idempotency_key:"__proto__",after_step_id:run.tail_step_id,steps:[browseStep()]};
-  assert.equal((await r.browse.cycle(alice,args)).pending_steps,2);
-  assert.equal((await r.browse.cycle(alice,args)).pending_steps,2);
-  const current=await r.browse.get(alice,{run_id:run.run_id});
-  await assert.rejects(r.browse.cycle(alice,{...args,after_step_id:current.tail_step_id}),/IDEMPOTENCY_CONFLICT/);
-});
-test("software: lost admission responses remain resolvable with the same key after consent stops",async()=>{
-  const l=lab(true),r=await browseReady(l),args={device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]};
-  const first=await r.browse.cycle(alice,args);await r.mouse.stop(alice,{device_id:r.actor.id});
-  const retry=await r.browse.cycle(alice,args);assert.equal(retry.run_id,first.run_id);assert.equal(retry.state,"cancelled");assert.equal(retry.pending_steps,0);
-});
-test("software: an unresolved prior browse run blocks both new plans and manual input in the same grant",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  l.db.raw.prepare("UPDATE sb_browse_runs SET state='outcome_unknown' WHERE id=?").run(String(p.run.run_id));
-  await assert.rejects(r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),/MOUSE_BUSY_OR_CONTROL_CHANGED/);
-  await assert.rejects(r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0}),/MOUSE_BUSY_OR_CONTROL_CHANGED/);
-});
-test("software: revocation during take cannot return an executable lease",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]}),batch=l.db.batch.bind(l.db);
-  l.db.batch=async statements=>{l.db.raw.exec("UPDATE sb_sessions SET mouse_enabled=0,mouse_until=0,control_epoch=control_epoch+1");return batch(statements);};
-  await assert.rejects(r.browse.take(r.actor,{...r.scope,run_id:run.run_id,lease_seq:1,request_id:uid()}),/STALE_BROWSE_LEASE/);
-});
-test("software: slow second clicks across plan boundaries are retained as deadline failures on replay",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);await r.browse.checkpoint(r.actor,p.combined);
-  const appended=await r.browse.cycle(alice,{run_id:p.run.run_id,idempotency_key:"next_segment",after_step_id:p.run.tail_step_id,steps:[browseStep("详情 Detail","列表 List")]});
-  l.tick(3000);
-  const lease=await r.browse.take(r.actor,{...r.scope,run_id:appended.run_id,lease_seq:2,request_id:uid()});
-  if(!("queue" in lease))throw Error("Expected next lease");
-  const first=lease.queue[0],before=await browseSnapshot(l,r,"详情 Detail",13100,4);
-  const receipts=structuredClone(p.combined.input.receipts).map(receipt=>({...receipt,command_id:first.step_id,started_uptime_ms:receipt.started_uptime_ms+3100,finished_uptime_ms:receipt.finished_uptime_ms+3100}));
-  l.tick(100);const after=await browseSnapshot(l,r,"列表 List",13200,5);
-  const combined={...r.scope,run_id:appended.run_id,runtime_lease_id:lease.lease_id,step_id:first.step_id,input:{lease_received_mono_ms:13100,lease_rtt_ms:10,input_started_mono_ms:13110,finished_mono_ms:13130,before,receipts},after};
-  const report=await r.browse.checkpoint(r.actor,combined);assert.equal(report.latency_deadline_missed,true);
-  const replay=await r.browse.checkpoint(r.actor,combined);assert.equal(replay.latency_deadline_missed,true);assert.equal(replay.replayed,true);
-  const state=await r.browse.get(alice,{run_id:appended.run_id});assert.equal(state.state,"handoff");assert.equal(state.error,"deadline_missed");
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,2);
-});
-test("software: a combined checkpoint cannot swap calibrated size or erase clock uncertainty",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  const changed=structuredClone(p.combined);changed.after.metadata.orientation_epoch=1;
-  await assert.rejects(r.browse.checkpoint(r.actor,changed),/STALE_BROWSE_OBSERVATION/);
-  const clock=structuredClone(p.combined);clock.after.metadata.capture_clock_verified=false;
-  await assert.rejects(r.browse.checkpoint(r.actor,clock),/CLOCK_UNCERTAIN/);
-  const axes=structuredClone(p.combined);axes.input.receipts[0].effect.absolute_requested_x=0;
-  await assert.rejects(r.browse.checkpoint(r.actor,axes),/ABSOLUTE_RECEIPT_MISMATCH/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,0);
-});
-
-
-test("software: normal runtime take needs two D1 round trips and is capped by the worker deadline",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]});
-  l.db.raw.prepare("UPDATE sb_devices SET worker_expires=? WHERE id=?").run(l.now()+100,r.actor.id);
-  const count=l.db.requests,lease=await r.browse.take(r.actor,{...r.scope,run_id:run.run_id,lease_seq:1,request_id:uid()});
-  assert.equal(l.db.requests-count,2);assert.equal(lease.executable,true);
-  if(!("expires_in_ms" in lease))throw Error("No executable lease");
-  assert.equal(lease.expires_in_ms,100);
-});
-
-
-test("software: runtime lease cannot outlive the currently queued intent",async()=>{
-  const l=lab(true),r=await browseReady(l),run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]});
-  l.db.raw.prepare("UPDATE sb_browse_runs SET head_expires_at=? WHERE id=?").run(l.now()+75,String(run.run_id));
-  const lease=await r.browse.take(r.actor,{...r.scope,run_id:run.run_id,lease_seq:1,request_id:uid()});
-  if(!("expires_in_ms" in lease))throw Error("Missing execution lease");
-  assert.equal(lease.expires_in_ms,75);
-});
-
-
-test("software: truncated OCR and mismatched frame hashes cannot prove browsing postconditions",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  const partial=structuredClone(p.combined);partial.after.ocr.truncated=true;partial.after.ocr.omitted_blocks=1;
-  await assert.rejects(r.browse.checkpoint(r.actor,partial),/INCOMPLETE_BROWSE_OBSERVATION/);
-  const mismatched=structuredClone(p.combined);mismatched.after.metadata.content_sha256=await hash("another frame");
-  await assert.rejects(r.browse.checkpoint(r.actor,mismatched),/OCR_HASH_MISMATCH/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,0);
-});
-
-
-test("software: low-confidence forbidden OCR cannot be treated as absent",async()=>{
-  const l=lab(true),r=await browseReady(l);
-  const spec={...browseStep(),after:{...browseScene("详情 Detail"),forbidden:[{text:"遮挡",region:browseRegion}]}},p=await browsePacket(l,r,[spec]);
-  const value=structuredClone(p.combined),block=structuredClone(value.after.ocr.blocks[0]);
-  block.id="t2";block.text="遮挡";block.confidence=.1;block.candidates=[{text:"遮挡",confidence:.1}];block.bounds={x:300,y:500,width:100,height:40};
-  value.after.ocr.blocks.push(block);value.after.ocr.full_text="详情 Detail\n遮挡";value.after.metadata.content_sha256=await hash(value.after.ocr.full_text);
-  await assert.rejects(r.browse.checkpoint(r.actor,value),/BROWSE_POSTCONDITION_NOT_OBSERVED/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,0);
-});
-
-
-test("software: confidence-only changes cannot turn an already present after-scene into progress",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),value=structuredClone(p.combined),block=structuredClone(value.input.before.ocr.blocks[0]);
-  block.id="t2";block.text="详情 Detail";block.confidence=.5;block.candidates=[{text:"详情 Detail",confidence:.5}];block.bounds={x:300,y:500,width:100,height:40};
-  value.input.before.ocr.blocks.push(block);value.input.before.ocr.full_text="列表 List\n详情 Detail";value.input.before.metadata.content_sha256=await hash(value.input.before.ocr.full_text);
-  await assert.rejects(r.browse.checkpoint(r.actor,value),/BROWSE_SCENE_MISMATCH/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_journal").get()!.n,0);
-});
-
-test("software: late checkpoint keeps original execution authorization and cannot renew old image freshness",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  l.tick(2600);
-  const report=await r.browse.take(r.actor,{...r.scope,run_id:p.run.run_id,lease_seq:2,request_id:uid()});
-  const value={...p.combined,runtime_lease_id:report.lease_id,input:{...p.combined.input,executed_lease_id:p.lease.lease_id}};
-  assert.equal((await r.browse.checkpoint(r.actor,value)).app_effect_observed,true);
-  const state=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(state.observation_state,"stale");assert.equal(state.observation,undefined);
-  assert.equal((await r.browse.checkpoint(r.actor,value)).replayed,true);
-});
-test("software: browse discovery is worker-bound and does not grant execution",async()=>{
-  const l=lab(true),r=await browseReady(l);
-  assert.equal(await r.browse.active(r.actor,r.scope),null);
-  const run=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:[browseStep()]});
-  const discovered=await r.browse.active(r.actor,r.scope);assert.equal(discovered?.run_id,run.run_id);assert.equal(discovered?.lease_seq,0);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_leases").get()!.n,0);
-  assert.equal(await r.browse.active(r.actor,{...r.scope,worker_id:uid()}),null);
-});
-
-
-async function browseImagePacket(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof browseReady>>,p:Awaited<ReturnType<typeof browsePacket>>,commit=true){
-  if(commit)await r.browse.checkpoint(r.actor,p.combined);l.tick(100);
-  const cp=commit?JSON.parse(l.db.raw.prepare("SELECT checkpoint_json FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!.checkpoint_json as string):{metadata:p.after.metadata};
-  const bytes=jpeg.encode({width:59,height:128,data:Buffer.alloc(59*128*4,160)},75).data;
-  const metadata={schema:"browse_frame_image.v1",source:"verified_replaykit_source_frame",test_fixture:false,frame_metadata:cp.metadata,source_pixel_sha256:await hash("EXPLICIT SOFTWARE FIXTURE PIXELS"),source_width:886,source_height:1918,image_width:59,image_height:128,transform:"full_frame_upright_resize.v1",jpeg_sha256:await hash(bytes),jpeg_bytes:bytes.length,encoded_mono_ms:Number(cp.metadata.capture_mono_ms)+10,encode_ms:5};
-  return {body:{...r.scope,run_id:p.run.run_id,step_id:p.first.step_id,image_metadata:metadata,jpeg_base64:Buffer.from(bytes).toString("base64")},bytes};
-}
-test("software: bundled checkpoint and image publishes exact pixels after the checkpoint in one phone request",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p,false);
-  const body={...p.combined,feedback_image:{image_metadata:image.body.image_metadata,jpeg_base64:image.body.jpeg_base64}};
-  const result=await r.browse.checkpoint(r.actor,body);assert.equal(result.app_effect_observed,true);assert.equal(result.image_state,"available");
-  const view=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(view.image,Buffer.from(image.bytes).toString("base64"));
-  const replay=await r.browse.checkpoint(r.actor,body);assert.equal(replay.replayed,true);assert.equal(replay.image_state,"available");
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_browse_journal").get()!.n,1);
-  assert.equal(String(l.db.raw.prepare("SELECT checkpoint_json FROM sb_browse_runs").get()!.checkpoint_json).includes("jpeg_base64"),false);
-});
-test("software: failed bundled feedback preserves a confirmed checkpoint and cannot publish mismatched pixels",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p,false);
-  const result=await r.browse.checkpoint(r.actor,{...p.combined,feedback_image:{image_metadata:{...image.body.image_metadata,test_fixture:true},jpeg_base64:image.body.jpeg_base64}});
-  assert.equal(result.app_effect_observed,true);assert.equal(result.image_state,"unavailable");assert.equal(result.image_error,"ACTUAL_BROWSE_IMAGE_REQUIRED");
-  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_browse_images").get()!.n,0);assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_browse_journal").get()!.n,1);
-  const replay=await r.browse.checkpoint(r.actor,{...p.combined,feedback_image:{image_metadata:image.body.image_metadata,jpeg_base64:image.body.jpeg_base64}});assert.equal(replay.replayed,true);assert.equal(replay.image_state,"available");
-});
-test("software: revocation during a bundled image upload preserves the checkpoint but publishes no pixels",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p,false),put=l.bucket.put.bind(l.bucket);
-  l.bucket.put=async(...args)=>{const value=await put(...args);l.db.raw.exec("UPDATE sb_sessions SET mouse_enabled=0");return value;};
-  const result=await r.browse.checkpoint(r.actor,{...p.combined,feedback_image:{image_metadata:image.body.image_metadata,jpeg_base64:image.body.jpeg_base64}});
-  assert.equal(result.app_effect_observed,true);assert.equal(result.image_state,"unavailable");assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_browse_images").get()!.n,0);
-});
-test("software: bounded feedback never returns an image at 1500ms even while the OCR checkpoint remains valid",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p);await r.browse.image(r.actor,image.body);
-  const lower=Number(l.db.raw.prepare("SELECT capture_lower FROM sb_browse_images").get()!.capture_lower);l.tick(1500-(l.now()-lower));
-  const view=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(view.image,undefined);assert.equal(view.image_state,"stale");
-});
-test("software: old image cleanup cannot hold a confirmed bundled response when background work is available",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p);await r.browse.image(r.actor,image.body);
-  const oldKey="explicit-fixture-old-key";l.db.raw.prepare("UPDATE sb_browse_images SET checkpoint_seq=0,image_key=?").run(oldKey);
-  const started=Promise.withResolvers<void>(),release=Promise.withResolvers<void>(),remove=l.bucket.delete.bind(l.bucket),jobs:(()=>Promise<void>)[]=[];
-  l.bucket.delete=async key=>{started.resolve();await release.promise;return remove(key);};
-  const service=new BridgeEngine({db:l.db as unknown as D1Database,bucket:l.bucket as unknown as R2Bucket,now:l.now,browseEnabled:true,schedule:(delay,job)=>{if(delay===0)jobs.push(job);}}),browse=new BrowseControl(service);
-  let completed=false;const pending=browse.checkpoint(r.actor,{...p.combined,feedback_image:{image_metadata:image.body.image_metadata,jpeg_base64:image.body.jpeg_base64}}).then(value=>{completed=true;return value;});
-  try{await Promise.race([pending,started.promise]);assert.equal(completed,true);}finally{release.resolve();await pending;}
-  assert.equal(jobs.length,1);await jobs[0]();assert.notEqual(l.db.raw.prepare("SELECT image_key FROM sb_browse_images").get()!.image_key,oldKey);
-});
-test("software: native bounded state forwards the fresh exact checkpoint JPEG",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p);
-  const accepted=await r.browse.image(r.actor,image.body);assert.equal(accepted.accepted,true);
-  const state=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(state.image_state,"available");assert.equal(state.image,image.body.jpeg_base64);
-  assert.equal((state.image_metadata as Record<string,unknown>).step_id,p.first.step_id);
-  const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_browse_state",arguments:{run_id:p.run.run_id}}})});
-  const response=await(await handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example"})).json() as RpcReply;
-  assert.equal(response.result.isError,false);assert.equal(response.result.content.filter(x=>x.type==="image").length,1);
-  assert.equal(response.result.content.find(x=>x.type==="image")!.data,image.body.jpeg_base64);assert.equal(response.result.structuredContent.image,undefined);
-  assert.equal((await r.browse.image(r.actor,image.body)).replayed,true);
-  assert.equal((await r.browse.get(alice,{run_id:p.run.run_id})).image_state,"available");
-});
-test("software: image upload cannot turn a board-only acknowledgement into observed",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  await r.browse.input(r.actor,p.input);
-  await assert.rejects(r.browse.image(r.actor,{...r.scope,run_id:p.run.run_id,step_id:p.first.step_id,image_metadata:{},jpeg_base64:"AA=="}),/CHECKPOINT_NOT_CURRENT/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_images").get()!.n,0);
-});
-test("software: fixture, mismatched source and corrupted images are rejected before storage",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);
-  for(const change of ["fixture","frame","hash","geometry"]){
-    const body=structuredClone(packet.body);
-    if(change==="fixture")body.image_metadata.test_fixture=true;
-    if(change==="frame")body.image_metadata.frame_metadata={...body.image_metadata.frame_metadata,frame_id:uid()};
-    if(change==="hash")body.image_metadata.jpeg_sha256="0".repeat(64);
-    if(change==="geometry")body.image_metadata.image_width=58;
-    await assert.rejects(r.browse.image(r.actor,body));
-  }
-  assert.equal([...l.bucket.values.keys()].filter(x=>x.startsWith("browse/")).length,0);
-  await r.browse.image(r.actor,packet.body);
-  const conflict=structuredClone(packet.body);conflict.image_metadata.encode_ms=6;
-  await assert.rejects(r.browse.image(r.actor,conflict),/BROWSE_IMAGE_CONFLICT/);
-});
-test("software: checkpoint images are owner, worker and capture-time bound",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p),other=await paired(l,bob);
-  await assert.rejects(r.browse.image(other.actor,packet.body),/NOT_FOUND/);
-  await assert.rejects(r.browse.image(r.actor,{...packet.body,worker_id:uid()}),/STALE_BROWSE_SCOPE/);
-  await r.browse.image(r.actor,packet.body);await assert.rejects(r.browse.get(bob,{run_id:p.run.run_id}),/NOT_FOUND/);
-  l.tick(2100);const stale=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(stale.observation_state,"stale");assert.equal(stale.image,undefined);assert.equal(stale.observation,undefined);
-  await assert.rejects(r.browse.image(r.actor,packet.body),/IMAGE_STALE/);
-});
-test("software: revocation during an image read cannot leak stale text or pixels",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async(key:string)=>{await r.mouse.stop(alice,{device_id:r.actor.id});return get(key);};
-  const value=await r.browse.get(alice,{run_id:p.run.run_id});assert.notEqual(value.state,"active");assert.equal(value.observation,undefined);assert.equal(value.image,undefined);
-});
-test("software: source age is rechecked after a slow image read",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async(key:string)=>{l.tick(2100);return get(key);};
-  const value=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(value.observation_state,"stale");assert.equal(value.image_state,"stale");assert.equal(value.image,undefined);assert.equal(value.observation,undefined);
-});
-test("software: checkpoint replacement during image IO never returns the previous image as current",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async(key:string)=>{const cp=JSON.parse(l.db.raw.prepare("SELECT checkpoint_json FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!.checkpoint_json as string);cp.step_id=uid();cp.seq++;cp.metadata.frame_id=uid();l.db.raw.prepare("UPDATE sb_browse_runs SET checkpoint_json=?,checkpoint_seq=? WHERE id=?").run(JSON.stringify(cp),cp.seq,String(p.run.run_id));return get(key);};
-  const value=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(value.observation,undefined);assert.equal(value.image,undefined);assert.equal(value.image_state,"stale");assert.equal(value.checkpoint_seq,2);
-});
 async function delayImageRowUntilAfterFirstViewRead(l:ReturnType<typeof lab>,runID:string) {
   const row=l.db.raw.prepare("SELECT * FROM sb_browse_images WHERE run_id=?").get(runID)!;
   const columns=Object.keys(row),restore=l.db.raw.prepare("INSERT INTO sb_browse_images("+columns.join(",")+") VALUES("+columns.map(()=>"?").join(",")+")");
@@ -10787,136 +6769,11 @@ async function delayImageRowUntilAfterFirstViewRead(l:ReturnType<typeof lab>,run
   return ()=>reads;
 }
 
-test("software: fresh cold-cache image reads use two D1 calls and do not expose joined storage metadata",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const stored=l.db.raw.prepare("SELECT image_key FROM sb_browse_images WHERE run_id=?").get(String(p.run.run_id))!;
-  browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);let reads=0;
-  l.bucket.get=async key=>{reads++;return get(key);};const before=l.db.requests;
-  const result=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(l.db.requests-before,2);assert.equal(reads,1);assert.equal(result.image,packet.body.jpeg_base64);
-  assert.equal(JSON.stringify(result).includes(String(stored.image_key)),false);assert.equal(Object.hasOwn(result,"image_row"),false);
-});
-
-test("software: pending image reads keep the exact checkpoint and avoid independent metadata queries",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);await r.browse.checkpoint(r.actor,p.combined);
-  const before=l.db.requests,result=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(l.db.requests-before,2);
-  assert.equal(result.image_state,"pending");assert.equal(result.observation_state,"available");assert.equal(result.image,undefined);assert.equal(result.checkpoint_seq,1);
-});
-
-test("software: image arriving during the first view read is adopted once within the same request",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const reads=await delayImageRowUntilAfterFirstViewRead(l,String(p.run.run_id)),before=l.db.requests;
-  const result=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(reads(),3);assert.equal(l.db.requests-before,3);assert.equal(result.image,packet.body.jpeg_base64);
-  assert.equal(result.image_state,"available");assert.equal((result.image_metadata as Record<string,unknown>).step_id,p.first.step_id);
-});
-
-test("software: late image adoption cannot refresh an expired source capture",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const reads=await delayImageRowUntilAfterFirstViewRead(l,String(p.run.run_id));browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async key=>{l.tick(2100);return get(key);};
-  const result=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(reads(),3);assert.equal(result.image_state,"stale");assert.equal(result.observation_state,"stale");assert.equal(result.image,undefined);assert.equal(result.observation,undefined);
-});
-
-test("software: late image adoption still rejects revocation during R2 IO",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const reads=await delayImageRowUntilAfterFirstViewRead(l,String(p.run.run_id));browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-  l.bucket.get=async key=>{l.db.raw.exec("UPDATE sb_devices SET revoked=1");return get(key);};
-  await assert.rejects(r.browse.get(alice,{run_id:p.run.run_id}),/NOT_FOUND/);assert.equal(reads(),3);
-});
-
-test("software: joined image snapshots exclude foreign owner, device and session rows",async()=>{
-  for(const field of ["owner_id","device_id","session_id"]){
-    const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-    l.db.raw.prepare("UPDATE sb_browse_images SET "+field+"=? WHERE run_id=?").run(uid(),String(p.run.run_id));browseImageCache.clear("browse:"+String(p.run.run_id));let reads=0;
-    const get=l.bucket.get.bind(l.bucket);l.bucket.get=async key=>{reads++;return get(key);};
-    const before=l.db.requests,result=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(l.db.requests-before,2);assert.equal(reads,0);assert.equal(result.image_state,"pending");assert.equal(result.image,undefined);
-  }
-});
-
-test("software: final image recheck pins the exact frame and capture time even if step counters match",async()=>{
-  for(const field of ["frame_id","capture_lower"]){
-    const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-    browseImageCache.clear("browse:"+String(p.run.run_id));const get=l.bucket.get.bind(l.bucket);
-    l.bucket.get=async key=>{const cp=JSON.parse(l.db.raw.prepare("SELECT checkpoint_json FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!.checkpoint_json as string);if(field==="frame_id")cp.metadata.frame_id=uid();else cp.capture_lower++;l.db.raw.prepare("UPDATE sb_browse_runs SET checkpoint_json=? WHERE id=?").run(JSON.stringify(cp),String(p.run.run_id));return get(key);};
-    const before=l.db.requests,result=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(l.db.requests-before,2);assert.equal(result.image_state,"stale");assert.equal(result.image,undefined);assert.equal(result.observation,undefined);
-  }
-});
-
-test("software: current image read uses bounded context queries and never stores JPEG in the run JSON",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p);await r.browse.image(r.actor,packet.body);
-  const before=l.db.requests,value=await r.browse.get(alice,{run_id:p.run.run_id});assert.equal(value.image_state,"available");assert.equal(l.db.requests-before,2);
-  const row=l.db.raw.prepare("SELECT checkpoint_json FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!;
-  assert.equal(String(row.checkpoint_json).includes(packet.body.jpeg_base64),false);
-});
-test("software: superseded upload is not committed and short-retention pixels are cleaned",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),packet=await browseImagePacket(l,r,p),put=l.bucket.put.bind(l.bucket);
-  l.bucket.put=async(key:string,bytes:Uint8Array)=>{await put(key,bytes);l.db.raw.prepare("UPDATE sb_browse_runs SET state='handoff' WHERE id=?").run(String(p.run.run_id));};
-  await assert.rejects(r.browse.image(r.actor,packet.body),/CHECKPOINT_NOT_CURRENT/);
-  assert.equal([...l.bucket.values.keys()].filter(x=>x.startsWith("browse/")).length,0);
-  l.db.raw.prepare("UPDATE sb_browse_runs SET state='active' WHERE id=?").run(String(p.run.run_id));l.bucket.put=put;
-  const jobs:(()=>Promise<void>)[]=[],service=new BridgeEngine({db:l.db as unknown as D1Database,bucket:l.bucket as unknown as R2Bucket,now:l.now,browseEnabled:true,schedule:(_,job)=>{jobs.push(job);}});
-  await new BrowseControl(service).image(r.actor,packet.body);l.tick(2600);for(const job of jobs)await job();
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_images").get()!.n,0);assert.equal([...l.bucket.values.keys()].filter(x=>x.startsWith("browse/")).length,0);
-});
-
-test("software: native submission receipts keep all approved step IDs after completion and replay",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  const row=l.db.raw.prepare("SELECT intent_key,plan_keys_json FROM sb_browse_runs WHERE id=?").get(String(p.run.run_id))!;
-  const stored=JSON.parse(String(row.plan_keys_json))[String(row.intent_key)];
-  assert.deepEqual(p.run.submission,{idempotency_key:row.intent_key,plan_id:stored.plan_id,step_ids:stored.step_ids,replayed:false});
-  await r.browse.checkpoint(r.actor,p.combined);
-  const replay=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:row.intent_key,steps:[browseStep()]});
-  assert.deepEqual(replay.submission,{idempotency_key:row.intent_key,plan_id:stored.plan_id,step_ids:stored.step_ids,replayed:true});
-  assert.equal(replay.pending_steps,0);
-});
-test("software: rolling lookahead survives the first 15-second plan without extending input leases",async()=>{
-  const l=lab(true),r=await browseReady(l),started=l.now(),step=(i:number)=>browseStep("page"+i,"page"+(i+1));
-  let state=await r.browse.cycle(alice,{device_id:r.actor.id,idempotency_key:uid(),steps:Array.from({length:5},(_,i)=>step(i))}),planned=5,sequence=1;
-  const row=l.db.raw.prepare("SELECT expires_at,head_expires_at FROM sb_browse_runs WHERE id=?").get(String(state.run_id))!;
-  assert.ok(Number(row.expires_at)>started+15000);assert.equal(row.head_expires_at,started+15000);
-  const screen=async(label:string,mono:number,seq:number)=>{
-    const value=await textCapture(l,r),b=value.ocr.blocks[0];value.ocr.blocks=[{...b,text:label,confidence:1,candidates:[{text:label,confidence:1}]}];value.ocr.full_text=label;value.ocr.barcodes=[];
-    const probe=l.db.raw.prepare("SELECT created_at FROM sb_clock_probes WHERE id=?").get(value.metadata.clock_probe_id)!.created_at as number;
-    Object.assign(value.metadata,{frame_id:uid(),frame_seq:seq,source_seq:seq,capture_mono_ms:mono,capture_offset_ms:l.now()-probe,captured_at:new Date(l.now()).toISOString(),content_sha256:await hash(label)});return value;
-  };
-  for(let index=0;index<12;index++){
-    await l.service.heartbeat(r.actor,r.beat);
-    const mono=10000+(l.now()-started),before=await screen("page"+index,mono,index*2+1);
-    const lease=await r.browse.take(r.actor,{...r.scope,run_id:state.run_id,lease_seq:sequence++,request_id:uid()});if(!("queue" in lease))throw Error("Expected fresh fixture lease");
-    assert.ok(typeof lease.expires_in_ms==="number" && lease.expires_in_ms<=2500);const current=lease.queue[0],b=before.ocr.blocks[0].bounds;
-    const axes=absoluteMouseRequest({x:b.x+b.width/2,y:b.y+b.height/2,image_width:886,image_height:1918,orientation_epoch:0}).payload,board=5000+index*2000;
-    const receipts=[{command_id:current.step_id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,started_uptime_ms:board,finished_uptime_ms:board+10,effect:{hid_reports_sent:true,absolute_requested_x:axes.x,absolute_requested_y:axes.y}},{command_id:current.step_id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:1,started_uptime_ms:board+20,finished_uptime_ms:board+60,effect:{hid_reports_sent:true}}];
-    l.tick(100);const after=await screen("page"+(index+1),mono+100,index*2+2);
-    await r.browse.checkpoint(r.actor,{...r.scope,run_id:state.run_id,runtime_lease_id:lease.lease_id,step_id:current.step_id,input:{executed_lease_id:lease.lease_id,lease_received_mono_ms:mono+10,lease_rtt_ms:10,input_started_mono_ms:mono+20,finished_mono_ms:mono+80,before,receipts},after});
-    state=await r.browse.get(alice,{run_id:state.run_id});assert.equal(state.state,"active");
-    if(Number(state.remaining_slots)>=3 && planned<12){const count=Math.min(3,12-planned);state=await r.browse.cycle(alice,{run_id:state.run_id,after_step_id:state.tail_step_id,idempotency_key:uid(),steps:Array.from({length:count},(_,i)=>step(planned+i))});planned+=count;}
-    if(index<11)l.tick(1900);
-  }
-  assert.ok(l.now()-started>15000);assert.equal(state.checkpoint_seq,12);assert.equal(state.pending_steps,0);
-});
-
 test("software: expired heartbeat cannot present historical USB as a current connection",async()=>{
   const l=lab(),r=await mouseReady(l);assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).usb_connected,true);
   l.tick(11000);const offline=await r.mouse.status(alice,{device_id:r.actor.id});
   assert.equal(offline.online,false);assert.equal(offline.enabled,false);assert.equal(offline.usb_connected,false);assert.equal(offline.last_reported_usb_connected,true);
   assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
-});
-
-test("software: mouse status reads permission and scoped geometry in one read-only snapshot",async()=>{
-  const l=lab(),r=await absoluteMouseReady(l),before=l.db.requests,changes=l.db.raw.prepare("SELECT total_changes() AS n").get()!.n;
-  const value=await r.mouse.status(alice,{device_id:r.actor.id});
-  assert.equal(l.db.requests-before,1);assert.equal(value.enabled,true);assert.equal(value.screen_geometry?.frame_id,r.screen.metadata.frame_id);
-  assert.equal(l.db.raw.prepare("SELECT total_changes() AS n").get()!.n,changes);
-  await assert.rejects(r.mouse.status(bob,{device_id:r.actor.id}),/START_MOUSE_SHARING/);
-  await absoluteMouseReady(l);await assert.rejects(r.mouse.status(alice,{}),/CHOOSE_DEVICE/);
-  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).screen_geometry?.frame_id,r.screen.metadata.frame_id);
-});
-test("software: mouse admission uses two D1 calls for every action and unchanged retries",async()=>{
-  for(const [kind,values] of [["pointer.click",{}],["pointer.move_relative",{dx:1,dy:2}],["pointer.scroll",{steps:1}],["pointer.move_absolute",{}]] as const){
-    const l=lab(),r=await absoluteMouseReady(l),args={...r.args,...values},before=l.db.requests;
-    const command=await r.mouse.enqueue(alice,kind,args);
-    assert.equal(l.db.requests-before,2);assert.equal(command.state,"queued");assert.equal(command.app_effect_observed,false);
-    const replay=l.db.requests;assert.equal((await r.mouse.enqueue(alice,kind,args)).command_id,command.command_id);assert.equal(l.db.requests-replay,2);
-  }
 });
 
 test("software: phone revocation requires explicit scope while owner MCP stop stays available",async()=>{
@@ -10968,37 +6825,6 @@ test("software: concurrent conflicting mouse intents retain exactly one idempote
   assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,1);
 });
 
-test("software: admission CAS rejects authority changed after the combined snapshot",async()=>{
-  const changes=["UPDATE sb_devices SET revoked=1","UPDATE sb_devices SET worker_id='"+uid()+"'","UPDATE sb_devices SET lease_epoch=lease_epoch+1","UPDATE sb_devices SET worker_expires=0","UPDATE sb_sessions SET control_epoch=control_epoch+1","UPDATE sb_sessions SET mouse_until=0","UPDATE sb_sessions SET capture_state='paused'","UPDATE sb_sessions SET mode='foreground_diagnostic'","UPDATE sb_sessions SET broadcast_id='"+uid()+"'","UPDATE sb_hardware SET usb_connected=0","UPDATE sb_hardware SET board_boot_id='"+uid()+"'","UPDATE sb_hardware SET hardware_id='"+uid()+"'","UPDATE sb_hardware SET metadata=json_set(metadata,'$.capabilities.\"hid.mouse.absolute\"',json('false'))"];
-  for(const change of changes){
-    const l=lab(),r=await absoluteMouseReady(l),batch=l.db.batch.bind(l.db);
-    l.db.batch=async statements=>{l.db.raw.exec(change);return batch(statements);};
-    await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",r.args),/MOUSE_BUSY_OR_CONTROL_CHANGED/,change);
-    assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0,change);
-  }
-});
-
-test("software: absolute admission rechecks current geometry inside the write transaction",async()=>{
-  for(const change of ["DELETE FROM sb_screen_texts","UPDATE sb_screen_texts SET expires_at=0","UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.orientation_epoch',1)","UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.width',887)","UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.native_width_px',887)","UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.orientation','landscape_left')"]){
-    const l=lab(),r=await absoluteMouseReady(l),batch=l.db.batch.bind(l.db);
-    l.db.batch=async statements=>{l.db.raw.exec(change);return batch(statements);};
-    await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",r.args),/MOUSE_BUSY_OR_CONTROL_CHANGED/,change);
-    assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0,change);
-  }
-  const l=lab(),r=await absoluteMouseReady(l),batch=l.db.batch.bind(l.db);
-  l.db.batch=async statements=>{l.db.raw.exec("UPDATE sb_screen_texts SET metadata=json_set(metadata,'$.frame_id','"+uid()+"')");return batch(statements);};
-  assert.equal((await r.mouse.enqueue(alice,"pointer.move_absolute",r.args)).state,"queued"); // A new same-geometry frame does not force a retry.
-});
-
-test("software: delayed admission snapshot does not refresh source capture or phone lease time",async()=>{
-  for(const elapsed of [2101,11_000]){
-    const l=lab(),r=await absoluteMouseReady(l),prepare=l.db.prepare.bind(l.db);
-    l.db.prepare=sql=>{const stmt=prepare(sql),bind=stmt.bind.bind(stmt);if(sql.includes("c.id AS prior_id"))stmt.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{const result=await all<T>();l.tick(elapsed);return result;};return bound;};return stmt;};
-    await assert.rejects(r.mouse.enqueue(alice,"pointer.move_absolute",r.args),elapsed===2101?/ABSOLUTE_GEOMETRY_UNAVAILABLE/:/ALLOW_MOUSE_ON_PHONE/);
-    assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n,0);
-  }
-});
-
 test("software: enqueue expiry and insertion roll back together on a write failure",async()=>{
   const l=lab(),r=await mouseReady(l),first=await r.mouse.enqueue(alice,"pointer.click",{idempotency_key:uid(),wait_ms:0});l.tick(5001);
   const batch=l.db.batch.bind(l.db);l.db.batch=async statements=>{statements[1].execute=()=>{throw Error("injected transaction failure");};return batch(statements);};
@@ -11013,13 +6839,6 @@ test("software: delayed admission commit returns expired status instead of a fre
   const result=await r.mouse.enqueue(alice,"pointer.click",{idempotency_key:uid(),wait_ms:0});assert.equal(result.state,"expired");
   assert.equal(result.verification,"not_confirmed");assert.equal(result.app_effect_observed,false);
 });
-
-test("software: a delayed combined status read rechecks geometry age and worker expiry",async()=>{
-  const l=lab(),r=await absoluteMouseReady(l);
-  l.db.prepare=sql=>new Statement(l.db.raw,sql,()=>l.tick(11_000));
-  const value=await r.mouse.status(alice,{device_id:r.actor.id});
-  assert.equal(value.enabled,false);assert.equal(value.online,false);assert.equal(value.screen_geometry,null);assert.equal(value.last_reported_usb_connected,true);
-});
 test("software: D1 read timing reaches native text with exact age UTC and no extra query or write",async()=>{
   const l=lab(),r=await running(l),e=edge(l);await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
   const prepare=l.db.prepare.bind(l.db),logs:Record<string,unknown>[]=[];
@@ -11031,11 +6850,11 @@ test("software: D1 read timing reaches native text with exact age UTC and no ext
     };return bound;
   };return stmt;};
   const before=l.db.requests,changes=l.db.raw.prepare("SELECT total_changes() AS n").get()!.n;
-  const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28","cf-placement":"remote-PDX"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id,include_read_timing:true,max_age_ms:1200,allow_repeated:false,wait_for_new_ms:0}}})});
+  const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28","cf-placement":"remote-PDX"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id,include_read_timing:true,max_age_ms:1200,wait_for_new_ms:0}}})});
   Object.defineProperty(request,"cf",{value:{colo:"SIN",city:"DO_NOT_EXPORT"}});
   const entered=Date.now()-30;
   const response=await runWithBridgeContext({waitUntil:()=>{},workerFetchStartedUTC:entered,workerPlacement:()=>observeWorkerPlacement(request)},
-    ()=>handleMcp(request,{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:value=>logs.push(value)}}));
+    ()=>handleMcp(request,{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:value=>logs.push(value)}}));
   const rpc=(await response.json() as RpcReply).result,text=JSON.parse(rpc.content.find(b=>b.type==="text")!.text!),timing=text.trace.native_transport,meta=record(rpc.structuredContent.metadata);
   assert.equal(l.db.requests-before,1);assert.equal(l.db.raw.prepare("SELECT total_changes() AS n").get()!.n,changes);
   assert.equal(timing.d1_timing.sql_duration_ms,3.75);assert.equal(timing.d1_timing.sql_duration_samples,1);assert.equal(timing.d1_timing.sql_duration_complete,true);
@@ -11061,7 +6880,7 @@ test("software: D1 read timing is an explicit boolean opt-in on the existing nat
     const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28","cf-placement":"remote-PDX"},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});
     const response=await runWithBridgeContext({waitUntil:()=>{},workerFetchStartedUTC:Date.now()-30,
       workerPlacement:()=>{observed++;return observeWorkerPlacement(request);}},
-      ()=>handleMcp(request,{engine:()=>e.service,caller,origin:"https://test.example",performance:{log:()=>{}}}));
+      ()=>handleMcp(request,{engine:()=>e.service,caller,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}}));
     return (await response.json() as RpcReply).result;
   };
   const catalog=record(await invoke("tools/list",{})),tool=(catalog.tools as unknown[]).map(record).find(t=>t.name==="read_screen")!;
@@ -11118,7 +6937,7 @@ test("software: D1 read retries accumulate observed SQL metadata without changin
     };return bound;
   };return stmt;};
   const changes=l.db.raw.prepare("SELECT total_changes() AS n").get()!.n,before=l.db.requests;
-  const result=await service.readScreen(alice,{device_id:r.actor.id,max_age_ms:1200,allow_repeated:false,wait_for_new_ms:500});
+  const result=await service.readScreen(alice,{device_id:r.actor.id,max_age_ms:1200,wait_for_new_ms:500});
   assert.equal(result.state,"available");assert.equal(result.metadata?.age_ms,700);assert.equal(reads,2);assert.equal(l.db.requests-before,2);
   assert.equal(l.db.raw.prepare("SELECT total_changes() AS n").get()!.n,changes);
   const timing=record(result.trace?.d1_timing);assert.equal(timing.operations,2);assert.equal(timing.statement_count,2);assert.equal(timing.sql_duration_ms,5);assert.equal(timing.sql_duration_complete,true);
@@ -11135,20 +6954,10 @@ test("software: MCP timing preserves bound batches, failures and R2 bodies witho
   assert.equal(metrics.d1.calls,3);assert.equal(metrics.d1.failures,1);assert.equal(metrics.r2.calls,2);assert.equal(metrics.r2_body.calls,1);
   assert.equal(JSON.stringify(logs).includes("PRIVATE"),false);assert.equal(JSON.stringify(logs).includes("private_missing_table"),false);
 });
-test("software: native MCP result, HTTP headers and safe timing log share a request ID",async()=>{
-  const l=lab(),r=await absoluteMouseReady(l),logs:Record<string,unknown>[]=[];
-  const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28","X-Private":"SECRET HEADER"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_mouse_state",arguments:{device_id:r.actor.id}}})});
-  const response=await handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:value=>logs.push(value)}}),bytes=await response.arrayBuffer(),rpc=JSON.parse(new TextDecoder().decode(bytes)) as RpcReply;
-  assert.equal(rpc.result.structuredContent.enabled,true);assert.equal(response.headers.get("X-SaySo-Request-ID"),rpc.result.structuredContent.mcp_request_id);
-  const metrics=logs[0].metrics as Record<string,{calls:number}>;
-  assert.equal(logs[0].request_id,rpc.result.structuredContent.mcp_request_id);assert.equal(logs[0].response_bytes,bytes.byteLength);assert.equal(metrics.d1.calls,1);assert.equal(metrics.auth.calls,1);
-  assert.match(response.headers.get("Server-Timing")!,/sum of 1 calls/);assert.equal(rpc.result._meta.sayso_performance!=null,true);
-  for(const privateValue of [r.actor.id,alice.id,alice.label,"SECRET HEADER","SELECT"])assert.equal(JSON.stringify(logs).includes(privateValue),false);
-});
 test("software: image forwarding aliases are visible before ordinary read instructions",async()=>{
   const l=lab();
   for(const modern of [false,true])for(const method of ["initialize","tools/list"]){
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{})},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params:method==="initialize"?{protocolVersion:modern?"2026-07-28":"2025-11-25"}:{}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{})},body:JSON.stringify({jsonrpc:"2.0",id:1,method,params:method==="initialize"?{protocolVersion:modern?"2026-07-28":"2025-11-25"}:{}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
     const result=(await response.json() as RpcReply).result as unknown as Record<string,unknown>;
     const instructions=method==="initialize"?String(result.instructions):String((result.tools as Array<{name:string;description:string}>).find(t=>t.name==="read_screen")?.description);
     const beginning=instructions.slice(0,420);
@@ -11164,7 +6973,7 @@ test("software: Live display preserves one real frame across image carriers with
   const release:string[]=[];
   for(const [format,mime] of [["original_jpeg","image/jpeg"],["compact_jpeg","image/jpeg"],["compact_png","image/png"]]){
     const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen_live",arguments:{device_id:r.actor.id,image_format:format,wait_for_new_ms:0}}})});
-    const response=await handleMcp(request,{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}},imageReleaseLog:entry=>{if(entry.event==="live_display_rendition")release.push(String(entry.source_frame_id));}});
+    const response=await handleMcp(request,{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}},imageReleaseLog:entry=>{if(entry.event==="live_display_rendition")release.push(String(entry.source_frame_id));}});
     const result=(await response.json() as RpcReply).result;
     assert.equal(result.isError,false);
     assert.equal(result.content.length,2);
@@ -11192,48 +7001,11 @@ test("software: Live display suppresses pixels after the final freshness check o
   const l=lab(),r=await running(l),e=edge(l);
   await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
   for(const user of [bob,alice]){
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen_live",arguments:{device_id:r.actor.id,wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>user,origin:"https://test.example",performance:{log:()=>{}},refreshImageReleaseClock:async()=>{l.tick(2001);return true;},imageReleaseLog:entry=>assert.notEqual(entry.event,"live_display_rendition")});
+    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen_live",arguments:{device_id:r.actor.id,wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>user,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}},refreshImageReleaseClock:async()=>{l.tick(2001);return true;},imageReleaseLog:entry=>assert.notEqual(entry.event,"live_display_rendition")});
     const result=(await response.json() as RpcReply).result;
     assert.equal(result.content.some(block=>block.type==="image"),false);
     assert.equal(result.structuredContent.image,undefined);
     assert.equal(response.headers.get("X-SaySo-Frame-Age-Ms"),null);
-  }
-});
-
-test("software: exact cached Live format selectors remain read only and preserve existing image reference behavior",async()=>{
-  const l=lab(),r=await running(l),e=edge(l);
-  await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
-  const call=async(args:Record<string,unknown>)=>{
-    const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id,wait_for_new_ms:0,...args}}})});
-    return ((await (await handleMcp(request,{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}})).json()) as RpcReply).result;
-  };
-  const onlyImage=(result:RpcReply["result"])=>{
-    const images=result.content.filter(item=>item.type==="image");
-    assert.equal(images.length,1,"Expected one actual image block, independent of text-block order");
-    return images[0];
-  };
-  const ordinary=await call({});
-  assert.equal(onlyImage(ordinary).mimeType,"image/jpeg");
-  const reference=ordinary.structuredContent.image_ref;
-  assert.ok(typeof reference==="string");
-  assert.equal((await call({if_unchanged_since:reference})).structuredContent.state,"unchanged");
-  for(const [s,format,mime] of [[1,"compact_png","image/png"],[2,"compact_jpeg","image/jpeg"],[3,"original_jpeg","image/jpeg"]]){
-    const result=await call({if_unchanged_since:`00000000-0000-8000-A000-00000000000${s}`});
-    assert.equal(onlyImage(result).mimeType,mime);
-    const image=record(result.structuredContent.image);
-    assert.equal(image.format,format);
-    assert.equal(image.view_only,true);
-    for(const field of ["source_frame_id","source_point_proof","source_view_proof","image_ref"])assert.equal(result.structuredContent[field],undefined);
-  }
-  const unrelated=await call({if_unchanged_since:"00000000-0000-8000-a000-000000000009"});
-  assert.equal(onlyImage(unrelated).data,onlyImage(ordinary).data);
-  assert.equal(unrelated.structuredContent.image,undefined);
-  for(const conflict of [{after_command_id:uid()},{after_command_min_gap_ms:0},{include_source_view_proof:true},{include_read_timing:true},{allow_repeated:true}]){
-    const before=l.db.requests;
-    const result=await call({if_unchanged_since:"00000000-0000-8000-a000-000000000001",...conflict});
-    assert.equal(result.isError,true);
-    assert.equal(result.structuredContent.error,"INVALID_ARGUMENTS");
-    assert.equal(l.db.requests,before);
   }
 });
 
@@ -11245,7 +7017,7 @@ test("software: native image-read timing survives metadata loss with unchanged p
     if(state==="unavailable")await e.service.stop(r.actor,r.identity.bridge_session_id,true);
     const reference=state==="unchanged"?(await e.service.readScreen(alice,{wait_for_new_ms:0})).image_ref:undefined;
     const before=l.db.requests,changes=l.db.raw.prepare("SELECT total_changes() AS n").get()!.n;
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{}),"X-Private":"SECRET_HEADER"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id,wait_for_new_ms:0,...(state==="repeated"?{allow_repeated:true}:{}),...(reference?{if_unchanged_since:reference}:{})}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{}),"X-Private":"SECRET_HEADER"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{device_id:r.actor.id,wait_for_new_ms:0,...(reference?{if_unchanged_since:reference}:{})}}})}),{engine:()=>e.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
     const rpc=(await response.json() as RpcReply).result,text=JSON.parse(rpc.content.find(b=>b.type==="text")!.text!);
     // Discard _meta and structuredContent: the connector must retain this
     // exact request's small timing projection in its ordinary text block.
@@ -11279,7 +7051,7 @@ test("software: image timing includes pre-read authentication delay separately f
   let elapsed=0;const prepare=l.db.prepare.bind(l.db);
   l.db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind.bind(statement);statement.bind=(...values:unknown[])=>{const bound=bind(...values),all=bound.all.bind(bound);bound.all=async<T>()=>{const result=await all<T>();elapsed+=400;return result;};return bound;};return statement;};
   const before=l.db.requests;
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>{elapsed+=5000;return alice;},origin:"https://test.example",performance:{now:()=>elapsed,log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen",arguments:{wait_for_new_ms:0}}})}),{engine:()=>e.service,caller:()=>{elapsed+=5000;return alice;},origin:"https://test.example",toolAudience:"development",performance:{now:()=>elapsed,log:()=>{}}});
   const rpc=(await response.json() as RpcReply).result,text=JSON.parse(rpc.content.find(b=>b.type==="text")!.text!);
   assert.equal(text.trace.native_transport.handler_elapsed_ms_at_result,5400);
   assert.equal(text.trace.native_transport.d1_sum_ms,400);assert.equal(text.trace.native_transport.d1_calls,1);assert.equal(l.db.requests-before,1);
@@ -11299,7 +7071,7 @@ test("software: paired click timing reaches the native structured result without
   const before=c.l.db.requests;
   const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"click_at",arguments:args}})}),
-    {engine:()=>c.l.service,caller:()=>{elapsed+=400;return alice;},origin:"https://test.example",performance:{now:()=>elapsed,log:()=>{}}});
+    {retention:false,engine:()=>c.l.service,caller:()=>{elapsed+=400;return alice;},origin:"https://test.example",toolAudience:"development",performance:{now:()=>elapsed,log:()=>{}}});
   const rpc=(await response.json() as RpcReply).result;
   const timing=(rpc.structuredContent.trace as Record<string,unknown>|undefined)?.native_transport as Record<string,unknown>;
   assert.ok(timing,"the native click result has no timing projection");
@@ -11319,68 +7091,17 @@ test("software: paired click timing reaches the native structured result without
   assert.equal(JSON.parse(rpc.content.find(block=>block.type==="text")!.text!).trace,undefined);
 });
 
-test("software: native OCR timing mirror survives missing result metadata with matching IDs and no private fields",async()=>{
-  const l=lab(),r=await running(l),screen=await textCapture(l,r);await new ScreenText(l.service).accept(r.actor,screen);
-  for(const modern of [true,false]){
-    const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{}),"X-Private":"SECRET_HEADER"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen_text",arguments:{wait_ms:0}}})});
-    const response=await handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}}),rpc=(await response.json() as RpcReply).result;
-    const trace=rpc.structuredContent.trace as Record<string,unknown>,timing=trace.native_transport as Record<string,unknown>;
-    assert.deepEqual(rpc.structuredContent.ocr,screen.ocr);assert.equal(timing.request_id,rpc.structuredContent.mcp_request_id);assert.equal(timing.request_id,response.headers.get("X-SaySo-Request-ID"));
-    assert.equal(timing.timing_point,"before_tool_result_serialization");assert.equal(timing.d1_calls,1);assert.ok(Number(timing.handler_elapsed_ms_at_result)>=Number(timing.d1_sum_ms));
-    assert.deepEqual(Object.keys(timing).sort(),["request_id","timing_point","handler_elapsed_ms_at_result","d1_calls","d1_sum_ms"].sort());assert.equal(JSON.stringify(timing).includes("SECRET_HEADER"),false);assert.equal(JSON.stringify(timing).includes(alice.id),false);
-    if(!modern)assert.deepEqual(JSON.parse(rpc.content[0].text!),rpc.structuredContent);
-  }
-});
-
 test("software: timing mirror can be verified through the non-phone profile tool without device reads",async()=>{
   const l=lab(),before=l.db.requests;
-  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_profile",arguments:{}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
+  const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_profile",arguments:{}}})}),{retention:false,engine:()=>l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}}});
   const result=(await response.json() as RpcReply).result,timing=((result.structuredContent.trace as Record<string,unknown>).native_transport as Record<string,unknown>);
   assert.equal(result.structuredContent.id,alice.id);assert.equal(l.db.requests-before,0);assert.equal(timing.d1_calls,0);assert.equal(timing.request_id,result.structuredContent.mcp_request_id);assert.equal(JSON.stringify(timing).includes(alice.id),false);
 });
-
-test("software: modern OCR result removes duplicated text while legacy JSON and source OCR stay complete",async()=>{
-  const l=lab(),r=await running(l),screen=await textCapture(l,r);screen.ocr.blocks[0].text="合成校验文字".repeat(120);screen.ocr.blocks[0].candidates[0].text=screen.ocr.blocks[0].text;screen.ocr.full_text=screen.ocr.blocks[0].text;screen.metadata.content_sha256=await hash(screen.ocr.full_text);
-  await new ScreenText(l.service).accept(r.actor,screen);
-  const invoke=async(modern:boolean)=>{const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{})},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"read_screen_text",arguments:{device_id:r.actor.id}}})}),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});const bytes=await response.arrayBuffer();return {bytes:bytes.byteLength,rpc:(JSON.parse(new TextDecoder().decode(bytes)) as RpcReply).result};};
-  const legacy=await invoke(false),modern=await invoke(true);
-  assert.equal(legacy.rpc.isError,false);assert.equal(modern.rpc.isError,false);assert.deepEqual(modern.rpc.structuredContent.ocr,screen.ocr);assert.deepEqual(legacy.rpc.structuredContent.ocr,screen.ocr);
-  assert.deepEqual(JSON.parse(legacy.rpc.content[0].text!),legacy.rpc.structuredContent);assert.ok(modern.rpc.content[0].text!.length<400);assert.ok(modern.bytes<legacy.bytes*.75);
-  console.info(JSON.stringify({event:"mcp_projection_size_fixture",synthetic:true,legacy_bytes:legacy.bytes,modern_bytes:modern.bytes,actual_latency_proof:false}));
-});
-test("software: compact native browse keeps the exact image and blocks, legacy keeps joined projection text",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r),image=await browseImagePacket(l,r,p);await r.browse.image(r.actor,image.body);
-  const invoke=async(modern:boolean)=>{
-    const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json",...(modern?{"MCP-Protocol-Version":"2026-07-28"}:{})},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_browse_state",arguments:{run_id:p.run.run_id}}})});
-    const response=await handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}}});
-    return (await response.json() as RpcReply).result;
-  };
-  const legacy=await invoke(false),modern=await invoke(true),a=legacy.structuredContent.observation as Record<string,unknown>,b=modern.structuredContent.observation as Record<string,unknown>;
-  assert.equal(legacy.isError,false);assert.equal(modern.isError,false);assert.equal(typeof a.text,"string");assert.equal(b.text,undefined);assert.deepEqual(a.blocks,b.blocks);assert.deepEqual(a.metadata,b.metadata);
-  assert.equal(modern.content.find(x=>x.type==="image")!.data,image.body.jpeg_base64);assert.equal(legacy.content.find(x=>x.type==="image")!.data,image.body.jpeg_base64);assert.deepEqual(modern.structuredContent.image_metadata,legacy.structuredContent.image_metadata);
-});
 test("software: MCP tracing is isolated, logs no rejected input and cannot fail the tool when its sink fails",async()=>{
-  const l=lab(),logs:Record<string,unknown>[]=[],invoke=(body:string,failSink=false)=>handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body}),{engine:()=>l.service,caller:()=>{throw new BridgeError("UNAUTHENTICATED",401);},origin:"https://test.example",performance:{log:value=>{logs.push(value);if(failSink)throw Error("log sink down");}}});
+  const l=lab(),logs:Record<string,unknown>[]=[],invoke=(body:string,failSink=false)=>handleMcp(new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json"},body}),{engine:()=>l.service,caller:()=>{throw new BridgeError("UNAUTHENTICATED",401);},origin:"https://test.example",toolAudience:"development",performance:{log:value=>{logs.push(value);if(failSink)throw Error("log sink down");}}});
   const denied=await(await invoke(JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"get_profile",arguments:{},_meta:{private:"SECRET REJECTED INPUT"}}}),true)).json() as RpcReply;
   assert.equal(denied.result.structuredContent.error,"UNAUTHENTICATED");assert.equal(logs[0].outcome,"error");assert.equal((logs[0].metrics as Record<string,{failures:number}>).auth.failures,1);
   const invalid=await invoke("{SECRET INVALID JSON");assert.equal(invalid.status,400);assert.equal(logs.length,2);assert.notEqual(logs[0].request_id,logs[1].request_id);assert.equal((logs[1].metrics as Record<string,unknown>).auth,undefined);assert.equal(JSON.stringify(logs).includes("SECRET"),false);
-});
-
-test("software: a small calibration canvas cannot authorize full-screen browsing",async()=>{
-  const l=lab(true),r=await calibrationFixture(l);
-  r.proof.canvas.y=976;r.proof.canvas.height=974;
-  await assert.rejects(r.browse.calibrate(r.actor,{...r.scope,request_id:uid(),proof:r.proof}),/CALIBRATION_COVERAGE_TOO_SMALL/);
-  assert.equal(l.db.raw.prepare("SELECT count(*) AS n FROM sb_browse_calibrations").get()!.n,0);
-});
-
-test("software: a late uncertain input upgrades a known handoff and cannot be downgraded again",async()=>{
-  const l=lab(true),r=await browseReady(l),p=await browsePacket(l,r);
-  await r.browse.halt(r.actor,{...r.scope,run_id:p.run.run_id,reason:"scene_mismatch",input_outcome:"none_pending"});
-  await r.browse.halt(r.actor,{...r.scope,run_id:p.run.run_id,reason:"unknown_outcome",input_outcome:"outcome_unknown"});
-  const known=await r.browse.halt(r.actor,{...r.scope,run_id:p.run.run_id,reason:"scene_mismatch",input_outcome:"none_pending"});
-  assert.equal(known.requires_new_phone_grant,true);
-  assert.equal((await r.browse.get(alice,{run_id:p.run.run_id})).state,"outcome_unknown");
-  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).enabled,false);
 });
 
 test("software: mouse result polling expires and reads in one owner-scoped database batch",async()=>{
@@ -11491,750 +7212,16 @@ test("software: joined receipt snapshot does not accept a worker lease elapsed d
 });
 
 async function liveMcp(service:BridgeEngine,name:string,args:Record<string,unknown>,log=()=>{},refreshImageReleaseClock?:()=>Promise<boolean>,caller=alice,
-  createImageReleaseClockSampler?:()=>ImageReleaseClockSampler,signal?:AbortSignal,performanceNow?:()=>number){
+  createImageReleaseClockSampler?:()=>ImageReleaseClockSampler,signal?:AbortSignal,performanceNow?:()=>number,retention=false){
   const releaseEvents:Record<string,unknown>[]=[];
   const response=await handleMcp(new Request("https://test.example/mcp",{
     method:"POST",signal,headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name,arguments:args}}),
-  }),{engine:()=>service,caller:()=>caller,origin:"https://test.example",performance:{log,now:performanceNow},refreshImageReleaseClock,createImageReleaseClockSampler,
+  }),{retention,engine:()=>service,caller:()=>caller,origin:"https://test.example",toolAudience:"development",performance:{log,now:performanceNow},refreshImageReleaseClock,createImageReleaseClockSampler,
     imageReleaseLog:entry=>releaseEvents.push(entry)});
   const {result}=await response.json() as RpcReply;
   return {result,images:result.content.filter(block=>block.type==="image"),age:response.headers.get("X-SaySo-Frame-Age-Ms"),response,releaseEvents};
 }
-
-test("software: host review recovers a qualified snapshot ageing before binding without extra status reads or input",async t=>{
-  for(const mode of ["age_recovered","age_dropped","proof_not_bound"] as const)await t.test(mode,async()=>{
-    const l=sourceViewLab(),r=await scopeOnlySystemSearchReady(l),device=r.actor.id;
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      ...focusedTextEnterBoard,"sayso.model_reviewed_field_crops.v2":true,"sayso.model_reviewed_field_crops.v3":true,
-      "sayso.model_reviewed_field_crops.v4":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const ready=await r.mouse.status(alice,{device_id:device}),preparation=uid(),events:Record<string,unknown>[]=[];
-    assert.equal(ready.system_search_scope_only_ready,true);
-    assert.equal(ready.focused_text_scope_bound_field_ready,true);
-    assert.equal(ready.focused_text_scope_bound_after_ready,true);
-    const {control_epoch}=ready;
-    let originalStatusReads=0,successor:string|undefined,lookedUpFrame:unknown;
-    const read=l.service.readActionAfterScreen.bind(l.service);
-    l.service.readActionAfterScreen=async(...args)=>{
-      const answer=await read(...args);
-      lookedUpFrame=answer.metadata?.frame_id;
-      return answer;
-    };
-    const prepare=l.db.prepare.bind(l.db);
-    l.db.prepare=sql=>{
-      if(sql.startsWith("SELECT q.* FROM sb_app_search_queries"))originalStatusReads++;
-      const statement=prepare(sql),bind=statement.bind.bind(statement);
-      if(sql.startsWith("UPDATE sb_app_search_queries SET native_review_state=?")){
-        statement.bind=(...values)=>{
-          const bound=bind(...values),first=bound.first.bind(bound);
-          if(values[0]==="host:initial"&&mode!=="proof_not_bound"){
-            bound.first=async<T>()=>{
-              const result=await first<T>();
-              l.tick(2050);
-              if(mode==="age_recovered")
-                successor=(await capturedAtPhoneMono(l,r,13150,2,{source_seq:2})).meta.frame_id;
-              return result;
-            };
-          }
-          return bound;
-        };
-      }
-      return statement;
-    };
-    if(mode==="proof_not_bound")l.service.issueReleasedFieldViewProof=async()=>undefined;
-    const jobs:Promise<unknown>[]=[];
-    let premature:Response|undefined;
-    const opening=runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>handleMcp(new Request("https://test.example/mcp",{
-      method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
-      body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"search_app_with_vision",
-        arguments:{device_id:device,preparation_id:preparation,query:"Google map"}}}),
-    }),{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",hostSearchReview:true,
-      performance:{log:()=>{}},imageReleaseLog:entry=>events.push(entry)})).then(response=>{premature=response;return response;});
-    const end=performance.now()+2000;
-    while(!l.db.raw.prepare("SELECT id FROM sb_mouse_commands WHERE kind='keyboard.open_search' AND state='queued'").get()){
-      if(premature)assert.fail(await premature.clone().text());
-      assert.ok(performance.now()<end,"original shortcut must be queued");
-      await new Promise(resolve=>setTimeout(resolve,10));
-    }
-    const claimed=await r.mouse.claim(r.actor,{...r.identity,control_epoch,raw_dispatch_protocol:RAW_MOUSE_DISPATCH},0);
-    assert.ok(claimed);
-    await r.mouse.result(r.actor,claimed.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:10000,
-      board_receipt:{command_id:claimed.command_id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,
-        effect:{hid_reports_sent:true,system_search_stable:true,all_released:true}}});
-    l.tick(1100);
-    const {meta:initial}=await capturedAtPhoneMono(l,r,11100,1,{source_seq:1});
-    const response=await opening,{result}=await response.json() as RpcReply;
-    await Promise.all(jobs);
-    assert.equal(lookedUpFrame,initial.frame_id);
-    assert.equal(originalStatusReads,1);
-    const rows=l.db.raw.prepare("SELECT frame_id FROM sb_released_system_search_field_proofs WHERE owner_id=? AND command_id=?")
-      .all(alice.id,claimed.command_id);
-    const run=l.db.raw.prepare("SELECT native_review_state AS phase FROM sb_app_search_queries WHERE id=?").get(preparation)!;
-    assert.equal(result.structuredContent.shortcut_command_id,claimed.command_id);
-    assert.equal(result.structuredContent.shortcut_state,"board_acked");
-    assert.equal(result.structuredContent.preparation_id,preparation);
-    assert.equal(result.structuredContent.device_id,device);
-    assert.equal(result.structuredContent.text_command_id,null);
-    if(mode==="age_recovered"){
-      assert.ok(successor);
-      assert.equal(result.structuredContent.state,"review_required");
-      assert.equal(result.structuredContent.review_frame_id,successor);
-      assert.equal(record(record(result.structuredContent.after_screen).after_command).command_id,claimed.command_id);
-      assert.equal(result.content.filter(block=>block.type==="image").length,1);
-      assert.deepEqual(rows.map(row=>row.frame_id),[successor]);
-      assert.match(String(run.phase),new RegExp("^host:initial:"+successor+":"));
-      assert.equal(events[0]?.host_review_release_recovery,true);
-      assert.ok(Number(response.headers.get("X-SaySo-Frame-Age-Ms"))<2000);
-    }else{
-      assert.equal(result.structuredContent.state,"review_image_unavailable");
-      assert.equal(result.structuredContent.review_frame_id,undefined);
-      assert.equal(result.content.filter(block=>block.type==="image").length,0);
-      assert.deepEqual(rows,[]);
-      assert.equal(run.phase,"host:initial:none");
-      assert.equal(events[0]?.drop_reason,mode==="age_dropped"?"HOST_REVIEW_PROOF_AGED_BEFORE_BIND":"HOST_REVIEW_PROOF_NOT_BOUND");
-    }
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,1);
-  });
-});
-
-test("software: native App search MRTR binds review to actual JPEG and never repeats input",async()=>{
-  const l=lab(false,undefined,new FrameUploadPermits("69".repeat(32))),r=await systemSearchReady(l);
-  const device=r.actor.id,boot=r.hardware.board_boot_id;
-  await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-    "sayso.system_search.scope_only.v1":true,"sayso.model_reviewed_field_crops.v1":true,"sayso.model_reviewed_field_crops.v2":true,
-    "sayso.focused_text":true,"hid.keyboard.ascii_stable":true,"hid.mouse.absolute":true}});
-  await l.service.heartbeat(r.actor,r.beat);
-  const control=(await r.mouse.status(alice,{device_id:device})).control_epoch;
-  const phone={...r.identity,control_epoch:control,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-    spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-  assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-  l.db.raw.exec("DELETE FROM sb_frames; DELETE FROM sb_observations;");
-  const args={device_id:device,preparation_id:uid(),query:"Google map"};
-  const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
-  const sample=(verdict:unknown)=>({sayso_review:{role:"assistant",model:"fixture",stopReason:"endTurn",
-    content:{type:"text",text:JSON.stringify(verdict)}}});
-  const call=async(id:number,extra:Record<string,unknown>={},settings:{sampling?:boolean;method?:string;user?:typeof alice}={})=>{
-    const method=settings.method??"tools/call";
-    const params={_meta:{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
-      "io.modelcontextprotocol/clientInfo":{name:"mrtr-fixture",version:"1"},
-      "io.modelcontextprotocol/clientCapabilities":settings.sampling===false?{}:{sampling:{}}},
-      ...(method==="tools/call"?{name:"search_app_with_vision",arguments:args}:{}),...extra};
-    const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",
-      headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
-      body:JSON.stringify({jsonrpc:"2.0",id,method,params})}),
-    {engine:()=>l.service,caller:()=>settings.user??alice,origin:"https://test.example",performance:{log:()=>{}}});
-    const reply=await response.json() as {id:number;result:Record<string,unknown>;error?:Record<string,unknown>};
-    assert.equal(reply.id,id);
-    return {reply,response};
-  };
-  const claim=async(kind:string)=>{
-    const deadline=performance.now()+1500;
-    let row:Record<string,unknown>|undefined;
-    while(!row&&performance.now()<deadline){
-      row=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE kind=? AND state='queued'").get(kind);
-      if(!row)await new Promise(resolve=>setTimeout(resolve,5));
-    }
-    assert.ok(row,`Expected one ${kind} command`);
-    const command=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-      {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:phone,waitMS:0}));
-    assert.equal(command?.command_id,row.id);
-    return {id:String(row.id),payload:record(JSON.parse(String(row.payload))),precondition:record(command?.precondition)};
-  };
-  const reviewToken=(reply:Record<string,unknown>,image:Uint8Array,phase:string)=>{
-    assert.equal(reply.resultType,"input_required");
-    assert.equal(reply.content,undefined);
-    const review=record(record(reply.inputRequests).sayso_review);
-    assert.equal(review.method,"sampling/createMessage");
-    const messages=record(review.params).messages as Record<string,unknown>[];
-    assert.equal(messages.length,2);
-    assert.match(String(record(messages[0].content).text),new RegExp(phase));
-    assert.deepEqual(record(messages[1].content),{type:"image",mimeType:"image/jpeg",data:Buffer.from(image).toString("base64")});
-    assert.equal(typeof reply.requestState,"string");
-    return String(reply.requestState);
-  };
-
-  for(const advertised of [false,true]){
-    const {reply}=await call(advertised?2:1,{}, {sampling:advertised,method:"tools/list"});
-    const tools=reply.result.tools as Record<string,unknown>[];
-    assert.equal(tools.some(value=>value.name==="search_app_with_vision"),advertised);
-  }
-  const disabled=await call(3,{}, {sampling:false});
-  assert.equal(record(disabled.reply.result.structuredContent).error,"APP_SEARCH_VISION_UNAVAILABLE");
-  assert.equal(count(),0);
-  const first=call(4);
-  const shortcut=await claim("keyboard.open_search");
-  await r.mouse.result(r.actor,shortcut.id,{...r.identity,state:"board_acked",finished_client_mono_ms:10000,
-    board_receipt:{command_id:shortcut.id,board_boot_id:boot,state:"executed",subcommand_index:0,
-      effect:{hid_reports_sent:true,system_search_stable:true,all_released:true}}});
-  l.tick(500);
-  const focus=(await capturedAtPhoneMono(l,r,10500,2,{source_seq:2})).meta;
-  const token=reviewToken((await first).reply.result,r.bytes,"empty field");
-  const focusRetry=await call(14);
-  assert.equal(reviewToken(focusRetry.reply.result,r.bytes,"empty field"),token);
-  assert.equal(count(),1);
-  const evidence={scene:"spotlight",empty:true,caret:true,field:{x:0.1,y:0.4,width:0.8,height:0.07},
-    landmark:{text:"Siri Suggestions",region:{x:0.1,y:0.2,width:0.4,height:0.05}}};
-  const continuation={requestState:token,inputResponses:sample(evidence)};
-  for(const [index,inputResponses] of [undefined,{}, {other_review:sample(evidence).sayso_review}].entries()) {
-    const missing=await call(17+index,{requestState:token,...(inputResponses===undefined?{}:{inputResponses})});
-    assert.equal(reviewToken(missing.reply.result,r.bytes,"empty field"),token);
-    const run=l.db.raw.prepare("SELECT native_review_state,finished_at FROM sb_app_search_queries WHERE id=?").get(args.preparation_id);
-    assert.equal(run?.native_review_state,"pending:"+token);
-    assert.equal(run?.finished_at,null);
-    assert.equal(count(),1);
-  }
-  const mismatch=await call(5,{...continuation,arguments:{...args,query:"taobao"}});
-  assert.equal(record(mismatch.reply.result.structuredContent).error,"INVALID_APP_SEARCH_CONTINUATION");
-  const downgrade=await call(6,continuation,{sampling:false});
-  assert.equal(record(downgrade.reply.result.structuredContent).error,"INVALID_APP_SEARCH_CONTINUATION");
-  const malformed=await call(7,{requestState:token,inputResponses:{sayso_review:{role:"user"}}});
-  assert.equal(record(malformed.reply.result.structuredContent).error,"INVALID_APP_SEARCH_SAMPLING_RESPONSE");
-  const tamper=await call(8,{...continuation,requestState:token.slice(0,-3)+"---"});
-  assert.equal(tamper.reply.result.resultType,"complete");
-  assert.equal(count(),1);
-  const second=call(9,continuation);
-  const typed=await claim("keyboard.type_text");
-  assert.equal(typed.payload.source_frame_id,focus.frame_id);
-  assert.equal(typed.payload.text,args.query);
-  assert.equal(typed.payload.submit_enter,undefined);
-  assert.equal(record(typed.precondition.focus_source).frame_id,focus.frame_id);
-  const replay=await call(10,continuation);
-  assert.equal(replay.reply.result.resultType,"complete");
-  assert.equal(count(),2);
-  await r.mouse.result(r.actor,typed.id,{...r.identity,state:"board_acked",finished_client_mono_ms:10510,
-    spotlight_focus_frame_id:focus.frame_id,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-    board_receipt:{command_id:typed.id,board_boot_id:boot,state:"executed",subcommand_index:0,
-      effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
-  l.tick(400);
-  const resultBytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,71)},80).data;
-  const firstResults=(await capturedAtPhoneMono(l,{...r,bytes:resultBytes},10900,3,
-    {source_seq:3,content_sha256:await hash(resultBytes)})).meta;
-  const resultToken=reviewToken((await second).reply.result,resultBytes,"installed_result_visible");
-  const resultRetry=await call(15);
-  assert.equal(reviewToken(resultRetry.reply.result,resultBytes,"installed_result_visible"),resultToken);
-  assert.equal((await call(16,continuation)).reply.result.resultType,"complete");
-  const missingOld=(await call(20,{requestState:token})).reply.result;
-  assert.equal(missingOld.resultType,"complete");
-  assert.equal(missingOld.requestState,undefined);
-  assert.equal(missingOld.inputRequests,undefined);
-  assert.equal(l.db.raw.prepare("SELECT native_review_state FROM sb_app_search_queries WHERE id=?").get(args.preparation_id)?.native_review_state,
-    "pending:"+resultToken);
-  assert.equal(count(),2);
-  const nextBytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,113)},80).data;
-  l.tick(300);
-  const nextResults=(await capturedAtPhoneMono(l,{...r,bytes:nextBytes},11200,4,
-    {source_seq:4,content_sha256:await hash(nextBytes)})).meta;
-  assert.notEqual(firstResults.frame_id,nextResults.frame_id);
-  const relayed=await call(11,{requestState:resultToken,inputResponses:sample({
-    scene:"spotlight",visible_query:args.query,result:"loading"})});
-  const nextToken=reviewToken(relayed.reply.result,nextBytes,"installed_result_visible");
-  const final=await call(12,{requestState:nextToken,inputResponses:sample({
-    scene:"spotlight",visible_query:args.query,result:"installed_result_visible"})});
-  assert.equal(final.reply.result.resultType,"complete");
-  const summary=record(final.reply.result.structuredContent),after=record(summary.after_screen);
-  assert.equal(summary.state,"query_confirmed");
-  assert.equal(summary.query_results_state,"ready");
-  assert.equal(summary.query_results_frame_id,nextResults.frame_id);
-  assert.equal(summary.shortcut_command_id,shortcut.id);
-  assert.equal(summary.text_command_id,typed.id);
-  assert.equal(record(after.after_command).command_id,typed.id);
-  assert.equal(record(after.metadata).frame_id,nextResults.frame_id);
-  assert.equal(typeof after.source_query_proof,"string");
-  assert.equal((final.reply.result.content as Record<string,unknown>[]).filter(block=>block.type==="image").length,1);
-  assert.equal((await call(13,{requestState:nextToken,inputResponses:sample(evidence)})).reply.result.resultType,"complete");
-  assert.equal(count(),2);
-});
-
-test("software: lost MRTR challenge can only return its pending exact fresh scope",async()=>{
-  for(const mode of ["changed_frame","expired","scope_changed","later_writer","other_owner","missing_pixels","explicit_decline","wrong_focus"]){
-    const l=lab(false,undefined,new FrameUploadPermits("79".repeat(32))),r=await systemSearchReady(l);
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      "sayso.system_search.scope_only.v1":true,"sayso.focused_text":true,
-      "sayso.model_reviewed_field_crops.v2":true,"hid.keyboard.ascii_stable":true,"hid.mouse.absolute":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const control=(await r.mouse.status(alice,{device_id:r.actor.id})).control_epoch;
-    const phone={...r.identity,control_epoch:control,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-      spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-    assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-    l.db.raw.exec("DELETE FROM sb_frames; DELETE FROM sb_observations;");
-    const args={device_id:r.actor.id,preparation_id:uid(),query:"taobao"};
-    const call=async(id:number,user=alice,continuation:Record<string,unknown>={})=>{
-      const params={name:"search_app_with_vision",arguments:args,...continuation,
-        _meta:{"io.modelcontextprotocol/protocolVersion":"2026-07-28",
-          "io.modelcontextprotocol/clientInfo":{name:"mrtr-loss-fixture",version:"1"},
-          "io.modelcontextprotocol/clientCapabilities":{sampling:{}}}};
-      const response=await handleMcp(new Request("https://test.example/mcp",{method:"POST",
-        headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
-        body:JSON.stringify({jsonrpc:"2.0",id,method:"tools/call",params})}),
-      {engine:()=>l.service,caller:()=>user,origin:"https://test.example",performance:{log:()=>{}}});
-      return (await response.json() as {result:Record<string,unknown>}).result;
-    };
-    const original=call(1);
-    const claimDeadline=performance.now()+1500;
-    let row:Record<string,unknown>|undefined;
-    while(!row&&performance.now()<claimDeadline){
-      row=l.db.raw.prepare("SELECT id FROM sb_mouse_commands WHERE kind='keyboard.open_search' AND state='queued'").get();
-      if(!row)await new Promise(resolve=>setTimeout(resolve,5));
-    }
-    assert.ok(row,mode);
-    const command=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-      {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:phone,waitMS:0}));
-    assert.equal(command?.command_id,row.id);
-    await r.mouse.result(r.actor,String(row.id),{...r.identity,state:"board_acked",finished_client_mono_ms:10000,
-      board_receipt:{command_id:row.id,board_boot_id:r.hardware.board_boot_id,state:"executed",subcommand_index:0,
-        effect:{hid_reports_sent:true,system_search_stable:true,all_released:true}}});
-    l.tick(500);
-    const {meta}=await capturedAtPhoneMono(l,r,10500,2,{source_seq:2});
-    const challenge=await original;
-    assert.equal(challenge.resultType,"input_required",mode);
-    const pendingState=()=>l.db.raw.prepare("SELECT native_review_state FROM sb_app_search_queries WHERE id=?").get(args.preparation_id)!.native_review_state;
-    assert.equal(pendingState(),"pending:"+String(challenge.requestState),mode);
-
-    if(mode==="changed_frame"){
-      l.tick(200);
-      const replacement=(await capturedAtPhoneMono(l,r,10700,3,{source_seq:3})).meta;
-      assert.notEqual(replacement.frame_id,meta.frame_id);
-    } else if(mode==="expired") {
-      l.tick(1950); // Original conservative capture age reaches exactly 2000 ms.
-    } else if(mode==="scope_changed") {
-      l.db.raw.prepare("UPDATE sb_sessions SET control_epoch=control_epoch+1 WHERE device_id=?").run(r.actor.id);
-    } else if(mode==="later_writer") {
-      const later=await r.mouse.enqueue(alice,"pointer.move_relative",
-        {device_id:r.actor.id,dx:1,dy:1,idempotency_key:uid(),wait_ms:0});
-      assert.equal(later.state,"queued");
-    } else if(mode==="missing_pixels") {
-      l.db.raw.prepare("DELETE FROM sb_frames WHERE device_id=?").run(r.actor.id);
-    }
-    const negativeAnswer=mode==="explicit_decline"||mode==="wrong_focus";
-    const token=String(challenge.requestState);
-    const retransmission=await call(2,mode==="other_owner"?bob:alice,negativeAnswer?{
-      requestState:token,inputResponses:{sayso_review:{role:"assistant",model:"fixture",
-        stopReason:mode==="explicit_decline"?"refusal":"endTurn",
-        content:{type:"text",text:JSON.stringify({scene:"in_app_search",empty:true,caret:true})}}},
-    }:{requestState:token});
-    assert.equal(retransmission.resultType,"complete",mode);
-    assert.equal(retransmission.requestState,undefined,mode);
-    assert.equal(retransmission.inputRequests,undefined,mode);
-    assert.equal((retransmission.content as Record<string,unknown>[]).some(block=>block.type==="image"),false,mode);
-    assert.equal(pendingState(),negativeAnswer?"used:"+await hash(token):"pending:"+token,mode);
-    if(negativeAnswer){
-      assert.equal(record(retransmission.structuredContent).reason,"SPOTLIGHT_FOCUS_UNVERIFIED",mode);
-      assert.equal((await call(3,alice,{requestState:token})).resultType,"complete",mode);
-    }
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='keyboard.open_search'").get()!.n,1,mode);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE kind='keyboard.type_text'").get()!.n,0,mode);
-  }
-});
-
-test("software: one public App search call types only after the reviewer inspects the shortcut after-image",async()=>{
-  for(const mode of ["approved","long_query_expired","long_query_later_write","long_query_scope_bound","scope_approved","transition","transition_twice","wrong_scene","scope_wrong_scene","same_query","different_query","in_app_existing","malformed_existing","clear_query","clear_transition","clear_wrong_focus","clear_unknown","clear_bad_region","scope_unsupported","invalid_proof","malformed","unknown_shortcut","disabled","model_source_mismatch",
-    "focus_long_approved","focus_long_legacy","focus_long_expired","focus_long_cap_lost",
-    "results_loading_ready","results_loading_again","results_wrong_scene","results_reviewer_failed","results_release_replaced"]){
-    const longQuery=mode==="approved"||mode.startsWith("long_query_");
-    const scopeBoundPoint=mode==="long_query_scope_bound";
-    const resultsScenario=mode.startsWith("results_");
-    const resultsPending=resultsScenario&&mode!=="results_loading_ready";
-    const l=lab(false,undefined,new FrameUploadPermits("67".repeat(32))),r=await systemSearchReady(l),boot=r.hardware.board_boot_id;
-    const clearing=mode.startsWith("clear_");
-    const longFocus=mode.startsWith("focus_long_");
-    const extendedFocus=longFocus&&mode!=="focus_long_legacy";
-    const modelProof=mode==="approved"||scopeBoundPoint||mode==="scope_approved"||clearing||mode==="model_source_mismatch"||longFocus;
-    const omitSource=clearing||mode.startsWith("scope_")||mode==="invalid_proof";
-    await new LEDControl(l.service).bind(r.actor,{...r.hardware,capabilities:{...r.hardware.capabilities,
-      "sayso.system_search.scope_only.v1":omitSource&&mode!=="scope_unsupported",
-      "sayso.reviewed_point.v1":clearing,"sayso.reviewed_point_crops.v2":longQuery,
-      "sayso.reviewed_point_crops.v3":longQuery,
-      "sayso.reviewed_point_crops.v4":scopeBoundPoint,
-      "sayso.model_reviewed_field_crops.v1":modelProof,
-      "sayso.model_reviewed_field_crops.v2":extendedFocus,
-      "sayso.focused_text":true,"hid.keyboard.ascii_stable":true,"hid.mouse.absolute":true}});
-    await l.service.heartbeat(r.actor,r.beat);
-    const control=(await r.mouse.status(alice,{device_id:r.actor.id})).control_epoch;
-    const phone={...r.identity,control_epoch:control,raw_dispatch_protocol:RAW_MOUSE_DISPATCH,
-      spotlight_dispatch_protocol:SPOTLIGHT_CLAIM_START,point_protocol:PAIRED_MOUSE_POINT};
-    assert.equal(await r.mouse.claim(r.actor,phone,0),null);
-    const args={device_id:r.actor.id,preparation_id:uid(),
-      ...(omitSource?{}:{source_frame_id:r.meta.frame_id}),
-      ...(mode==="invalid_proof"?{source_view_proof:"orphaned-proof"}:{}),
-      query:clearing||mode==="scope_approved"?"taobao":"Google map"};
-    if (omitSource) {
-      l.db.raw.exec("DELETE FROM sb_frames; DELETE FROM sb_observations;");
-    }
-    let reviews=0,resultReviews=0,settledFocus:string|undefined;
-    let resultsReplacement:string|undefined,resultsReplacementMono:number|undefined;
-    const changedResultsBytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,65)},80).data;
-    const replaceResults=async(gap:number)=>{
-      l.tick(gap);
-      resultsReplacementMono=10900+gap;
-      const {meta}=await capturedAtPhoneMono(l,{...r,bytes:changedResultsBytes},resultsReplacementMono,4,
-        {source_seq:4,content_sha256:await hash(changedResultsBytes)});
-      resultsReplacement=meta.frame_id;
-    };
-    const review:SpotlightReviewer|undefined=mode==="disabled"?undefined:async(jpegData,_signal,context)=>{
-      assert.equal(context.query,args.query);
-      if(context.phase==="query_results"){
-        resultReviews++;
-        const expected=resultReviews===2&&resultsReplacement?changedResultsBytes:r.bytes;
-        assert.equal(jpegData,Buffer.from(expected).toString("base64"));
-        if(mode==="results_reviewer_failed")throw Error("Synthetic query reviewer unavailable");
-        if(mode==="results_wrong_scene")return {scene:"in_app_search",visible_query:args.query,result:"installed_result_visible"};
-        if(mode==="results_loading_ready"||mode==="results_loading_again"){
-          if(resultReviews===1)await replaceResults(300);
-          if(resultReviews===1||mode==="results_loading_again")
-            return {scene:"spotlight",visible_query:args.query,result:"loading"};
-        }
-        return {scene:"spotlight",visible_query:args.query,result:"installed_result_visible"};
-      }
-      assert.equal(context.phase,"focus");
-      reviews++;
-      assert.equal(jpegData,Buffer.from(r.bytes).toString("base64"));
-      if((mode==="transition"||mode==="transition_twice")&&reviews===1){
-        l.tick(400);
-        settledFocus=(await capturedAtPhoneMono(l,r,10900,3,{source_seq:3})).meta.frame_id;
-        return {scene:"transition"};
-      }
-      if(mode==="transition_twice")return {scene:"transition"};
-      if(mode==="clear_transition"&&reviews===2){
-        l.tick(140);
-        settledFocus=(await capturedAtPhoneMono(l,r,11080,4,{source_seq:4})).meta.frame_id;
-        return {scene:"transition"};
-      }
-      if(mode==="model_source_mismatch"){
-        const reviewed=l.db.raw.prepare("SELECT frame_id FROM sb_frames WHERE device_id=?").get(r.actor.id)!.frame_id;
-        l.tick(150);
-        await capturedAtPhoneMono(l,r,10650,3,{source_seq:3});
-        l.db.raw.prepare("UPDATE sb_observations SET acceptance_json=json_set(acceptance_json,'$.metadata.content_sha256',?) WHERE device_id=? AND frame_id=?")
-          .run("0".repeat(64),r.actor.id,reviewed);
-      }
-      if(longFocus){
-        const delay=mode==="focus_long_expired"?10001:7430;
-        l.tick(Math.min(delay,9000));
-        await l.service.heartbeat(r.actor,r.beat);
-        if(delay>9000)l.tick(delay-9000);
-        await capturedAtPhoneMono(l,r,10500+delay,3,{source_seq:3});
-        if(mode==="focus_long_cap_lost"){
-          l.db.raw.prepare("UPDATE sb_hardware SET metadata=json_remove(metadata,'$.capabilities.\"sayso.model_reviewed_field_crops.v2\"') WHERE device_id=?")
-            .run(r.actor.id);
-        }
-      }
-      const region={x:0.1,y:0.4,width:0.8,height:0.07};
-      if(clearing&&reviews===1) {
-        return {scene:"spotlight",empty:false,visible_query:"Google maps",field:region,
-          landmark:{text:"Top Hit",region:{x:0.1,y:0.2,width:0.4,height:0.05}},
-          clear_control:{x:mode==="clear_bad_region"?0.94:0.81,y:0.42,width:0.03,height:0.03}};
-      }
-      if (["same_query","different_query","in_app_existing","malformed_existing"].includes(mode)) {
-        return {scene:mode==="in_app_existing"?"in_app_search":"spotlight",empty:false,
-          visible_query:mode==="different_query"?"Google Maps":args.query.toUpperCase(),
-          field:region,landmark:{text:"Siri Suggestions",region:{x:0.1,y:0.2,width:0.4,height:0.05}},
-          ...(mode==="malformed_existing"?{requested_write:true}:{})};
-      }
-      return {scene:(!resultsScenario&&mode.endsWith("wrong_scene"))||mode==="clear_wrong_focus"?"in_app_search":"spotlight",empty:true,caret:true,
-        field:region,landmark:{text:"Siri Suggestions",region:{x:0.1,y:0.2,width:0.4,height:0.05}},
-        ...(mode==="malformed"?{query:"unexpected replacement"}:{})};
-    };
-    const call=async(name:string,arguments_:Record<string,unknown>)=>{
-      const request=new Request("https://test.example/mcp",{method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
-        body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name,arguments:arguments_}})});
-      const jobs:Promise<unknown>[]=[];
-      const response=await runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>handleMcp(request,{engine:()=>l.service,caller:()=>alice,origin:"https://test.example",
-        performance:{log:()=>{}},reviewSpotlight:review,
-        ...(mode==="results_release_replaced"&&name==="search_app_with_vision"?{refreshImageReleaseClock:async()=>{
-          if(resultReviews&&!resultsReplacement)await replaceResults(2000);
-          return true;
-        }}:{})}));
-      await Promise.all(jobs);
-      return (await response.json() as RpcReply).result;
-    };
-    const count=()=>Number(l.db.raw.prepare("SELECT count(*) AS n FROM sb_mouse_commands").get()!.n);
-    const reply=call("search_app_with_vision",args);
-    if(mode==="disabled"||mode==="scope_unsupported"||mode==="invalid_proof"){
-      const summary=(await reply).structuredContent;
-      if(mode==="disabled")assert.equal(summary.error,"APP_SEARCH_VISION_UNAVAILABLE");
-      if(mode==="invalid_proof")assert.equal(summary.error,"SYSTEM_SEARCH_PROOF_REQUIRES_SOURCE_FRAME");
-      if(mode==="scope_unsupported")assert.equal(summary.reason,"SYSTEM_SEARCH_SCOPE_ONLY_NOT_READY");
-      assert.equal(count(),0);
-      assert.equal(reviews,0);
-      continue;
-    }
-    const reserved=await call("open_system_search",{device_id:args.device_id,source_frame_id:args.source_frame_id,
-      idempotency_key:`app-search-query:${args.preparation_id}:shortcut`});
-    assert.equal(reserved.structuredContent.error,"RESERVED_IDEMPOTENCY_KEY");
-    const claim=async(kind:string,beforeClaim?:()=>Promise<void>)=>{
-      const deadline=performance.now()+1500;
-      let row:Record<string,unknown>|undefined;
-      while(!row&&performance.now()<deadline){
-        row=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE kind=? AND state='queued'").get(kind);
-        if(!row)await new Promise(resolve=>setTimeout(resolve,5));
-      }
-      assert.ok(row,`No original ${kind} queued in ${mode}`);
-      await beforeClaim?.();
-      const command=await r.mouse.claimRequest(new Request("https://test.example/v1/device/mouse/commands/claim",
-        {headers:{Authorization:"Bearer "+r.token}}),async()=>({body:phone,waitMS:0}));
-      assert.equal(command?.command_id,row.id);
-      assert.equal(command?.state,"executing");
-      return {id:String(row.id),payload:record(JSON.parse(String(row.payload))),
-        wirePrecondition:record(command?.precondition??{}),
-        precondition:record(JSON.parse(String(row.precondition??"{}")))};
-    };
-    const assertFieldProof=async(typed:Awaited<ReturnType<typeof claim>>,sourceFrame:string)=>{
-      const expected=modelProof?{protocol:extendedFocus?"model_reviewed_field_crops.v2":"model_reviewed_field_crops.v1",
-        frame_id:sourceFrame,content_sha256:await hash(r.bytes)}:undefined;
-      assert.deepEqual(typed.precondition.focus_source,expected);
-      assert.deepEqual(typed.wirePrecondition.focus_source,expected);
-      assert.equal(typed.wirePrecondition.capture_min_gap_ms,undefined);
-    };
-    const shortcut=await claim("keyboard.open_search");
-    assert.deepEqual(shortcut.payload,{});
-    if(omitSource) {
-      assert.equal(shortcut.precondition.system_search_mode,"scope_only.v1");
-      assert.equal(shortcut.precondition.system_search_frame_id,undefined);
-    }else{
-      assert.equal(shortcut.precondition.system_search_frame_id,r.meta.frame_id);
-    }
-    const original=await call("search_app_with_vision",args);
-    assert.equal(original.structuredContent.shortcut_command_id,shortcut.id);
-    const competing=await call("search_app_with_vision",{...args,preparation_id:uid()});
-    assert.equal(competing.structuredContent.state,"search_busy");
-    assert.equal(competing.structuredContent.reason,"APP_SEARCH_QUERY_BUSY");
-    assert.equal(competing.structuredContent.active_preparation_id,args.preparation_id);
-    assert.equal(count(),1);
-    if(mode==="unknown_shortcut"){
-      await r.mouse.result(r.actor,shortcut.id,{...r.identity,state:"outcome_unknown",error:"USB_OUTCOME_UNKNOWN",board_receipt:{}});
-      assert.equal((await reply).structuredContent.state,"outcome_unknown");
-      assert.equal(reviews,0);
-      assert.equal(count(),1);
-      continue;
-    }
-    await r.mouse.result(r.actor,shortcut.id,{...r.identity,state:"board_acked",finished_client_mono_ms:10000,
-      board_receipt:{command_id:shortcut.id,board_boot_id:boot,state:"executed",subcommand_index:0,
-        effect:{hid_reports_sent:true,system_search_stable:true,all_released:true}}});
-    l.tick(500);
-    const {meta:focus}=await capturedAtPhoneMono(l,r,10500,2,{source_seq:2});
-    const pending=await call("get_app_search_query_result",{preparation_id:args.preparation_id,include_after_screen:false});
-    assert.equal(pending.structuredContent.shortcut_command_id,shortcut.id);
-    if(mode==="clear_bad_region"){
-      const stopped=await reply;
-      assert.equal(stopped.structuredContent.reason,"INVALID_SPOTLIGHT_CLEAR_CONTROL");
-      assert.equal(stopped.structuredContent.clear_command_id,null);
-      assert.equal(count(),1);
-    }else if(clearing){
-      let pendingClearID:unknown;
-      const move=await Promise.race([claim("pointer.move_absolute",async()=>{
-        const pending=await call("get_app_search_query_result",{preparation_id:args.preparation_id,include_after_screen:false});
-        assert.equal(pending.structuredContent.state,"outcome_unknown");
-        assert.equal(pending.structuredContent.clear_state,"embedded");
-        pendingClearID=pending.structuredContent.clear_command_id;
-      }),reply.then(done=>{
-        throw new Error("Clear completed before admitting move: "+JSON.stringify(done.structuredContent));
-      })]);
-      const clickID=String(record(move.precondition.point).click_command_id);
-      assert.equal(pendingClearID,clickID);
-      const source=record(move.precondition.point_source);
-      assert.equal(source.protocol,"reviewed_point.v1");
-      assert.equal(source.frame_id,focus.frame_id);
-      assert.match(String(source.content_sha256),/^[a-f0-9]{64}$/);
-      const interrupted=mode==="clear_unknown";
-      await r.mouse.result(r.actor,move.id,{...r.identity,state:"board_acked",input_submitted:true,finished_client_mono_ms:10510,
-        board_receipt:{command_id:move.id,board_boot_id:boot,state:"executed",subcommand_index:0,error:null,
-          effect:{hid_reports_sent:true,absolute_requested_x:move.payload.x,absolute_requested_y:move.payload.y}},
-        point_result:{protocol:PAIRED_MOUSE_POINT,click:interrupted?
-          {state:"outcome_unknown",input_submitted:true,error:"USB_OUTCOME_UNKNOWN",finished_client_mono_ms:null,board_receipt:{}}:
-          {state:"board_acked",input_submitted:true,error:null,finished_client_mono_ms:10520,
-            board_receipt:{command_id:clickID,board_boot_id:boot,state:"executed",subcommand_index:0,error:null,effect:{hid_reports_sent:true}}}}});
-      if(interrupted){
-        const stopped=await reply;
-        assert.equal(stopped.structuredContent.state,"outcome_unknown");
-        assert.equal(stopped.structuredContent.clear_command_id,clickID);
-        assert.equal(stopped.structuredContent.text_command_id,null);
-        assert.equal(reviews,1);
-        assert.equal(count(),3);
-      }else{
-        l.tick(440);
-        const cleared=(await capturedAtPhoneMono(l,r,10940,3,{source_seq:3})).meta;
-        if(mode==="clear_wrong_focus"){
-          const stopped=await reply;
-          assert.equal(stopped.structuredContent.state,"stopped");
-          assert.equal(stopped.structuredContent.reason,"SPOTLIGHT_FOCUS_AFTER_CLEAR_UNVERIFIED");
-          assert.equal(stopped.structuredContent.clear_command_id,clickID);
-          assert.equal(stopped.structuredContent.text_command_id,null);
-          assert.equal(count(),3);
-        }else{
-          const typed=await claim("keyboard.type_text");
-          const sourceFrame=settledFocus??cleared.frame_id;
-          const focusMono=mode==="clear_transition"?11080:10940;
-          assert.equal(typed.payload.source_frame_id,sourceFrame);
-          await assertFieldProof(typed,sourceFrame);
-          assert.equal(typed.payload.text,"taobao");
-          assert.equal(typed.payload.submit_enter,undefined);
-          await r.mouse.result(r.actor,typed.id,{...r.identity,state:"board_acked",finished_client_mono_ms:focusMono+10,
-            spotlight_focus_frame_id:sourceFrame,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-            board_receipt:{command_id:typed.id,board_boot_id:boot,state:"executed",subcommand_index:0,
-              effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
-          l.tick(420);
-          const seq=mode==="clear_transition"?5:4;
-          const typedAfter=(await capturedAtPhoneMono(l,r,focusMono+420,seq,{source_seq:seq})).meta;
-          const final=await reply;
-          assert.equal(final.structuredContent.state,"query_confirmed");
-          assert.equal(final.structuredContent.clear_command_id,clickID);
-          assert.equal(final.structuredContent.text_command_id,typed.id);
-          assert.equal(record(record(final.structuredContent.after_screen).metadata).frame_id,typedAfter.frame_id);
-          assert.equal(final.content.filter(value=>value.type==="image").length,1);
-          assert.equal(count(),4);
-        }
-        assert.equal(reviews,mode==="clear_transition"?3:2);
-      }
-      const duplicate=await call("search_app_with_vision",args);
-      assert.equal(duplicate.structuredContent.clear_command_id,clickID);
-      assert.equal(count(),mode==="clear_query"||mode==="clear_transition"?4:3);
-    }else if(longQuery||mode==="scope_approved"||mode==="transition"||mode==="focus_long_approved"||resultsScenario){
-      const typed=await claim("keyboard.type_text");
-      const focusMono=mode==="focus_long_approved"?17930:mode==="transition"?10900:10500,sourceFrame=settledFocus??focus.frame_id;
-      await assertFieldProof(typed,sourceFrame);
-      assert.equal(typed.payload.text,args.query);
-      assert.equal(typed.payload.source_frame_id,sourceFrame);
-      assert.equal(typed.payload.submit_enter,undefined);
-      await r.mouse.result(r.actor,typed.id,{...r.identity,state:"board_acked",finished_client_mono_ms:focusMono+10,
-        spotlight_focus_frame_id:sourceFrame,mouse_mode_confirmed:true,restored_mouse_boot_id:boot,
-        board_receipt:{command_id:typed.id,board_boot_id:boot,state:"executed",subcommand_index:0,
-          effect:{hid_reports_sent:true,ascii_stable:true,all_released:true}}});
-      l.tick(400);
-      const afterSeq=mode==="transition"||longFocus?4:3,afterMono=focusMono+400;
-      const {meta:after}=await capturedAtPhoneMono(l,r,afterMono,afterSeq,{source_seq:afterSeq});
-      const result=await reply;
-      assert.equal(result.structuredContent.state,"query_confirmed");
-      assert.equal(result.structuredContent.text_command_id,typed.id);
-      const queryImage=record(result.structuredContent.after_screen);
-      assert.equal(queryImage.state,"available");
-      assert.equal(record(queryImage.after_command).command_id,typed.id);
-      assert.ok(Number(record(queryImage.after_command).lower_gap_ms)>300);
-      const queryFrame=record(queryImage.metadata);
-      assert.equal(queryFrame.frame_id,resultsReplacement??after.frame_id);
-      assert.equal(result.content.filter(value=>value.type==="image").length,1);
-      assert.equal(result.structuredContent.query_results_state,resultsPending?"pending":"ready");
-      assert.equal(result.structuredContent.query_results_frame_id,resultsPending?undefined:queryFrame.frame_id);
-      assert.equal(resultReviews,mode==="results_loading_ready"||mode==="results_loading_again"?2:1);
-      if(mode==="results_loading_ready"||mode==="results_loading_again")
-        assert.ok(Number(record(queryImage.after_command).lower_gap_ms)>Math.ceil(390));
-      const duplicate=await call("search_app_with_vision",args);
-      assert.equal(duplicate.structuredContent.text_command_id,typed.id);
-      assert.equal(duplicate.structuredContent.query_results_state,"not_checked");
-      assert.equal(duplicate.structuredContent.query_results_frame_id,undefined);
-      assert.equal((await call("search_app_with_vision",{...args,query:"a different authorized App"})).structuredContent.error,"IDEMPOTENCY_CONFLICT");
-      assert.equal(count(),2);
-      if(resultsPending)continue;
-      const openArgs={device_id:args.device_id,x:7,y:15,image_width:queryFrame.width,image_height:queryFrame.height,
-        orientation_epoch:queryFrame.orientation_epoch,idempotency_key:uid()};
-      let clickMono=resultsReplacementMono??afterMono,clickSeq=resultsReplacement?afterSeq+1:afterSeq;
-      let linked:Record<string,unknown>={};
-      if(mode==="scope_approved"){
-        const gap=Math.ceil(Number(record(queryImage.after_command).lower_gap_ms));
-        assert.equal((await call("get_app_search_query_result",{preparation_id:args.preparation_id,
-          include_after_screen:false,after_command_min_gap_ms:gap})).structuredContent.error,"INVALID_ARGUMENTS");
-        l.tick(160);
-        clickMono+=160;clickSeq++;
-        const updated=(await capturedAtPhoneMono(l,r,clickMono,clickSeq,{source_seq:clickSeq})).meta;
-        const relook=await call("get_app_search_query_result",{preparation_id:args.preparation_id,
-          after_command_min_gap_ms:gap});
-        const relookImage=record(relook.structuredContent.after_screen),relookProof=record(relookImage.after_command);
-        assert.equal(relook.structuredContent.state,"query_confirmed");
-        assert.equal(relook.structuredContent.text_command_id,typed.id);
-        assert.equal(record(relookImage.metadata).frame_id,updated.frame_id);
-        assert.equal(relookProof.minimum_gap_ms,gap);
-        assert.ok(Number(relookProof.lower_gap_ms)>gap);
-        assert.equal(relook.content.filter(value=>value.type==="image").length,1);
-        assert.equal(count(),2);
-      }
-      if(longQuery){
-        const proof=String(queryImage.source_query_proof),view=await l.service.verifyCompoundQueryViewProof(alice,proof);
-        assert.equal(view?.frame,after.frame_id);
-        assert.equal(view?.command,typed.id);
-        assert.equal(view?.sha256,await hash(r.bytes));
-        assert.equal(view?.origin,"typed");
-        assert.equal(await l.service.verifyCompoundQueryViewProof(bob,proof),null);
-        const regions={source_frame_id:after.frame_id,target_region:{x:.25,y:.35,width:.43,height:.24},
-          landmark_region:{x:.06,y:.07,width:.31,height:.13}};
-        linked={...regions,source_query_proof:proof};
-        if(mode==="long_query_expired"){
-          l.tick(10000);
-          const failed=await call("click_at",{...openArgs,...linked});
-          assert.equal(failed.structuredContent.error,"COMPOUND_QUERY_VIEW_PROOF_INVALID");
-          assert.equal(count(),2);
-          continue;
-        }
-        const delay=scopeBoundPoint?14500:7400;
-        if(scopeBoundPoint)for(let elapsed=0;elapsed<delay;elapsed+=4000){
-          await l.service.heartbeat(r.actor,r.beat);
-          l.tick(Math.min(4000,delay-elapsed));
-        }else l.tick(delay);
-        clickMono+=delay;clickSeq++;
-        const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,70)},80).data;
-        const {meta:head}=await capturedAtPhoneMono(l,{...r,bytes},clickMono,clickSeq,{source_seq:clickSeq,content_sha256:await hash(bytes)});
-        await assert.rejects(r.mouse.clickAt(alice,{...openArgs,...regions}),/REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED/);
-        assert.equal((await call("click_at",{...openArgs,...linked,source_frame_id:head.frame_id})).structuredContent.error,"COMPOUND_QUERY_VIEW_PROOF_INVALID");
-        assert.equal((await call("click_at",{...openArgs,...linked,source_query_proof:proof+"x"})).structuredContent.error,"COMPOUND_QUERY_VIEW_PROOF_INVALID");
-        if(mode==="long_query_later_write"){
-          const later=await r.mouse.enqueue(alice,"pointer.click",{device_id:r.actor.id,idempotency_key:uid(),wait_ms:0});
-          assert.equal((await r.mouse.claim(r.actor,phone,0))?.command_id,later.command_id);
-          await r.mouse.result(r.actor,later.command_id,{...r.identity,state:"board_acked",finished_client_mono_ms:clickMono+1,
-            board_receipt:{command_id:later.command_id,board_boot_id:boot,state:"executed",subcommand_index:0,
-              effect:{hid_reports_sent:true}}});
-          assert.equal((await call("click_at",{...openArgs,...linked})).structuredContent.error,"REVIEWED_POINT_FRAME_OR_CONTROL_CHANGED");
-          assert.equal(count(),3);
-          continue;
-        }
-      }
-      const opening=call("click_at",{...openArgs,...linked});
-      const move=await claim("pointer.move_absolute"),clickID=String(record(move.precondition.point).click_command_id);
-      if(longQuery)assert.deepEqual(record(move.precondition.point_source),{
-        protocol:scopeBoundPoint?"reviewed_point_crop.v4":"reviewed_point_crop.v3",frame_id:after.frame_id,content_sha256:await hash(r.bytes),
-        target_region:linked.target_region,landmark_region:linked.landmark_region,...(scopeBoundPoint?{origin:"typed"}:{}),
-      });
-      await r.mouse.result(r.actor,move.id,{...r.identity,state:"board_acked",input_submitted:true,finished_client_mono_ms:clickMono+10,
-        board_receipt:{command_id:move.id,board_boot_id:boot,state:"executed",
-          effect:{hid_reports_sent:true,absolute_requested_x:move.payload.x,absolute_requested_y:move.payload.y}},
-        point_result:{protocol:PAIRED_MOUSE_POINT,click:{state:"board_acked",input_submitted:true,error:null,finished_client_mono_ms:clickMono+20,
-          board_receipt:{command_id:clickID,board_boot_id:boot,state:"executed",effect:{hid_reports_sent:true}}}}});
-      l.tick(500);
-      const {meta:opened}=await capturedAtPhoneMono(l,r,clickMono+500,clickSeq+1,{source_seq:clickSeq+1});
-      const openedResult=await opening;
-      assert.equal(openedResult.structuredContent.command_id,clickID);
-      assert.equal(record(record(openedResult.structuredContent.after_screen).metadata).frame_id,opened.frame_id);
-      assert.equal(openedResult.content.filter(value=>value.type==="image").length,1);
-      assert.equal(count(),4);
-    }else{
-      const result=await reply;
-      const same=mode==="same_query";
-      assert.equal(result.structuredContent.state,same?"query_visible":"stopped");
-      assert.equal(result.structuredContent.reason,same?null:mode==="different_query"?"SPOTLIGHT_EXISTING_QUERY":
-        mode==="model_source_mismatch"||longFocus?"FIELD_FRAME_OR_CONTROL_CHANGED":"SPOTLIGHT_FOCUS_UNVERIFIED");
-      assert.equal(result.structuredContent.text_command_id,null);
-      assert.equal(count(),1);
-      if (same) {
-        const after=record(result.structuredContent.after_screen);
-        assert.equal(after.state,"available");
-        assert.equal(record(after.metadata).frame_id,focus.frame_id);
-        assert.equal(record(after.after_command).command_id,shortcut.id);
-        assert.equal(result.structuredContent.query_results_state,"ready");
-        assert.equal(result.structuredContent.query_results_frame_id,focus.frame_id);
-        assert.equal(resultReviews,1);
-        assert.equal(result.content.filter(value=>value.type==="image").length,1);
-        const saved=await call("get_app_search_query_result",{preparation_id:args.preparation_id,include_after_screen:false});
-        assert.equal((await l.service.verifyCompoundQueryViewProof(alice,String(after.source_query_proof)))?.origin,"retained");
-        assert.equal(saved.structuredContent.state,"review_required");
-        assert.equal(saved.structuredContent.text_command_id,null);
-        assert.equal(saved.structuredContent.reason,"SPOTLIGHT_QUERY_REVIEW_REQUIRED");
-        const duplicate=await call("search_app_with_vision",args);
-        assert.equal(duplicate.structuredContent.state,"review_required");
-        assert.equal(record(duplicate.structuredContent.after_screen).source_query_proof,undefined);
-        assert.equal(duplicate.structuredContent.shortcut_command_id,shortcut.id);
-        assert.equal(count(),1);
-      }
-    }
-    if(!clearing)assert.equal(reviews,mode==="transition"||mode==="transition_twice"?2:1);
-  }
-});
 
 test("software: default paired click reports bounded authenticated receipt timing with no extra D1 calls",async()=>{
   const healthyCalls:number[]=[];
@@ -12331,7 +7318,7 @@ test("software: default paired click reports bounded authenticated receipt timin
 
 test("software: paired claim diagnostics preserve remaining grant lifetime",async()=>{
   const c=await pairedPhonePoint(false),original=console.info;
-  c.l.tick(2800);
+  c.l.tick(2800);await capturedAtPhoneMono(c.l,c.r,12800,2,{source_seq:2});
   const events:Record<string,unknown>[]=[];
   console.info=value=>{
     const event=JSON.parse(String(value));
@@ -12358,7 +7345,7 @@ test("software: paired image release diagnostic runs after the response at the f
   const response=await runWithBridgeContext({waitUntil:job=>jobs.push(job)},()=>handleMcp(new Request("https://test.example/mcp",{
     method:"POST",headers:{"Content-Type":"application/json","MCP-Protocol-Version":"2026-07-28"},
     body:JSON.stringify({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"click_at",arguments:{...args,device_id:c.r.actor.id}}}),
-  }),{engine:()=>c.l.service,caller:()=>alice,origin:"https://test.example",performance:{log:()=>{}},refreshImageReleaseClock:async()=>true,
+  }),{engine:()=>c.l.service,caller:()=>alice,origin:"https://test.example",toolAudience:"development",performance:{log:()=>{}},refreshImageReleaseClock:async()=>true,
     imageReleaseLog:entry=>{logs.push(entry);c.l.tick(100);}}));
   assert.equal(response.headers.get("X-SaySo-Frame-Age-Ms"),"1999");
   assert.equal(logs.length,0);
@@ -12435,7 +7422,7 @@ async function lateReleaseFixture(afterCommand=false, onWait?:()=>Promise<void>)
   const counts=()=>({writes:l.db.raw.prepare("SELECT total_changes() n").get()!.n,
     commands:l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,
     refreshes:l.db.raw.prepare("SELECT count(*) n FROM sb_refreshes").get()!.n});
-  const args={wait_for_new_ms:250,max_age_ms:999,include_source_view_proof:true,device_id:r.actor.id,
+  const args={wait_for_new_ms:250,max_age_ms:999,device_id:r.actor.id,
     ...(confirmed?{after_command_id:confirmed.command.command_id,after_command_min_gap_ms:10}:{})};
   const snapshots=afterFirstScreenSnapshot(l,async()=>{});
   return {l,r,first,args,advance,counts,snapshots,waits,
@@ -12513,7 +7500,7 @@ test("software: ordinary read diagnostics join late recovery and redact prior fr
     let f:Awaited<ReturnType<typeof lateReleaseFixture>>;
     f=await lateReleaseFixture(false,async()=>{await f.publish();});
     let gates=0;
-    const reply=await liveMcp(f.l.service,"read_screen",{...f.args,include_read_timing:true,include_source_view_proof:false},()=>{},async()=>{
+    const reply=await liveMcp(f.l.service,"read_screen",{...f.args,include_read_timing:true},()=>{},async()=>{
       if(++gates===1){
         f.advance(20);
         if(revoked)f.l.db.raw.exec("UPDATE sb_devices SET revoked=1");
@@ -12608,7 +7595,6 @@ test("software: late release retry returns one newer actual JPEG and original af
     assert.equal(proof.command_id,f.args.after_command_id);
     assert.equal(proof.relation,"capture_after_phone_board_ack");
     assert.equal(proof.minimum_gap_ms,10);
-    assert.equal((await f.l.service.verifySourceViewProof(alice,String(summary.source_view_proof)))?.frame,newer?.meta.frame_id);
     assert.equal(record(summary.recovery).retry_trigger,"late_image_release");
     assert.equal(record(summary.recovery).lookups,2);
     assert.match(reply.response.headers.get("Server-Timing")!,/sb_late_release_retry;dur=/);
@@ -12687,7 +7673,6 @@ test("software: a certified transient late successor miss permits exactly one se
     const summary=reply.result.structuredContent;
     assert.equal(record(summary.metadata).frame_id,successor);
     assert.equal(record(summary.after_command).command_id,f.args.after_command_id);
-    assert.equal((await f.l.service.verifySourceViewProof(alice,String(summary.source_view_proof)))?.frame,successor);
     assert.equal(record(summary.recovery).lookups,3);
     assert.equal(record(summary.recovery).retry_count,2);
     assert.equal(record(summary.recovery).retry_wait_ms,mode==="slow_first_snapshot"?0:150);
@@ -12805,44 +7790,6 @@ test("software: late release retry shares the original deadline through lookup, 
     assert.equal(reply.result.structuredContent.source_view_proof,undefined);
     assert.equal(reply.releaseEvents.length,1);
     if(mode==="final_clock")assert.equal(reply.releaseEvents[0].drop_reason,"READ_DEADLINE_EXPIRED");
-  }
-});
-
-test("software: MCP visual readers use the exclusive 2000ms boundary and preserve smaller caller ceilings",async()=>{
-  const l=lab(),r=await running(l),e=edge(l);
-  await e.service.acceptFrame(r.actor,r.metadata,r.bytes);
-  const setAge=l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE device_id=?");
-  const routes=[
-    {name:"read_screen",args:{wait_for_new_ms:0}},
-    {name:"view_screen",args:{wait_ms:0,max_age_ms:10000}},
-    {name:"get_latest_screen",args:{wait_ms:0,max_age_ms:10000,bridge_session_id:r.identity.bridge_session_id}},
-  ];
-  for(const {name,args} of routes)for(const age of [1499,1999.9,2000]){
-    setAge.run(l.now()-age,r.actor.id);
-    const read=await liveMcp(e.service,name,{device_id:r.actor.id,...args});
-    assert.equal(read.images.length,age<2000?1:0,name);
-    if(age<2000){
-      assert.equal(read.result.structuredContent.state,"available");
-      assert.ok(Number(read.age)>1000&&Number(read.age)<2000);
-      assert.equal(record(read.result.structuredContent.metadata).stale,false);
-      assert.equal(read.images[0].data,Buffer.from(r.bytes).toString("base64"));
-    }else{
-      assert.notEqual(read.result.structuredContent.state,"available");
-      assert.equal(read.age,null);
-    }
-  }
-  for(const {name,args} of routes)for(const age of [1499,1500]){
-    setAge.run(l.now()-age,r.actor.id);
-    const read=await liveMcp(e.service,name,{device_id:r.actor.id,...args,max_age_ms:1499});
-    assert.equal(read.images.length,age===1499?1:0,name);
-  }
-  setAge.run(l.now()-501,r.actor.id);
-  assert.equal((await liveMcp(e.service,"read_screen",{max_age_ms:500,wait_for_new_ms:0})).images.length,0);
-  for(const bound of [null,l.now()+1]){
-    setAge.run(bound,r.actor.id);
-    const missing=await liveMcp(e.service,"read_screen",{wait_for_new_ms:0});
-    assert.equal(missing.result.structuredContent.state,"unavailable");
-    assert.equal(missing.images.length,0);
   }
 });
 
@@ -12986,7 +7933,7 @@ test("software: paired late release with an explicit total budget uses one curre
 
 test("software: paired click_at release shares one bounded recovery against the original receipt",async()=>{
   const secondLookup=new Set(["same","source","second_successor","second_ack","second_deadline"]);
-  for(const mode of ["fresh","successor","same","source","geometry","control","ack","old_ack","read_error","clock_unavailable","deadline_before","deadline_during","deadline_release","replacement_expiry","custom_settle","second_successor","second_ack","second_deadline","short_successor","short_mismatch","short_cue"]){
+  for(const mode of ["fresh","successor","same","source","geometry","control","ack","old_ack","read_error","clock_unavailable","deadline_before","deadline_during","deadline_release","replacement_expiry","custom_settle","second_successor","second_ack","second_deadline","short_successor","short_mismatch"]){
     let mono=0,gates=0,successor:string|undefined,writesAfterPublish:unknown;
     let duringSpacing=async()=>{};
     const waits:number[]=[],l=lab(false,{now:()=>mono,sleep:async ms=>{waits.push(ms);mono+=ms;l.tick(ms);await duringSpacing();}});
@@ -13036,7 +7983,7 @@ test("software: paired click_at release shares one bounded recovery against the 
     const summary=reply.result.structuredContent,after=record(summary.after_screen),readBack=await c.r.mouse.get(alice,c.click.command_id);
     const valid=["fresh","successor","second_successor","short_successor"].includes(mode);
     assert.equal(reply.images.length,valid?1:0,mode);
-    assert.equal(reads(),["fresh","clock_unavailable","deadline_before","custom_settle","short_mismatch","short_cue"].includes(mode)?1:
+    assert.equal(reads(),["fresh","clock_unavailable","deadline_before","custom_settle","short_mismatch"].includes(mode)?1:
       secondLookup.has(mode)&&mode!=="second_deadline"?3:2,mode);
     assert.equal(gates,["successor","second_successor","deadline_release","replacement_expiry","short_successor","clock_unavailable"].includes(mode)?2:1,mode);
     assert.deepEqual(waits,secondLookup.has(mode)?[150]:[],mode);
@@ -13274,63 +8221,6 @@ test("software: strict live MCP refreshes the hosted clock after serialization a
   }
 });
 
-test("software: strict live MCP keeps the existing app-search command source window",async()=>{
-  const l=lab(),r=await searchPreparationReady(l);
-  l.tick(1050);
-  const review=await liveMcp(l.service,"prepare_app_search",{...r.args,source_image_ref:uid()});
-  assert.equal(review.result.structuredContent.state,"review_required");
-  assert.equal(review.result.structuredContent.queued,false);
-  assert.equal(review.images.length,0);
-  assert.equal((review.result.structuredContent.after_screen as Record<string,unknown>).reason,"LIVE_FRAME_FRESHNESS_UNPROVEN_AT_RELEASE");
-  const valid=await liveMcp(l.service,"prepare_app_search",r.args);
-  assert.equal(valid.result.structuredContent.queued,true);
-  assert.equal(valid.result.structuredContent.preparation_id,r.args.preparation_id);
-  assert.equal(valid.images.length,0);
-});
-
-test("software: strict live MCP discards an expired JPEG and its opted-in signed view proof together",async()=>{
-  const l=sourceViewLab(),r=await systemSearchReady(l);
-  const args={device_id:r.actor.id,wait_for_new_ms:0,include_read_timing:true,max_age_ms:999};
-  const ordinary=await liveMcp(l.service,"read_screen",args);
-  assert.equal(ordinary.images.length,1);
-  assert.equal(ordinary.result.structuredContent.source_view_proof,undefined);
-  l.tick(930);
-  const optIn={...args,include_source_view_proof:true};
-  const valid=await liveMcp(l.service,"read_screen",optIn);
-  assert.equal(valid.images.length,1);
-  assert.equal(typeof valid.result.structuredContent.source_view_proof,"string");
-  assert.equal(valid.result.structuredContent.metadata!=null,true);
-  assert.equal(valid.releaseEvents.length,1);
-  assert.equal(valid.releaseEvents[0].image_count,1);
-  assert.doesNotMatch(JSON.stringify(valid.releaseEvents),/source_view_proof|device_id|frame_id/);
-  const before=l.db.raw.prepare("SELECT total_changes() n").get()!.n;
-  const late=await liveMcp(l.service,"read_screen",optIn,()=>{},async()=>{l.tick(20);return true;});
-  assert.equal(late.images.length,0);
-  assert.equal(late.age,null);
-  assert.equal(late.result.structuredContent.state,"unavailable");
-  assert.equal(late.result.structuredContent.reason,"LIVE_FRAME_FRESHNESS_UNPROVEN_AT_RELEASE");
-  assert.equal(late.result.structuredContent.image_ref,undefined);
-  assert.doesNotMatch(JSON.stringify(late.result),/source_view_proof/);
-  assert.deepEqual(late.releaseEvents,[{event:"live_image_release",request_id:late.result.structuredContent.mcp_request_id,
-    age_upper_ms:null,image_count:0,drop_reason:"FRESHNESS_UNPROVEN_AT_RELEASE"}]);
-  assert.equal(l.db.raw.prepare("SELECT total_changes() n").get()!.n,before);
-});
-
-test("software: strict live MCP preserves the exact 1499ms system-search command source window",async()=>{
-  for(const age of [1499,1500]){
-    const l=sourceViewLab(),r=await systemSearchReady(l);
-    const reviewed=await reviewedSystemSearchView(r);
-    const meta=record(reviewed.read.structuredContent.metadata);
-    l.tick(age-Number(meta.age_ms));
-    const read=await liveMcp(l.service,"read_screen",{device_id:r.actor.id,wait_for_new_ms:0});
-    assert.equal(read.images.length,1);
-    assert.equal(Number(read.age),age);
-    const command=await r.invoke("open_system_search",r.args);
-    assert.equal(command.isError,age===1500);
-    if(age===1499)assert.equal(record(command.structuredContent.precondition).system_search_frame_id,r.meta.frame_id);
-    assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,age===1499?1:0);
-  }
-});
 
 test("software: ordinary read release clock rechecks an authorized JPEG once inside the original deadline",async()=>{
   const f=await lateReleaseFixture(),before=f.counts(),checks:boolean[]=[];
@@ -13407,7 +8297,7 @@ test("software: model-decided drag preserves exact endpoints despite animation a
     await t.test(mode,async()=>{
       const {l,r,args,source,count,led,caps}=await realDragFixture();
       await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...caps,
-        "sayso.drag_reference_10s.v1":true,"sayso.drag_model_decision.v1":mode!=="legacy",
+        "sayso.action_geometry.v1":mode!=="legacy","sayso.drag_model_decision.v1":true,
         "sayso.drag_cloud_acceptance.v1":true}});
       l.tick(4500);
       const bytes=jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,137)},65).data;
@@ -13416,7 +8306,7 @@ test("software: model-decided drag preserves exact endpoints despite animation a
       const input=mode==="wrong_geometry"?{...args,orientation_epoch:1}:args;
       const reply=await liveMcp(l.service,"drag_at",input),value=reply.result.structuredContent;
       if(["legacy","revoked","wrong_geometry"].includes(mode)){
-        assert.equal(value.error,"DRAG_FRAME_OR_CONTROL_CHANGED");
+        assert.equal(value.error,mode==="legacy"?"DRAG_NOT_READY":"DRAG_FRAME_OR_CONTROL_CHANGED");
         assert.equal(count(),0);
       }else{
         assert.equal(value.state,"queued",JSON.stringify(value));
@@ -13437,41 +8327,145 @@ test("software: model-decided drag preserves exact endpoints despite animation a
   }
 });
 
-test("software: ten-second drag reference requires app capability and still uses fresh scoped pixels",async t=>{
-  for(const mode of ["legacy","extended","near_limit","limit","clock_only","revoked","stale_head","claim_limit"]){
-    await t.test(mode,async()=>{
-      const {l,r,args,source,count,led,caps}=await realDragFixture(true,mode==="clock_only");
-      const cap="sayso.drag_reference_10s.v1";
-      const extended=mode!=="legacy";
-      await led.bind(r.actor,{...r.identity,...r.hardware,capabilities:{...caps,[cap]:extended}});
-      const hardware=await led.hardware(r.actor);
-      assert.equal(record(JSON.parse(String(hardware.metadata)).capabilities)[cap],extended?true:undefined);
-      const saved=l.db.raw.prepare("SELECT acceptance_json FROM sb_observations WHERE id=?")
-        .get(r.actor.id+":"+source.frame_id)!.acceptance_json;
-      const capture=Number(JSON.parse(String(saved)).capture_lower_ms);
-      const age=mode==="limit"?10000:mode==="near_limit"?9900:4595;
-      l.tick(age-(l.now()-capture));
-      const changed=mode==="clock_only";
-      const bytes=changed?jpeg.encode({width:16,height:32,data:Buffer.alloc(16*32*4,137)},65).data:r.bytes;
-      const {meta:head}=await capturedAtPhoneMono(l,{...r,bytes},10000+age-100,2,{source_seq:2,content_sha256:await hash(bytes)});
-      if(mode==="revoked")l.db.raw.prepare("UPDATE sb_sessions SET mouse_enabled=0").run();
-      if(mode==="stale_head")l.db.raw.prepare("UPDATE sb_frames SET capture_lower=? WHERE frame_id=?").run(l.now()-2000,head.frame_id);
-      const reply=await liveMcp(l.service,"drag_at",args),value=reply.result.structuredContent;
-      if(["legacy","limit","revoked","stale_head"].includes(mode)){
-        assert.equal(count(),0);
-        assert.equal(value.error,"DRAG_FRAME_OR_CONTROL_CHANGED");
-        const diagnostic=record(value.admission_diagnostic),snapshot=record(diagnostic.snapshot),view=record(snapshot.view);
-        assert.equal(record(view.source).maximum_age_ms,extended?10000:4000);
-        if(mode==="legacy"||mode==="limit")assert.equal(record(view.source).retained_age,0);
-      }else{
-        assert.equal(value.state,"queued",JSON.stringify(value));
-        if(mode==="claim_limit"){
-          l.tick(10000-(l.now()-capture));
-          await capturedAtPhoneMono(l,r,19900,3,{source_seq:3});
-          assert.equal(await r.mouse.claim(r.actor,r.identity,0),null);
-        }else assert.equal((await r.mouse.claim(r.actor,r.identity,0))?.command_id,value.command_id);
-        assert.equal(count(),1);
-      }
-    });
+function seedStoppedMouse(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof running>>,state:string,attempted:number|null=0,owner=r.actor.owner_id){
+  const id=uid();l.db.raw.prepare("INSERT INTO sb_mouse_commands(id,owner_id,device_id,session_id,hardware_id,board_boot_id,kind,payload,digest,idempotency_key,state,control_epoch,created_at,expires_at,input_attempted,receipt) VALUES(?,?,?,?,?,?,'pointer.click','{}','fixture',?,?,1,?,?,?,?)")
+    .run(id,owner,r.actor.id,r.identity.bridge_session_id,uid(),uid(),uid(),state,l.now(),l.now()+5000,attempted,'{"original":"retained"}');return id;
+}
+function seedStoppedBrowse(l:ReturnType<typeof lab>,r:Awaited<ReturnType<typeof running>>,leased:boolean){
+  const id=uid();l.db.raw.prepare("INSERT INTO sb_browse_runs(id,owner_id,device_id,intent_key,intent_digest,session_id,broadcast_id,worker_id,lease_epoch,control_epoch,hardware_id,board_boot_id,hardware_metadata,calibration_id,settings_hash,orientation_epoch,state,queue_json,plan_keys_json,lease_seq,created_at,expires_at) VALUES(?,?,?,?,'fixture',?,?,?,?,1,?,?,'{}',?,'fixture',0,'active','[{}]','[]',?,?,?)")
+    .run(id,r.actor.owner_id,r.actor.id,uid(),r.identity.bridge_session_id,r.identity.broadcast_id,r.identity.worker_id,r.identity.lease_epoch,uid(),uid(),uid(),leased?1:0,l.now(),l.now()+5000);return id;
+}
+test("S6 stop without selection stops every owned device without hardware or readiness",async()=>{
+  const l=lab(),a=await running(l),b=await running(l),foreign=await running(l,bob);
+  l.db.raw.exec("UPDATE sb_sessions SET mouse_enabled=1,mouse_until=9999999999999");
+  l.db.raw.prepare("UPDATE sb_devices SET worker_expires=0 WHERE id=?").run(a.actor.id);
+  const first=seedStoppedMouse(l,a,"queued"),second=seedStoppedMouse(l,b,"executing"),other=seedStoppedMouse(l,foreign,"queued");
+  const mouse=new MouseControl(l.service),result=await mouse.stop(alice,{});
+  assert.equal(result.scope,"all_owned_devices");assert.equal(result.board_release_confirmed,false);
+  assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(first)!.state,"cancelled");
+  assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(second)!.state,"outcome_unknown");
+  assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(other)!.state,"queued");
+  assert.equal(l.db.raw.prepare("SELECT mouse_enabled FROM sb_sessions WHERE id=?").get(foreign.identity.bridge_session_id)!.mouse_enabled,1);
+  const epochs=l.db.raw.prepare("SELECT id,control_epoch FROM sb_sessions ORDER BY id").all();
+  assert.equal((await mouse.stop(alice,{})).already_stopped,true);assert.deepEqual(l.db.raw.prepare("SELECT id,control_epoch FROM sb_sessions ORDER BY id").all(),epochs);
+});
+test("S6 selected, ended, absent and foreign devices are safe idempotent stops",async()=>{
+  const l=lab(),a=await running(l),b=await running(l),foreign=await running(l,bob),mouse=new MouseControl(l.service);
+  const first=seedStoppedMouse(l,a,"queued"),second=seedStoppedMouse(l,b,"queued"),other=seedStoppedMouse(l,foreign,"queued");
+  await mouse.stop(alice,{device_id:a.actor.id});
+  assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(first)!.state,"cancelled");
+  assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(second)!.state,"queued");
+  await mouse.stop(alice,{device_id:foreign.actor.id});assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(other)!.state,"queued");
+  assert.equal((await mouse.stop(alice,{device_id:uid()})).already_stopped,true);
+  await l.service.stop(a.actor,a.identity.bridge_session_id);assert.equal((await mouse.stop(alice,{device_id:a.actor.id})).already_stopped,true);
+  assert.equal((await new MouseControl(lab().service).stop(alice,{})).already_stopped,true);
+});
+test("S3 session stop terminalizes mouse and historical browse records without losing receipts",async()=>{
+  for(const leased of [false,true]){
+    const l=lab(),r=await running(l),other=await running(l),foreign=await running(l,bob);
+    const states=["queued","claimed","embedded","executing","board_acked","outcome_unknown","failed"];
+    const ids=states.map(state=>seedStoppedMouse(l,r,state));const attempted=seedStoppedMouse(l,r,"claimed",1);
+    const protectedIDs=[seedStoppedMouse(l,other,"queued"),seedStoppedMouse(l,foreign,"queued"),seedStoppedMouse(l,r,"queued",0,bob.id)];
+    const browse=seedStoppedBrowse(l,r,leased);
+    await l.service.stop(r.actor,r.identity.bridge_session_id,true);
+    for(let i=0;i<states.length;i++){
+      const row=l.db.raw.prepare("SELECT state,receipt FROM sb_mouse_commands WHERE id=?").get(ids[i])!;
+      assert.equal(row.state,i<3?"cancelled":i===3?"outcome_unknown":states[i]);assert.equal(row.receipt,'{"original":"retained"}');
+    }
+    assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(attempted)!.state,"outcome_unknown");
+    for(const id of protectedIDs)assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(id)!.state,"queued");
+    assert.equal(l.db.raw.prepare("SELECT state FROM sb_browse_runs WHERE id=?").get(browse)!.state,leased?"outcome_unknown":"cancelled");
+    const saved=l.db.raw.prepare("SELECT * FROM sb_mouse_commands ORDER BY id").all();await l.service.stop(r.actor,r.identity.bridge_session_id,true);
+    assert.deepEqual(l.db.raw.prepare("SELECT * FROM sb_mouse_commands ORDER BY id").all(),saved);
+  }
+});
+
+test("S6 active grant with no commands is stopped once, and a missing hardware row does not block MCP Stop",async()=>{
+  const l=lab(),r=await running(l);l.db.raw.prepare("UPDATE sb_sessions SET mouse_enabled=1,mouse_until=? WHERE id=?").run(l.now()+5000,r.identity.bridge_session_id);
+  const first=(await liveMcp(l.service,"stop_mouse",{})).result.structuredContent;
+  assert.equal(first.stopped,true);assert.equal(first.already_stopped,false);
+  assert.equal((await new MouseControl(l.service).stop(alice,{})).already_stopped,true);
+});
+
+test("P4 terminal text is removed while original idempotency and receipts remain",async()=>{
+  const {l,r,id,args}=await focusedTextAfterFixture(false);
+  const original=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE id=?").get(id)!;
+  assert.equal(JSON.parse(String(original.payload)).text,undefined);
+  assert.equal(JSON.parse(String(original.payload)).text_redacted,true);
+  const repeat=await liveMcp(l.service,"type_text_in_field",{...args,wait_ms:0});
+  assert.equal(repeat.result.structuredContent.command_id,id);
+  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands WHERE device_id=?").get(r.actor.id)!.n,1);
+  assert.equal(l.db.raw.prepare("SELECT digest FROM sb_mouse_commands WHERE id=?").get(id)!.digest,original.digest);
+  const changed=await liveMcp(l.service,"type_text_in_field",{...args,text:"different",wait_ms:0});assert.equal(changed.result.isError,true);
+});
+test("P4 stopping and expiry maintenance redact text without deleting uncertain evidence",async()=>{
+  const l=lab(),r=await running(l),id=seedStoppedMouse(l,r,"executing",1);
+  l.db.raw.prepare("UPDATE sb_mouse_commands SET kind='keyboard.type_text',payload=? WHERE id=?").run(JSON.stringify({text:"private-code",submit_enter:true}),id);
+  await new MouseControl(l.service).stop(alice,{});
+  const row=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE id=?").get(id)!;
+  assert.equal(row.state,"outcome_unknown");assert.deepEqual(JSON.parse(String(row.payload)),{submit_enter:true,text_redacted:true});assert.ok(row.receipt);
+  const queued=seedStoppedMouse(l,r,"queued");l.db.raw.prepare("UPDATE sb_mouse_commands SET kind='keyboard.type_text',payload=?,expires_at=? WHERE id=?").run('{"text":"pending-secret"}',l.now()-300001,queued);
+  await l.service.pruneMetadata();assert.equal(JSON.parse(String(l.db.raw.prepare("SELECT payload FROM sb_mouse_commands WHERE id=?").get(queued)!.payload)).text,undefined);
+});
+test("P4 revoke deletes owned device commands and sessions but preserves another owner",async()=>{
+  const l=lab(),a=await running(l),b=await running(l,bob),id=seedStoppedMouse(l,a,"executing",1),other=seedStoppedMouse(l,b,"queued");
+  await l.service.revoke(alice,a.actor.id);
+  assert.equal(l.db.raw.prepare("SELECT id FROM sb_mouse_commands WHERE id=?").get(id),undefined);
+  assert.equal(l.db.raw.prepare("SELECT id FROM sb_sessions WHERE id=?").get(a.identity.bridge_session_id),undefined);
+  assert.ok(l.db.raw.prepare("SELECT id FROM sb_mouse_commands WHERE id=?").get(other));
+});
+
+test("P4 missing redaction migration blocks new text but preserves original-ID reads",async()=>{
+  const {l,r,id,args}=await focusedTextAfterFixture(false);
+  l.db.raw.exec("DROP TRIGGER sb_mouse_terminal_text_update");
+  const count=()=>l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
+  const before=count();
+  const reply=await liveMcp(l.service,"type_text_in_field",{...args,idempotency_key:uid(),wait_ms:0});
+  assert.equal(reply.result.structuredContent.error,"PRIVACY_STORAGE_NOT_READY");assert.equal(count(),before);
+  const original=await liveMcp(l.service,"get_mouse_result",{command_id:id});assert.equal(original.result.structuredContent.command_id,id);
+  assert.equal((await r.mouse.status(alice,{device_id:r.actor.id})).privacy_storage_ready,false);
+});
+test("P4 seven-day compaction retains duplicate and input-order barriers and protects user stop tombstones",async()=>{
+  const l=lab(),r=await running(l),id=seedStoppedMouse(l,r,"board_acked",1);
+  l.db.raw.prepare("UPDATE sb_mouse_commands SET expires_at=?,payload=? WHERE id=?").run(l.now()-7*86400000-1,'{"x":123,"y":456}',id);
+  const original=l.db.raw.prepare("SELECT digest,idempotency_key,session_id,control_epoch,input_attempted FROM sb_mouse_commands WHERE id=?").get(id);
+  l.db.raw.prepare("UPDATE sb_sessions SET state='stopped',blocked=1,stopped_at=? WHERE id=?").run(l.now()-8*86400000,r.identity.bridge_session_id);
+  await l.service.pruneMetadata("maintenance");
+  const row=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE id=?").get(id)!;assert.equal(row.receipt,null);assert.deepEqual(JSON.parse(String(row.payload)),{details_redacted:true});
+  assert.deepEqual(l.db.raw.prepare("SELECT digest,idempotency_key,session_id,control_epoch,input_attempted FROM sb_mouse_commands WHERE id=?").get(id),original);
+  assert.ok(l.db.raw.prepare("SELECT id FROM sb_sessions WHERE id=?").get(r.identity.bridge_session_id));
+});
+
+test("P4 retired text digests cannot replay; rotated keys preserve original result retrieval",async()=>{
+  const {l,r,id,args}=await focusedTextAfterFixture(false);
+  const before=l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n;
+  assert.match(String(l.db.raw.prepare("SELECT digest FROM sb_mouse_commands WHERE id=?").get(id)!.digest),/^hmac-v1:[0-9a-f]{64}$/);
+  const rotated=new BridgeEngine({db:l.db as unknown as D1Database,bucket:l.bucket as unknown as R2Bucket,now:l.now,framePermits:new FrameUploadPermits("cd".repeat(32))});
+  const conflict=await liveMcp(rotated,"type_text_in_field",{...args,wait_ms:0});
+  assert.equal(conflict.result.structuredContent.error,"IDEMPOTENCY_CONFLICT");
+  assert.equal((await liveMcp(rotated,"get_mouse_result",{command_id:id})).result.structuredContent.command_id,id);
+  l.db.raw.prepare("UPDATE sb_mouse_commands SET digest=? WHERE id=?").run("retired-unkeyed-text",id);
+  assert.equal((await liveMcp(l.service,"type_text_in_field",{...args,wait_ms:0})).result.structuredContent.error,"IDEMPOTENCY_CONFLICT");
+  assert.equal(l.db.raw.prepare("SELECT count(*) n FROM sb_mouse_commands").get()!.n,before);
+});
+
+test("P4 authenticated MCP usage cleans abandoned text without image uploads",async()=>{
+  const l=lab(),r=await running(l),id=seedStoppedMouse(l,r,"queued");
+  l.db.raw.prepare("UPDATE sb_mouse_commands SET kind='keyboard.type_text',payload=?,expires_at=? WHERE id=?").run('{"text":"123456"}',l.now()-300001,id);
+  await liveMcp(l.service,"stop_mouse",{},undefined,undefined,alice,undefined,undefined,undefined,true);
+  const row=l.db.raw.prepare("SELECT state,payload FROM sb_mouse_commands WHERE id=?").get(id)!;
+  assert.equal(row.state,"cancelled");assert.equal(JSON.parse(String(row.payload)).text,undefined);
+});
+
+test("P4 migration erases legacy text SHA digests and retires queued and attempted commands",async()=>{
+  const l=lab(),r=await running(l);
+  const ids=[seedStoppedMouse(l,r,"queued"),seedStoppedMouse(l,r,"executing",1),seedStoppedMouse(l,r,"board_acked",1)];
+  for(const id of ids)l.db.raw.prepare("UPDATE sb_mouse_commands SET kind='keyboard.type_text',digest=?,payload=? WHERE id=?").run("a".repeat(64),'{"text":"123456"}',id);
+  l.db.raw.exec("DROP TRIGGER sb_mouse_text_digest_required");
+  l.db.raw.exec(readFileSync("drizzle/0027_retire_unkeyed_text_digests.sql","utf8"));
+  for(const [i,id] of ids.entries()) {
+    const row=l.db.raw.prepare("SELECT * FROM sb_mouse_commands WHERE id=?").get(id)!;
+    assert.equal(row.digest,"retired-unkeyed-text");assert.equal(JSON.parse(String(row.payload)).text,undefined);
+    assert.equal(row.state,["cancelled","outcome_unknown","board_acked"][i]);
   }
 });

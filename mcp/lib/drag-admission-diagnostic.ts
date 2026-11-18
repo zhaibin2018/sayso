@@ -4,7 +4,7 @@ export type DragAdmissionRejection={ready:number;capabilities_ready:number;diagn
 
 /** Replaces the no-command readiness read inside the original D1 batch. */
 export function dragAdmissionRejectionSQL(databaseNow:string,authority:(clock:string)=>string,
-  capabilities:readonly [string,string,string],fences:Record<string,string>) {
+  capabilities:readonly string[],fences:Record<string,string>) {
   const at="r.now",intent="r.intent";
   const ready="d.revoked=0 AND s.state='active' AND h.device_id IS NOT NULL";
   const capabilityTests=capabilities.map(name=>"json_type(h.metadata,'$.capabilities.\""+name+"\"')='true'");

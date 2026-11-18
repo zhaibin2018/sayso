@@ -1224,8 +1224,8 @@
     },
     {
       "path": "mcp/public/sayso-icon.png",
-      "bytes": 490950,
-      "sha256": "1c3b958dddf536180eea99650aab80cfc433d41f818994993a4a9b78996268f2"
+      "bytes": 490955,
+      "sha256": "74b5cc2053e668b24fcdcf30abe9f3cdbae7bb83545feef95438d6843a8308cc"
     },
     {
       "path": "mcp/scripts/benchmark-authenticated-observation.mjs",

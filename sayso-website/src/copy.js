@@ -103,27 +103,23 @@ export const copy = {
     "approveSub": "Use the on-screen approval controls in ChatGPT. Saying “yes” will not approve the action.",
     "connectedNote": "Connecting your account doesn't share your screen. Tap Start Sharing in SaySo.",
     "guidesTitle": "A little guidance, when you need it.",
-    "guidesSub": "Start from Connect ChatGPT in SaySo. Developer setup instructions are also available.",
+    "guidesSub": "Recommended setup starts with Connect ChatGPT in SaySo. Mobile setup is still being verified; developers can follow the GitHub Work instructions.",
     "guideSections": [
       [
-        "One installation entry",
-        "Start from Connect ChatGPT in the SaySo app. The installation guide prepares your private Site and its connected plugin and skills. You confirm sign-in and permissions. This consumer flow is still in development."
+        "Start and stop sharing",
+        "Start screen sharing in SaySo, then return to ChatGPT Voice. To stop tapping, use Stop control in SaySo. To stop sending the screen, stop screen sharing too."
       ],
       [
-        "If setup is interrupted",
-        "Return to the same setup conversation and continue from the last confirmed step. Do not start several installs in parallel. The installer is intended to resume completed work; that behavior still needs end-to-end acceptance."
+        "When ChatGPT asks for approval",
+        "Look for the approval card with buttons in the ChatGPT conversation. Tap its on-screen approval control or decline. Saying “yes” is not an approval. This is separate from making the final tap yourself."
       ],
       [
-        "Understanding your allowance",
-        "The planned free tier includes screen guidance and 5 completed tasks per month. Several taps can belong to one task; failed tasks do not count. Task accounting and paid entitlements are not live yet."
+        "Leave the final tap to you",
+        "For payments, orders, sending, deleting, cancelling a subscription or transferring money, the instruction is to park the pointer on the final button, check the image, and ask you to tap it yourself. This is an AI instruction, not a code-enforced block. C124 button approval is not available yet."
       ],
       [
-        "What screen sharing cannot show",
-        "Some apps hide or restrict screen sharing. SaySo may not be able to assist on those screens. Pause sharing before opening sensitive content. This is not a guarantee that all banking or sensitive apps hide their content."
-      ],
-      [
-        "For developers",
-        "MCP, the plugin and seven skills are available as a versioned source preview under FSL-1.1-ALv2. GitHub includes a copyable installation instruction and guide for your own private Site. Complete iPhone setup is still being verified. DIY accessory firmware will be released separately."
+        "Some screens are hidden",
+        "Banking/payment apps, identity apps such as Singpass, company/school-managed apps such as Teams with a work account, and protected videos may hide their screens. This protects your information; SaySo cannot help with a hidden screen or bypass the protection. Do that part yourself; if sharing prevents use, stop sharing and resume afterward. This is not a guarantee that all banking or sensitive apps hide their content."
       ]
     ],
     "officialDocs": "Official ChatGPT documentation",
@@ -238,7 +234,34 @@ export const copy = {
         "It does not tap anything."
       ]
     },
-    "exampleLabel": "Illustrative conversation"
+    "exampleLabel": "Illustrative conversation",
+    "guideExamples": [
+      [
+        "Getting around",
+        "When is the next bus home?",
+        "Find a route to the library."
+      ],
+      [
+        "Food",
+        "Help me choose dinner.",
+        "Show me the final order before I tap."
+      ],
+      [
+        "Subscriptions",
+        "Help me find this subscription.",
+        "Take me to the cancellation confirmation."
+      ],
+      [
+        "Settings",
+        "What does this switch do?",
+        "Explain this screen without tapping."
+      ]
+    ],
+    "trySaying": "Try saying",
+    "needHelp": "Need help?",
+    "developerTitle": "Developer information",
+    "developerVersion": "Service source 0.13.249 includes stop and privacy fixes. Existing private services need an update; see INSTALL.md.",
+    "installGuide": "Read the installation and update guide"
   },
   "zh": {
     "home": "首页",
@@ -342,27 +365,23 @@ export const copy = {
     "approveSub": "请使用 ChatGPT 屏幕上的批准或拒绝控件。说“同意”不会批准这项操作。",
     "connectedNote": "连接账号不会自动共享屏幕，请在 SaySo 里点“开始共享”。",
     "guidesTitle": "需要的时候，有清楚的指引。",
-    "guidesSub": "推荐从 SaySo 的“连接 ChatGPT”开始；开发者也可使用安装指令。",
+    "guidesSub": "推荐从 SaySo 的“连接 ChatGPT”开始。手机完整流程仍待验证；开发者可按 GitHub 的 Work 指令安装。",
     "guideSections": [
       [
-        "统一安装入口",
-        "从 SaySo App 的“连接 ChatGPT”发起。安装引导准备你自己的私人 Site、对应插件和配套 Skill；登录与授权由你确认。这套消费者流程仍在开发中。"
+        "开始和停止共享",
+        "在 SaySo 开始屏幕共享，再回到 ChatGPT 语音。想停止帮你点，在 SaySo 点“停止控制”；想停止发送画面，还要停止屏幕共享。"
       ],
       [
-        "安装中断了怎么办",
-        "回到同一安装对话，从最后确认的步骤继续，不要同时发起多个安装。安装器应复用已完成的工作，其恢复能力仍需完整验收。"
+        "ChatGPT 请求批准时",
+        "在 ChatGPT 对话里找到带按钮的批准卡片，在屏幕上批准或拒绝。说“同意”不会批准。这和最后一下由你自己点是两回事。"
       ],
       [
-        "免费额度如何计算",
-        "计划免费提供读屏和每月 5 个完成的任务。一个任务可包含多次点击，失败不扣次数。任务计数与付费权益尚未上线。"
+        "最后一下交给你",
+        "付款、下单、发送、删除、取消订阅、转账等最后一步，规则是先停指针、确认画面，再请你自己点。这是让 AI 遵守的软规则，不是代码强制拦截。C124 按键批准尚未提供。"
       ],
       [
-        "哪些画面可能看不到",
-        "部分 App 会隐藏或限制屏幕共享，SaySo 可能无法在这些页面提供帮助。打开敏感内容前请暂停共享。这不代表所有银行或敏感 App 都会自动隐藏。"
-      ],
-      [
-        "开发者资料",
-        "MCP、插件和七个 Skill 已作为版本化源码预览提供，采用 FSL-1.1-ALv2。GitHub 提供可复制的一句话安装指令及私人 Site 安装指南。iPhone 完整安装流程仍待验收，DIY 配件固件另行发布。"
+        "有些画面看不到",
+        "银行和支付 App、身份认证 App（比如 Singpass）、公司或学校管理的 App（比如工作账号的 Teams）、受保护的视频可能隐藏画面。这是在保护你的信息；SaySo 无法在看不见的画面里帮忙，也不绕过保护。请自行处理；共享导致 App 不能用时，先停止共享，完成后再开启。这不代表所有银行或敏感 App 都会隐藏内容。"
       ]
     ],
     "officialDocs": "ChatGPT 官方说明",
@@ -477,7 +496,34 @@ export const copy = {
         "不点击任何东西。"
       ]
     },
-    "exampleLabel": "对话示例"
+    "exampleLabel": "对话示例",
+    "guideExamples": [
+      [
+        "出行",
+        "回家的公交还有多久到？",
+        "帮我查去图书馆的路线。"
+      ],
+      [
+        "外卖",
+        "帮我选晚饭。",
+        "让我看看最后的订单，我自己点。"
+      ],
+      [
+        "订阅",
+        "帮我找到这个订阅。",
+        "带我到取消确认那一步。"
+      ],
+      [
+        "设置",
+        "这个开关是干什么的？",
+        "解释这个页面，不要点击。"
+      ]
+    ],
+    "trySaying": "可以这样说",
+    "needHelp": "遇到问题？",
+    "developerTitle": "开发者资料",
+    "developerVersion": "服务源码0.13.249已包含停止和隐私修复。已有私人服务需要自行更新，方法见INSTALL.md。",
+    "installGuide": "查看安装与更新指南"
   }
 };
 for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, compatPending:requirements[lang].compatibilityNote, noAccessory:requirements[lang].screenSummary});

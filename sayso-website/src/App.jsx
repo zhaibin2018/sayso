@@ -746,7 +746,7 @@ function Repository({ config, t }) {
     </p>
   );
 }
-function Guides({ t, config }) {
+function Guides({ t, config, lang }) {
   return (
     <div className="document">
       <PageHeading
@@ -754,17 +754,15 @@ function Guides({ t, config }) {
         title={t.guidesTitle}
         subtitle={t.guidesSub}
       />
+      <section className="document-sections"><h2>{t.trySaying}</h2>{t.guideExamples.map(([title,...examples])=><section key={title}><h3>{title}</h3><ul>{examples.map(example=><li key={example}>“{example}”</li>)}</ul></section>)}</section>
       <DocumentSections sections={t.guideSections} />
-      <Repository t={t} config={config} />
-      <section className="document-sections">
-        <h2>{t.officialDocs}</h2>
-        <Link to="https://help.openai.com/en/articles/20001339-creating-and-using-chatgpt-sites">
-          {t.sitesDocs}
-        </Link>
-        <Link to="https://help.openai.com/en/articles/20001274-chatgpt-voice">
-          {t.voiceDocs}
-        </Link>
-      </section>
+      <p>{t.needHelp} <Link to="support">{t.support}</Link></p>
+      <details className="developer-details"><summary>{t.developerTitle}</summary>
+        <p>{t.developerVersion}</p><Repository t={t} config={config} />
+        <Link to="https://github.com/zhaibin2018/sayso/blob/main/INSTALL.md">{t.installGuide}</Link>
+        <p>{t.licensesSub}</p><Link to="https://github.com/zhaibin2018/sayso/blob/main/README.md">{lang === "zh" ? "复制一句话安装指令" : "Copyable one-sentence setup instruction"}</Link>
+        <p><Link to="https://help.openai.com/en/articles/20001339-creating-and-using-chatgpt-sites">{t.sitesDocs}</Link></p>
+      </details>
       <Link className="button-primary" to="start">
         {t.start}
       </Link>

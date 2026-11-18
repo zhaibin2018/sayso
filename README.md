@@ -1,6 +1,6 @@
-> **Security update available: MCP 0.13.251.** Earlier public snapshots contain known stop and text-retention defects. Existing private services do not update automatically: follow [Update an existing private service](INSTALL.md#update-an-existing-private-service--更新已有私人服务). This is an offline-verified source preview, not physical-device acceptance.
+> **Security update available: MCP 0.13.252.** Earlier public snapshots contain known stop and text-retention defects. Existing private services do not update automatically: follow [Update an existing private service](INSTALL.md#update-an-existing-private-service--更新已有私人服务). This is an offline-verified source preview, not physical-device acceptance.
 >
-> **安全更新：MCP 0.13.251。** 旧版公开快照存在停止与文字留存问题。已安装用户请复用原私人服务并按 INSTALL.md 更新，不要重新配对或清库。
+> **安全更新：MCP 0.13.252。** 旧版公开快照存在停止与文字留存问题。已安装用户请复用原私人服务并按 INSTALL.md 更新，不要重新配对或清库。
 
 # SaySo
 
@@ -18,18 +18,18 @@ The planned SaySo free tier includes screen guidance and **5 completed tasks per
 
 ## Start installation with one instruction / 一句话发起安装
 
-Open **ChatGPT Work** in the intended account, copy one instruction below, and send it yourself. Read the [pinned installation guide](https://github.com/zhaibin2018/sayso/blob/2f46ae36f996dfb10610da47c155b6d9e2fa215d/INSTALL.md) first. This is a guided source preview; full new-user iPhone setup and automatic phone configuration handoff are not yet accepted.
+Open **ChatGPT Work** in the intended account, copy one instruction below, and send it yourself. Read the [pinned installation guide](https://github.com/zhaibin2018/sayso/blob/d8151250b6f907742d3a70f7be792684a637a9cc/INSTALL.md) first. This is a guided source preview; full new-user iPhone setup and automatic phone configuration handoff are not yet accepted.
 
 English:
 
 ```text
-Follow https://github.com/zhaibin2018/sayso/blob/2f46ae36f996dfb10610da47c155b6d9e2fa215d/INSTALL.md to create or resume a private SaySo Site in my account, deploy the pinned MCP source, add the seven companion skills to that Site's existing plugin, and guide me through required sign-in, permissions and iPhone pairing; reuse completed steps and report only verified readiness.
+Follow https://github.com/zhaibin2018/sayso/blob/d8151250b6f907742d3a70f7be792684a637a9cc/INSTALL.md to create or resume a private SaySo Site in my account, deploy the pinned MCP source, add the seven companion skills to that Site's existing plugin, and guide me through required sign-in, permissions and iPhone pairing; reuse completed steps and report only verified readiness.
 ```
 
 中文：在目标账号打开 **ChatGPT Work**，复制下面这一句话并自行发送。
 
 ```text
-请按照 https://github.com/zhaibin2018/sayso/blob/2f46ae36f996dfb10610da47c155b6d9e2fa215d/INSTALL.md 在我的账号中创建或恢复私人 SaySo Site，部署固定版本的 MCP，为同一个 Site 插件安装配套的七个 Skill，并引导我完成必要的登录、授权和 iPhone 配对；复用已完成步骤，仅按实际验证结果报告连接状态。
+请按照 https://github.com/zhaibin2018/sayso/blob/d8151250b6f907742d3a70f7be792684a637a9cc/INSTALL.md 在我的账号中创建或恢复私人 SaySo Site，部署固定版本的 MCP，为同一个 Site 插件安装配套的七个 Skill，并引导我完成必要的登录、授权和 iPhone 配对；复用已完成步骤，仅按实际验证结果报告连接状态。
 ```
 
 ### What happens next / 安装过程
@@ -43,7 +43,7 @@ Follow https://github.com/zhaibin2018/sayso/blob/2f46ae36f996dfb10610da47c155b6d
 
 **当前限制：** 手机自动配置回传尚未完成验收；不能承诺发送一句话后整条流程已经可用。私人服务不得为了连接方便改成公开，密钥不得发到聊天或放进安装链接。登录、屏幕共享及需要批准的操作仍由用户确认。
 
-Source pin: `2f46ae36f996dfb10610da47c155b6d9e2fa215d`. Source hashes: [SOURCE_MANIFEST.json](https://github.com/zhaibin2018/sayso/blob/2f46ae36f996dfb10610da47c155b6d9e2fa215d/SOURCE_MANIFEST.json). This source snapshot is not a stable consumer release.
+Source pin: `d8151250b6f907742d3a70f7be792684a637a9cc`. Source hashes: [SOURCE_MANIFEST.json](https://github.com/zhaibin2018/sayso/blob/d8151250b6f907742d3a70f7be792684a637a9cc/SOURCE_MANIFEST.json). This source snapshot is not a stable consumer release.
 
 ## What you will need
 

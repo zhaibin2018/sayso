@@ -8469,3 +8469,22 @@ test("P4 migration erases legacy text SHA digests and retires queued and attempt
     assert.equal(row.state,["cancelled","outcome_unknown","board_acked"][i]);
   }
 });
+
+test("S6 stop_session without an ID stops all owned sessions and preserves other owners",async()=>{
+ const l=lab(),a=await running(l),b=await running(l),other=await running(l,bob);
+ const queued=seedStoppedMouse(l,a,"queued"),executing=seedStoppedMouse(l,b,"executing",1);
+ const reply=await liveMcp(l.service,"stop_session",{});assert.equal(reply.result.structuredContent.stopped,true);
+ assert.deepEqual(new Set(reply.result.structuredContent.stopped_sessions as string[]),new Set([a.identity.bridge_session_id,b.identity.bridge_session_id]));
+ assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(queued)!.state,"cancelled");
+ assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(executing)!.state,"outcome_unknown");
+ assert.equal(l.db.raw.prepare("SELECT state FROM sb_sessions WHERE id=?").get(other.identity.bridge_session_id)!.state,"active");
+ const repeated=(await liveMcp(l.service,"stop_session",{})).result.structuredContent;assert.equal(repeated.already_stopped,true);assert.equal(repeated.cloud_image_cleared,null);
+ assert.equal((await liveMcp(l.service,"stop_session",{bridge_session_id:other.identity.bridge_session_id})).result.structuredContent.error,"NOT_FOUND");
+});
+test("S6 bulk session stop continues after a cleanup failure and reports uncertainty",async()=>{
+ const l=lab(),a=await running(l),b=await running(l);const stop=l.service.stop.bind(l.service);let calls=0;
+ l.service.stop=async(...args)=>{calls++;if(args[1]===a.identity.bridge_session_id)throw Error("fixture failure");return stop(...args);};
+ const result=(await liveMcp(l.service,"stop_session",{})).result.structuredContent;
+ assert.equal(calls,2);assert.equal(result.stopped,false);assert.equal(result.input_control_enabled,null);assert.equal((result.failed_sessions as any[]).length,1);
+ assert.equal(l.db.raw.prepare("SELECT state FROM sb_sessions WHERE id=?").get(b.identity.bridge_session_id)!.state,"stopped");
+});

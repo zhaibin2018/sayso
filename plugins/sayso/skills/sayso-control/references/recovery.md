@@ -14,3 +14,5 @@ There are no old-device compatibility or legacy Search/field preparation paths. 
 ## Stop without readiness checks
 
 Call `stop_mouse` immediately when the user asks to stop control. Use an explicit device ID only when the user selected that device; otherwise omit it to stop all owned devices. Do not run readiness or screen checks before stopping. An already-stopped response is success. Sharing continues, and cloud revocation alone does not confirm the board has released every key.
+
+When the user wants sharing ended, call `stop_session` directly; omit `bridge_session_id` to stop all owned ongoing sessions. Report any failed session IDs accurately. Cloud stop does not confirm that iOS screen sharing has ended.

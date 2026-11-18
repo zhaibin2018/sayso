@@ -14,4 +14,4 @@ Apply [shared rules](../sayso-control/references/workflows.md) and [image handof
 
 For an installed icon or open arrow, choose its visible center in original-image pixel coordinates. Forward the exact source proof when supplied. App-store entries and web suggestions need visual distinction from installed results.
 
-Use only this current primitive workflow. Do not use native preparation, search_app_with_vision or an old-device fallback. Uncertain actions use [original-ID recovery](../sayso-control/references/recovery.md).
+Use only this current primitive workflow. Do not use retired preparation or an old-device fallback. Uncertain actions use [original-ID recovery](../sayso-control/references/recovery.md).

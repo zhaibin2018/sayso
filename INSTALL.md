@@ -78,7 +78,7 @@ Reuse the existing owned private Site, database, bucket and canonical plugin. Do
 
 1. Pin this source snapshot and verify its manifest. Compare existing owner configuration; preserve the Site origin, project identity and protected secrets. Do not print/export secrets. A valid existing signing key should be preserved: rotating it also invalidates comparison of existing text-request HMACs. Recover uncertain work by original command ID, never automatically send it again with a new key.
 2. Stop current control before migration. Apply **all unapplied migrations in order through 0027** through the supported Sites database workflow. Migration 0026 removes text in terminal commands. Migration 0027 erases old unkeyed text digests, retains non-replayable request keys, and cancels pending old text commands or marks attempted input uncertain. Do not skip migrations or run a destructive reset.
-3. Replace service code with `mcp/`, retaining actual private bindings and `SAYSO_PUBLIC_ORIGIN`. Configure a valid 64-hex signing key if absent/invalid. Build/test and deploy using the supported Sites workflow; verify the terminal deployment result and authenticated MCP initialization reports **0.13.250**. A repository update alone does not update an existing user Site.
+3. Replace service code with `mcp/`, retaining actual private bindings and `SAYSO_PUBLIC_ORIGIN`. Configure a valid 64-hex signing key if absent/invalid. Build/test and deploy using the supported Sites workflow; verify the terminal deployment result and authenticated MCP initialization reports **0.13.251**. A repository update alone does not update an existing user Site.
 4. Read the existing Site plugin and overlay the versioned companion skills without replacing its private manifests or App binding. Report actual deployed service and skill versions and all remaining phone/firmware setup gaps.
 5. Verify stop and original-result recovery without sending new phone input. No physical control, payment, sending, deletion or firmware flashing is an installation smoke test.
 
@@ -95,3 +95,7 @@ Maintenance is opportunistic on engine-backed MCP calls, device heartbeats, stop
 ## T6 companion guidance
 
 Use service 0.13.250 with skills 1.2.41 for final-step handoff: do not click an irreversible final payment/order/send/delete/cancellation/transfer button; park using move_mouse_to, inspect the actual after-image, name the button and ask the user to tap. Hidden screens require stopping input. This is an AI soft rule, not a code-enforced block or C124 approval feature.
+
+## Current guidance update
+
+For runtime 0.13.251 use skills 1.2.42. Never interpret placeholder zero coordinates as a region-center selector: click_at accepts actual original-image pixel coordinates only. Omit bridge_session_id in stop_session to stop all owned ongoing sessions. Returned cleanup failures must be reported; cloud stop is not proof that iOS screen sharing ended. The shorter descriptions are offline-tested, not real-phone A/B accepted.

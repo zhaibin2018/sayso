@@ -3,8 +3,8 @@
   "snapshot": "SaySo security source 2026-11-18",
   "license": "FSL-1.1-ALv2",
   "licensor": "ZHAI BIN",
-  "mcpRuntime": "0.13.250",
-  "skillSourceVersion": "1.2.41",
+  "mcpRuntime": "0.13.251",
+  "skillSourceVersion": "1.2.42",
   "consumerEndToEndAccepted": false,
   "files": [
     {
@@ -19,8 +19,8 @@
     },
     {
       "path": "INSTALL.md",
-      "bytes": 13901,
-      "sha256": "79fa1b8603ab96849ba6795a5d1d2b27bd3b4d82735b8ace8c2d1fc36de2ef7e"
+      "bytes": 14355,
+      "sha256": "f4b9aba33b2f3b9fc6a12d8a26b87b1c32ae9bba8405ec1eda9a32b437df6d5f"
     },
     {
       "path": "LICENSE.md",
@@ -74,8 +74,8 @@
     },
     {
       "path": "mcp/README.md",
-      "bytes": 3305,
-      "sha256": "4d6820e2ac1f57b8ebc2c417fc5ec7dd20046d1934f57376929cc9be0b200ffb"
+      "bytes": 3627,
+      "sha256": "39e22e4d6e3057b5326bb5b010803167834ba681066899060227a0b813ff2ab5"
     },
     {
       "path": "mcp/SELF_HOSTING.md",
@@ -454,13 +454,13 @@
     },
     {
       "path": "mcp/contracts/current-actions.json",
-      "bytes": 68737,
-      "sha256": "75d30de7b3a994e8198eaf6ec6840228695adda9b4e388bda44703e1fb5ff26d"
+      "bytes": 50734,
+      "sha256": "da1d0b47c369904b226c547ecc3aaf167db4b6a190ca9a08b3f671da1b43a653"
     },
     {
       "path": "mcp/contracts/openapi.json",
-      "bytes": 144998,
-      "sha256": "6edd5c4343c80c333b33b461d30c6ee65b5a2b945876c1eaa8a03bb29595ad01"
+      "bytes": 111974,
+      "sha256": "381338cb54247712d7e7c9fcdcedc7a9e4500edbb1a0f7eb0f9ed2222c957fcb"
     },
     {
       "path": "mcp/db/index.ts",
@@ -914,8 +914,8 @@
     },
     {
       "path": "mcp/lib/current-control-guide.ts",
-      "bytes": 5517,
-      "sha256": "2ed5256f0af7a0d5dc3258720d2a5c52a952fdc55c2dfc042a268979b893ca32"
+      "bytes": 6261,
+      "sha256": "29ded5396b0aed0bbe920daec0161d48b85e3396a9f6df7e9cecbe117f280001"
     },
     {
       "path": "mcp/lib/current-frame-admission.ts",
@@ -959,8 +959,8 @@
     },
     {
       "path": "mcp/lib/final-step-policy.ts",
-      "bytes": 1642,
-      "sha256": "e41fd529d262b28620efa954e777f74a578cfe0e177becab4b9b6b424517ee7d"
+      "bytes": 597,
+      "sha256": "d49240b7313956caf534f7e39f78acfaa53aff59b959b23858df4ad4fedce1da"
     },
     {
       "path": "mcp/lib/focused-field-admission-diagnostic.ts",
@@ -999,8 +999,8 @@
     },
     {
       "path": "mcp/lib/interaction-guidance.ts",
-      "bytes": 4823,
-      "sha256": "6253e3eed16b7da902f5c25b00843e79c7b295f5c9f91b3b3d5d34e12ab704fc"
+      "bytes": 5100,
+      "sha256": "f7153c353452ec2b818cda535c4e8eab846ec11783021e73635ad2ca8db229e3"
     },
     {
       "path": "mcp/lib/jpeg-validation.ts",
@@ -1034,18 +1034,18 @@
     },
     {
       "path": "mcp/lib/mcp-performance.ts",
-      "bytes": 26679,
-      "sha256": "9bcfe04979d863c2722bb05fffb574d4322b638465ac88b99b5bf30a6b1e2dd8"
+      "bytes": 25104,
+      "sha256": "92bf61448d7dea4848a9c2b04948b67844df86efc56f87c676982e8c4eed7fd5"
     },
     {
       "path": "mcp/lib/mcp-protocol.ts",
-      "bytes": 58455,
-      "sha256": "0c2a6b4cb920d188d6290c8503c7505ea4066f84064ab8888ae7473750ddf8bd"
+      "bytes": 58078,
+      "sha256": "ec7c131a43a8b03c0570c77d5a44d37191f3016875205075f0a0e09a0fdbd807"
     },
     {
       "path": "mcp/lib/mcp-tool-catalog.ts",
-      "bytes": 35357,
-      "sha256": "5ac8327e7b69666c8dd3726b12d8c58cec0a8d772903e564e656acc0a9d1e2c3"
+      "bytes": 29014,
+      "sha256": "9ab6edee694c23c2511d6fce5fe664fb02855abd510200cef52fcb9c7fd77fcd"
     },
     {
       "path": "mcp/lib/mouse-control.ts",
@@ -1150,7 +1150,7 @@
     {
       "path": "mcp/lib/runtime-identity.ts",
       "bytes": 78,
-      "sha256": "8779ba111722107f750c69a5fd0d35d076d1fe8d48104c85a656af2fde1a26d7"
+      "sha256": "ec94d68b0a577e6fe92de1f545aa1fdd5c907cdab1da9603aec78a902fcce596"
     },
     {
       "path": "mcp/lib/screen-snapshot-query.ts",
@@ -1186,6 +1186,11 @@
       "path": "mcp/lib/spotlight-command.ts",
       "bytes": 7458,
       "sha256": "e9922cd07c165a46102fd7355148d6a4cd6021ce588a85f5f392e0108f173104"
+    },
+    {
+      "path": "mcp/lib/stop-owned-sessions.ts",
+      "bytes": 1721,
+      "sha256": "a71a979f644ad61f1b575d1b27328e13a8a7a77cc422fc430eb7b9527d5a08d0"
     },
     {
       "path": "mcp/lib/utils.ts",
@@ -1399,8 +1404,8 @@
     },
     {
       "path": "mcp/tests/bridge.test.ts",
-      "bytes": 623818,
-      "sha256": "c4287ac8001b874dafcb0a9197326db9a9a97b390f1fdebca7fcd7707cbf139f"
+      "bytes": 625794,
+      "sha256": "2bc5cf483b2a2c70d6a0f092d15f411a0cf35e0a0fbb31412f36f0b344f391dc"
     },
     {
       "path": "mcp/tests/click-at-schema.test.ts",
@@ -1409,8 +1414,8 @@
     },
     {
       "path": "mcp/tests/control-guide.test.ts",
-      "bytes": 3799,
-      "sha256": "2abeb63d6da04d0ce2f60f0b9c61af012302457b2dc0494d466d64aeb59a8212"
+      "bytes": 3778,
+      "sha256": "cce5c309c8eb7d638cf2d4689401016d2d892080fd9d6ed5529e303ce723975f"
     },
     {
       "path": "mcp/tests/current-frame-reference.test.ts",
@@ -1453,6 +1458,11 @@
       "sha256": "33fcbd688450e7cceacb606fef53201f51399979095ef89cb846c77bc99c80a1"
     },
     {
+      "path": "mcp/tests/guidance-consistency.test.ts",
+      "bytes": 4012,
+      "sha256": "0c4e173186970be5647fd687d399f516e885bdd7a776fcedc119fb9bd5bf3e1c"
+    },
+    {
       "path": "mcp/tests/http-failure.test.ts",
       "bytes": 1067,
       "sha256": "4edd02611f6a3be3af6226771129053387e9644a0392b1e1986586dc70ae9441"
@@ -1479,8 +1489,8 @@
     },
     {
       "path": "mcp/tests/mcp-action-handoff.test.ts",
-      "bytes": 13344,
-      "sha256": "7561bff60ff4f27e62b4c62b39bf612902b134e82043a1ba97435fe88da4668a"
+      "bytes": 12216,
+      "sha256": "a8de3c3700ccefc61c8dff2bde8c07402358f1358bce9dab4b538db9717beca8"
     },
     {
       "path": "mcp/tests/native-search-review.test.ts",
@@ -1533,6 +1543,11 @@
       "sha256": "4a28dd3bd12c0c69ca0929e01fbff159046e0f4ed1aca73f71f92dc2555cf0bd"
     },
     {
+      "path": "mcp/tests/stop-owned-sessions.test.ts",
+      "bytes": 1358,
+      "sha256": "94e1012eed9db56c08f0e504ca93233f88ffeb8e1b5dfa04931d78688626dca0"
+    },
+    {
       "path": "mcp/tests/text-request-digest.test.ts",
       "bytes": 1933,
       "sha256": "c92ce37dd56493f369f93fe71fbde799e3ff845e47d5b6599d27180c509f6a98"
@@ -1575,7 +1590,7 @@
     {
       "path": "plugins/sayso/README.md",
       "bytes": 1348,
-      "sha256": "537a347e716ee3e995761345e5ee55c24e5ad0c253e309d50ecdacfc6684e845"
+      "sha256": "80c9b0dd3183b96b2293894e4e82db372573d5194a4ddf66460a31e965e5b3c8"
     },
     {
       "path": "plugins/sayso/SOURCE.json",
@@ -1585,12 +1600,12 @@
     {
       "path": "plugins/sayso/plugin.json",
       "bytes": 744,
-      "sha256": "89387a8d22073231a78b84a0c3cf29753612f137974f33a22d3b1264a0b120dd"
+      "sha256": "1a9fd10edab356a49092820e2c21a4c169262ea56eefb848e163f7299e25da1d"
     },
     {
       "path": "plugins/sayso/skills/sayso-click-at/SKILL.md",
-      "bytes": 1992,
-      "sha256": "5b6ef2d659a468f854a986c4404a5a9c254067edfce05fefad2d581797d745c2"
+      "bytes": 1727,
+      "sha256": "a547e529c6b43cb5d69842ed4273de3d671a11345b69d9a76b3a204309eecd1c"
     },
     {
       "path": "plugins/sayso/skills/sayso-click-at/agents/openai.yaml",
@@ -1599,8 +1614,8 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-control/SKILL.md",
-      "bytes": 2300,
-      "sha256": "c096ee4f50652632aba462211217960914e7077bc354b187e2f4f0155f5b8d66"
+      "bytes": 2035,
+      "sha256": "b4f9a28ff258df26667403deef5eeb76fa2c243964dfabf49819a9468c8c43b0"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/agents/openai.yaml",
@@ -1613,24 +1628,19 @@
       "sha256": "c9f4ca334130ed97a918e569db813f7bfb4e50997eca4435d1b788a1615d2770"
     },
     {
-      "path": "plugins/sayso/skills/sayso-control/references/google-maps-live.md",
-      "bytes": 1532,
-      "sha256": "656f43bb9d6970043d448811d8964768120dd6f9311f15f0cd88094db5cbfef5"
-    },
-    {
       "path": "plugins/sayso/skills/sayso-control/references/image-handoff.md",
-      "bytes": 3047,
-      "sha256": "9804e8df86d9c75828fb7c4ab2a507fd3a17f80cd21e55771fd284110e671854"
+      "bytes": 3048,
+      "sha256": "d595d1c86039ed1493c769ee0f36dd38f8ba43e755a95c6bba7b767be110b068"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/recovery.md",
-      "bytes": 1596,
-      "sha256": "8a8fd2600f229778d2acd3ebef5f0e098c33a365bcae65fb71ad28998c165dd6"
+      "bytes": 1828,
+      "sha256": "f19055a02f296e9522da39dcbcbe35d1e4ee1de2b87d56dfed8efe2ce22cc7f2"
     },
     {
       "path": "plugins/sayso/skills/sayso-control/references/workflows.md",
-      "bytes": 6995,
-      "sha256": "ceee7aff748bddbe62395363257932cad2df1b87224eb64c82c558b35a41e16a"
+      "bytes": 6794,
+      "sha256": "a92876410261d51f264fc161069afcae4494e901b9308591865a81fbbbb9ee76"
     },
     {
       "path": "plugins/sayso/skills/sayso-drag-to/SKILL.md",
@@ -1644,8 +1654,8 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/SKILL.md",
-      "bytes": 1223,
-      "sha256": "ad84e047104f5e280be625878a2541f4f73899094244cf95aab37c232db59f89"
+      "bytes": 1267,
+      "sha256": "13a29df1737854c3f2010758c964a3676b66e6574293debdce4b7707536ee394"
     },
     {
       "path": "plugins/sayso/skills/sayso-onboarding/agents/openai.yaml",
@@ -1654,8 +1664,8 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-open-app/SKILL.md",
-      "bytes": 2120,
-      "sha256": "83a594904700bd63f169051f57614663c58a17f69ca2df329661afb3d185fca1"
+      "bytes": 2097,
+      "sha256": "7fc77e9e046f362f079d3f09b2355e1109b066f0c52e83e61192632dd6c573b7"
     },
     {
       "path": "plugins/sayso/skills/sayso-open-app/agents/openai.yaml",
@@ -1674,8 +1684,8 @@
     },
     {
       "path": "plugins/sayso/skills/sayso-type-text/SKILL.md",
-      "bytes": 2589,
-      "sha256": "e204c18ca14d9c2b6686d5ca802f0acdccbde2a3555a6ceaceaae9bcdbe51f38"
+      "bytes": 2324,
+      "sha256": "b80b0eafe3962e09e731a4c4c4b91b3c7e83690e30dbd9ab3d8fbcf656120213"
     },
     {
       "path": "plugins/sayso/skills/sayso-type-text/agents/openai.yaml",

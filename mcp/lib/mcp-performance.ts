@@ -165,7 +165,7 @@ function compactActionImage(value:Record<string,unknown>,kind:"command"|"plan"|"
 export function compactMcpSummary(value: Record<string, unknown>, includeNativeTiming = false, includeClick = false,
   includeParkedMoveImage = false, includeVisualClickSource = false, includeConfirmedClickRelook = false, includeFocusedAfterImage = false,
   searchResult? : {hasImage:boolean}, deliveredActionImage?:DeliveredActionImage) {
-  const fields = ["privacy_storage_ready","retention_details_redacted","verification","source_age_ms","screen_changed_since_source","source_observed_at_server_utc_ms","signing_available","already_stopped","board_release_confirmed","screen_sharing_stopped","scope","image_handoff", "interaction_policy_version", "after_image_instruction", "mcp_request_id", "state", "image_ref", "runtime_version", "image_blocks", "pre_age_server_ms_lower", "error", "command_id", "run_id", "plan_id", "preparation_id", "revision", "checkpoint_seq", "pending_steps", "remaining_slots", "enabled", "online", "grant_remaining_ms", "drag_at_ready", "input_not_submitted", "focused_text_no_visual_ready", "focused_text_submit_enter_ready", "focused_text_clear_before_input_ready", "stopped", "observation_state", "image_state"];
+  const fields = ["privacy_storage_ready","retention_details_redacted","verification","source_age_ms","screen_changed_since_source","source_observed_at_server_utc_ms","signing_available","input_control_enabled","cloud_image_cleared","system_broadcast_stop_confirmed","stopped_sessions","failed_sessions","already_stopped","board_release_confirmed","screen_sharing_stopped","scope","image_handoff", "interaction_policy_version", "after_image_instruction", "mcp_request_id", "state", "image_ref", "runtime_version", "image_blocks", "pre_age_server_ms_lower", "error", "command_id", "run_id", "plan_id", "preparation_id", "revision", "checkpoint_seq", "pending_steps", "remaining_slots", "enabled", "online", "grant_remaining_ms", "drag_at_ready", "input_not_submitted", "focused_text_no_visual_ready", "focused_text_submit_enter_ready", "focused_text_clear_before_input_ready", "stopped", "observation_state", "image_state"];
   const summary = Object.fromEntries(fields.filter(key => Object.hasOwn(value, key)).map(key => [key, value[key]]));
   Object.assign(summary,relativeDragCorrection(value));
   if(value.reason==="CLICK_AT_RECEIPT_NOT_FOUND"&&value.lookup_found===false){
@@ -215,7 +215,7 @@ export function compactMcpSummary(value: Record<string, unknown>, includeNativeT
       summary.click_at_source={source_frame_id:metadata.frame_id,device_id:metadata.device_id,
         image_width:metadata.width,image_height:metadata.height,orientation_epoch:metadata.orientation_epoch,
         source_point_proof:value.source_point_proof};
-      summary.click_at_instruction="Choose the visible target_region and a separate landmark_region from this image. Pass x=0 and y=0 together to click the center of the chosen target.";
+      summary.click_at_instruction="Copy this exact source and its geometry. Select original-image pixel x and y from the actual visible target; never substitute placeholder coordinates. T6 irreversible final actions use move_mouse_to and user handoff instead. Unknown input uses original-ID recovery, never replay.";
     }else if(metadata){summary.metadata=metadata;summary.source_point_proof=value.source_point_proof;}
   }
   if(includeClick&&typeof value.click_command_id==="string"&&value.click_command_id===value.command_id){
@@ -242,7 +242,7 @@ export function compactMcpSummary(value: Record<string, unknown>, includeNativeT
       summary.workflow_state="review_required";
       summary.after_screen={state:"available",reason:"REVIEW_POINT_AGAIN",metadata,after_command:null};
       summary.click_at_source=value.click_at_source;
-      summary.click_at_instruction="Both original stages stopped before input. Review the new image. If the intended target is still visible, use this click_at_source with new target and landmark regions, x=0 and y=0, and a new idempotency key once. Stop if the target is uncertain or that attempt fails.";
+      summary.click_at_instruction="Copy this exact source and its geometry. Select original-image pixel x and y from the actual visible target; never substitute placeholder coordinates. T6 irreversible final actions use move_mouse_to and user handoff instead. Unknown input uses original-ID recovery, never replay.";
     }
   }
   if((includeClick&&includeParkedMoveImage||includeConfirmedClickRelook&&value.kind==="pointer.click")&&value.state==="board_acked"&&
@@ -284,36 +284,7 @@ export function compactMcpSummary(value: Record<string, unknown>, includeNativeT
         summary.click_at_source={source_frame_id:metadata.frame_id,device_id:metadata.device_id,
           image_width:metadata.width,image_height:metadata.height,orientation_epoch:metadata.orientation_epoch,
           source_query_proof:after.source_query_proof};
-        summary.click_at_instruction="If the next target is visibly present, use this exact source and choose its actual pixel x/y, target_region and separate landmark_region from this image.";
-      }
-    }
-  }
-  if(includeParkedMoveImage&&value.state==="failed"&&value.input_not_submitted===true&&value.parked_move_observed===true&&
-     typeof value.move_command_id==="string"&&value.after_screen&&typeof value.after_screen==="object"){
-    const after=value.after_screen as Record<string,unknown>,metadata=compactPointImageMetadata(after.metadata);
-    const command=after.after_command as Record<string,unknown>|null|undefined;
-    if(after.state==="available"&&metadata&&command?.command_id===value.move_command_id&&
-       typeof command.lower_gap_ms==="number"&&Number.isFinite(command.lower_gap_ms)&&typeof after.source_point_proof==="string"){
-      summary.input_not_submitted=true;
-      summary.parked_move_observed=true;
-      summary.move_command_id=value.move_command_id;
-      const binding=after.parked_click as Record<string,unknown>|null|undefined;
-      if(typeof binding?.source_frame_id==="string"&&binding.source_frame_id!==metadata.frame_id&&
-         binding.device_id===metadata.device_id&&binding.image_width===metadata.width&&
-         binding.image_height===metadata.height&&binding.orientation_epoch===metadata.orientation_epoch){
-        summary.parked_click={source_frame_id:binding.source_frame_id,device_id:binding.device_id,
-          image_width:binding.image_width,image_height:binding.image_height,orientation_epoch:binding.orientation_epoch};
-        if(value.workflow_state==="review_required"){
-          summary.state="review_required";
-          summary.original_click_state="failed";
-          summary.click_submitted=false;
-          for(const field of ["error","command_id","click_command_id","move_command_id","mcp_request_id","image_ref"])
-            delete summary[field];
-        }
-        summary.parked_click_instruction="Only if the actual mouse pointer is visible inside the same target, call click_at once with parked_click and its exact source_frame_id. Set x and y to the visible pointer center as fractions of the full image width and height (both strictly between 0 and 1). Include target_region, a disjoint landmark_region and a new idempotency_key. Omit resume_*, source_point_proof and source_query_proof. If the pointer is invisible or only AssistiveTouch is visible, stop.";
-      }else{
-        summary.after_screen={state:"available",metadata,source_point_proof:after.source_point_proof,
-          after_command:{command_id:command.command_id,lower_gap_ms:command.lower_gap_ms}};
+        summary.click_at_instruction="Copy this exact source and its geometry. Select original-image pixel x and y from the actual visible target; never substitute placeholder coordinates. T6 irreversible final actions use move_mouse_to and user handoff instead. Unknown input uses original-ID recovery, never replay.";
       }
     }
   }
@@ -331,7 +302,7 @@ export function compactMcpSummary(value: Record<string, unknown>, includeNativeT
       summary.click_at_source={device_id:m.device_id,source_frame_id:m.frame_id,
         image_width:m.width,image_height:m.height,orientation_epoch:m.orientation_epoch,
         source_point_proof:observed.source_point_proof};
-      summary.click_at_instruction="Copy this exact source. Select the next visible target from this same image; use actual pixel x/y or x=0,y=0 with target_region and a separate landmark_region for its center. No new read_screen is needed.";
+      summary.click_at_instruction="Copy this exact source and its geometry. Select original-image pixel x and y from the actual visible target; never substitute placeholder coordinates. T6 irreversible final actions use move_mouse_to and user handoff instead. Unknown input uses original-ID recovery, never replay.";
       // Keep the long opaque point proof once in model text. Full structured
       // metadata remains unchanged for existing clients and other input kinds.
       if(summary.after_screen&&typeof summary.after_screen==="object"){
@@ -352,6 +323,11 @@ export function compactMcpSummary(value: Record<string, unknown>, includeNativeT
         "frame_age_reported_at_server_utc_ms","image_payload","serialization_phase"];
       summary.trace={native_transport:Object.fromEntries(timingFields.filter(key=>Object.hasOwn(safe,key)).map(key=>[key,safe[key]]))};
     }
+  }
+  // Only current click_at input fields may be advertised as a reusable argument tuple.
+  if(summary.click_at_source&&typeof summary.click_at_source==="object"){
+    const allowed=new Set(["device_id","source_frame_id","image_width","image_height","orientation_epoch","source_point_proof"]);
+    summary.click_at_source=Object.fromEntries(Object.entries(summary.click_at_source).filter(([key])=>allowed.has(key)));
   }
   return JSON.stringify(summary);
 }

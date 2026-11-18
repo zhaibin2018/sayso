@@ -1,4 +1,5 @@
 import {opportunisticRetention} from "./opportunistic-retention.ts";
+import {stopOwnedSessions} from "./stop-owned-sessions.ts";
 import {requireMcpSigning} from "./signing-policy.ts";
 import {runtimeName,runtimeVersion} from "./runtime-identity.ts";
 import {mcpToolsForAudience,imageDelivery,object,searchFocusFormats,liveDisplayFormats,observedWriteNames} from "./mcp-tool-catalog.ts";
@@ -111,7 +112,7 @@ async function handleMcpRequest(request: Request, dependencies: Dependencies, tr
     // result serialization. Keep click timing out of the compact text block.
     const clickAt=requestParams.name==="click_at";
     const clickReadback=requestParams.name==="get_mouse_result"&&fields.kind==="pointer.click"&&images.length===1;
-    const visualClickSource=["read_screen","view_screen","get_latest_screen"].includes(String(requestParams.name))&&images.length===1;
+    const visualClickSource=requestParams.name==="read_screen"&&images.length===1;
     const focusedAfterImage=fields.kind===focusedTextKind&&images.length===1&&
       (requestParams.name==="type_text_in_field"||requestParams.name==="get_mouse_result");
     const tool=String(requestParams.name);
@@ -119,7 +120,7 @@ async function handleMcpRequest(request: Request, dependencies: Dependencies, tr
       summary.kind===SYSTEM_SEARCH_KIND&&summary.state==="board_acked"&&summary.focus_image!==undefined;
     const actionImage=images.length===1&&(images[0].mimeType==="image/jpeg"||focusPNG)?(commandImageTools.has(tool)?"command":planImageTools.has(tool)?"plan":
       preparationImageTools.has(tool)?"preparation":browseNames.has(tool)?"browse":undefined):undefined;
-    if(clickAt || requestParams.name==="read_screen" || requestParams.name==="read_screen_text" || requestParams.name==="get_profile"){
+    if(clickAt || requestParams.name==="read_screen" || requestParams.name==="get_profile"){
       const snapshot=trace.snapshot();
       const prior=summary.trace && typeof summary.trace==="object"&&!Array.isArray(summary.trace)?summary.trace as Record<string,unknown>:{};
       const enqueue=snapshot.metrics.move_enqueue;
@@ -140,7 +141,7 @@ async function handleMcpRequest(request: Request, dependencies: Dependencies, tr
             ?{worker_fetch_started_utc_ms:workerStarted,worker_fetch_to_handler_ms:handlerStartedUTC-workerStarted}:{})}:{}),
         ...(clickAt&&enqueue?{move_enqueue_ms:enqueue.sum_ms}:{})}};
     }
-    if(commandImageTools.has(tool)||["read_screen","view_screen","get_latest_screen"].includes(tool)){
+    if(commandImageTools.has(tool)||tool==="read_screen"){
       const handoff=imageHandoff(summary,images);
       if(handoff){
         summary.image_handoff=handoff;
@@ -688,11 +689,7 @@ async function handleMcpRequest(request: Request, dependencies: Dependencies, tr
       case "get_command_result": result = await new LEDControl(service).get(user, uuid(args.command_id)); break;
       case "create_pairing_code": result = await service.createPairingCode(user, args.label, dependencies.origin); break;
       case "list_devices": result = { devices: await service.listDevices(user) }; break;
-      case "stop_session": {
-        const session = await service.stmt("SELECT device_id FROM sb_sessions WHERE id=? AND owner_id=?", uuid(args.bridge_session_id), user.id).first<{ device_id: string }>();
-        if (!session) throw new BridgeError("NOT_FOUND", 404);
-        result = await service.stop(await service.owned(user, session.device_id), uuid(args.bridge_session_id), true); break;
-      }
+      case "stop_session": result = await stopOwnedSessions(service,user,args.bridge_session_id); break;
       case "revoke_device": result = await service.revoke(user, uuid(args.device_id)); break;
       case "get_screen_metrics": result = await service.metricsFor(user, uuid(args.device_id)); break;
     }

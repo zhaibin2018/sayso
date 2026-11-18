@@ -36,6 +36,6 @@ test("current initialization requires image handoff and forbids legacy fallbacks
 });
 
 test("T6 is exposed by every guide and click metadata without operating a device",async()=>{
- for(const workflow of controlWorkflows){const {rpc,engineCalls}=await invoke("tools/call",{name:"get_control_guide",arguments:{workflow}});const rules=JSON.stringify(rpc.result.structuredContent);assert.match(rules,/do not call click_at/);assert.match(rules,/move_mouse_to/);assert.match(rules,/after-image/);assert.match(rules,/soft instruction/);assert.match(rules,/black, blank/);assert.equal(engineCalls,0);}
- const {rpc}=await invoke("tools/list",{});const click=(rpc.result.tools as unknown as {name:string;description:string}[]).find(x=>x.name==="click_at")!;assert.match(click.description,/please tap it yourself/);assert.match(click.description,/do not call click_at/);
+ for(const workflow of controlWorkflows){const {rpc,engineCalls}=await invoke("tools/call",{name:"get_control_guide",arguments:{workflow}});const rules=JSON.stringify(rpc.result.structuredContent);assert.match(rules,/T6/);assert.match(rules,/move_mouse_to/);assert.match(rules,/after-image/);assert.match(rules,/soft instruction/);assert.match(rules,/black, blank/);assert.equal(engineCalls,0);}
+ const {rpc}=await invoke("tools/list",{});const click=(rpc.result.tools as unknown as {name:string;description:string}[]).find(x=>x.name==="click_at")!;assert.match(click.description,/ask the user to tap/);assert.match(click.description,/do not call click_at/);
 });

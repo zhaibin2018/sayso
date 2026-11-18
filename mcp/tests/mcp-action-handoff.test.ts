@@ -10,7 +10,8 @@ test("actual visual source exposes one click argument tuple in model text",()=>{
   const raw={state:"available",image_blocks:1,metadata,source_point_proof:"visual-proof",mcp_request_id:"request",image_ref:"dedupe"};
   const compact=JSON.parse(compactMcpSummary(raw,false,false,false,true));
   assert.deepEqual(compact.click_at_source,{...source,source_point_proof:"visual-proof"});
-  assert.match(compact.click_at_instruction,/x=0 and y=0 together/);
+  assert.match(compact.click_at_instruction,/original-image pixel x and y/);
+  assert.doesNotMatch(compact.click_at_instruction,/x=0|target_region|landmark_region/);
   assert.equal(compact.mcp_request_id,undefined);
   assert.equal(compact.image_ref,undefined);
   assert.equal(compact.metadata,undefined);
@@ -40,38 +41,11 @@ test("compact unsubmitted click reports the independently saved move without lea
   assert.equal(compact(uncertain).click_at_instruction,undefined);
 });
 
-test("parked image requests review while preserving the authoritative failed click",()=>{
-  const raw={state:"failed",error:"MOUSE_PRECONDITION_FAILED",workflow_state:"review_required",
-    command_id:"failed-click",click_command_id:"failed-click",move_command_id:"move",
-    input_not_submitted:true,click_submitted:false,parked_move_observed:true,
-    after_screen:{state:"available",metadata,parked_click:parked,source_point_proof:"parked-proof",
-      after_command:{command_id:"move",lower_gap_ms:300}}};
-  const compact=JSON.parse(compactMcpSummary(raw,false,true,true));
-  assert.equal(compact.state,"review_required");
-  assert.equal(compact.original_click_state,"failed");
-  assert.equal(compact.error,undefined);
-  assert.equal(compact.click_submitted,false);
-  assert.equal(compact.next_action,undefined);
-  assert.equal(compact.command_id,undefined);
-  assert.equal(compact.click_command_id,undefined);
-  assert.equal(compact.move_command_id,undefined);
-  assert.equal(raw.state,"failed");
-  assert.equal(raw.error,"MOUSE_PRECONDITION_FAILED");
-  assert.equal(compact.input_not_submitted,true);
-  assert.deepEqual(compact.parked_click,parked);
-  assert.match(compact.parked_click_instruction,/visible pointer center as fractions/);
-  assert.match(compact.parked_click_instruction,/only AssistiveTouch is visible/);
-  assert.match(compact.parked_click_instruction,/Omit resume_\*/);
-  assert.equal(compact.click_at_instruction,undefined);
-  assert.equal(compact.after_screen,undefined);
-  const withoutImage=JSON.parse(compactMcpSummary(raw,false,true,false));
-  assert.equal(withoutImage.parked_click,undefined);
-  assert.equal(withoutImage.state,"failed");
-  assert.equal(withoutImage.next_action,undefined);
-  const withoutAlias=JSON.parse(compactMcpSummary({...raw,after_screen:{...raw.after_screen,parked_click:undefined}},false,true,true));
-  assert.equal(withoutAlias.state,"failed");
-  assert.equal(withoutAlias.error,"MOUSE_PRECONDITION_FAILED");
-  assert.equal(withoutAlias.next_action,undefined);
+test("retired parked metadata cannot revive region clicks or erase a failed result",()=>{
+ const raw={state:"failed",error:"MOUSE_PRECONDITION_FAILED",command_id:"failed-click",input_not_submitted:true,parked_move_observed:true,move_command_id:"move",after_screen:{state:"available",metadata,parked_click:parked,source_point_proof:"proof",after_command:{command_id:"move",lower_gap_ms:300}}};
+ const compact=JSON.parse(compactMcpSummary(raw,false,true,true));
+ assert.equal(compact.state,"failed");assert.equal(compact.command_id,"failed-click");assert.equal(compact.parked_click,undefined);assert.equal(compact.parked_click_instruction,undefined);
+ assert.doesNotMatch(JSON.stringify(compact),/target_region|landmark_region|x=0/);
 });
 
 test("confirmed click relook preserves the exact new press and focus frame",()=>{
@@ -84,16 +58,17 @@ test("confirmed click relook preserves the exact new press and focus frame",()=>
   assert.equal(JSON.parse(compactMcpSummary(oldMove,false,false,false,false,true)).after_screen,undefined);
 });
 
-test("a linked type-only result carries the exact click arguments and its query proof",()=>{
+test("a linked type-only result exposes only current click arguments, never its retired query proof",()=>{
   const raw={state:"board_acked",command_id:"type-command",mcp_request_id:"other-uuid",
     after_screen:{state:"available",metadata,source_query_proof:"query-proof",
       after_command:{command_id:"type-command",lower_gap_ms:320}}};
   const compact=(value:Record<string,unknown>,actualImage=true)=>
     JSON.parse(compactMcpSummary(value,false,false,false,false,false,actualImage));
-  assert.deepEqual(compact(raw).click_at_source,{...source,source_query_proof:"query-proof"});
+  assert.deepEqual(compact(raw).click_at_source,source);
+  assert.equal(compact(raw).click_at_source.source_query_proof,undefined);
   assert.equal(compact(raw).enter_sent,false);
   assert.equal(compact(raw).mcp_request_id,undefined);
-  assert.match(compact(raw).click_at_instruction,/actual pixel x\/y/);
+  assert.match(compact(raw).click_at_instruction,/original-image pixel x and y/);
   assert.equal(compact(raw,false).click_at_source,undefined);
   assert.equal(compact({...raw,state:"outcome_unknown"}).click_at_source,undefined);
   assert.equal(compact({...raw,after_screen:{...raw.after_screen,source_query_proof:undefined}}).click_at_source,undefined);

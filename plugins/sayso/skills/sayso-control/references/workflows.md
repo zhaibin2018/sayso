@@ -8,7 +8,7 @@ Reply in the user's current language, including English or Chinese. Keep app nam
 4. Use one idempotency key per intended action. For uncertain input, query the original command ID, or the original click key and device if IDs were lost. A missing record remains unknown. Never repeat input merely to obtain its image.
 5. A confirmed action with a missing, invisible or transitional image allows one bounded read-only observation of that original action. Use `get_mouse_result(include_after_screen=true)` for supported clicks, typing, Search, scroll and drag. For a standalone mouse move use `read_screen(after_command_id=...)`. When requiring a newer image, pass the prior lower gap rounded up only if the tool supports it.
 6. Judge changes relevant to the target from actual pixels. Blinking carets, video and animations alone are not a reason to refresh or reject; do not require whole-image equality. If the target is obscured, the scene is loading, or the user interrupted/switched scenes, obtain one current image and decide again. Never silently substitute a newer frame while keeping coordinates chosen from the old one. Interpret board acknowledgement and visible app effect separately. Continue only when the actual image supports the next decision. Stop at an unresolved image, uncertain action, lost authorization or unconfirmed button release.
-7. Keep already-authorized ordinary actions moving without repeated permission questions. Respect user Stop immediately. Use the existing confirmation mechanism when an action requires user confirmation.
+7. Keep already-authorized ordinary actions moving without repeated permission questions. Respect user Stop immediately. For irreversible final steps, follow T6 below: park the pointer, verify the actual after-image and ask the user to tap.
 
 Ordinary typing clears first, then enters 1–60 printable ASCII characters. Intentional append uses `clear_before_input=false` and supports 1–64. For Chinese queries, use pinyin only when the user permits it. For an in-app search intent, automatically use one `type_text_in_field(submit="enter")` when supported; the user need not explicitly ask for Return. Decide submission from the user’s intent and the actual field, not an app-name rule. Omit submit for fill-only or system app discovery.
 
@@ -16,7 +16,6 @@ For ordinary clicks, use original-image pixel coordinates from the visible targe
 
 Normal opening uses `open_system_search → actual after-image → type_text_in_field → actual after-image → click_at`. No legacy Search preparation or field-review tools are used. Use [original-ID recovery](recovery.md) for failed or uncertain actions.
 
-Use actual plugin calls and real images for acceptance. Mark real-device runs, historical-image replay and synthetic fixtures explicitly. WDA may prepare a test scene, while the measured mouse/keyboard action goes through SaySo and C124.
 
 For `drag_at`, choose visible endpoints and normally omit duration. The current direct absolute path does not require relative calibration; the default duration is 350 ms. Inspect its actual after-image to judge the app effect.
 

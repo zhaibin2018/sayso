@@ -1,3 +1,4 @@
+import {requirements} from "./requirements.js";
 import React, { useEffect, useRef, useState } from "react";
 import { X, Info, ArrowRight, ArrowSquareOut } from "@phosphor-icons/react";
 import {
@@ -173,8 +174,8 @@ export function HelpDialog({
           <>
             <p>
               {t(
-                "SaySo separates seeing your screen from controlling your phone. Screen sharing does not require an AtomS3 Lite.",
-                "SaySo 将查看屏幕与操控手机分开。屏幕共享不需要 AtomS3 Lite。",
+                requirements.en.screenSummary,
+                requirements.zh.screenSummary,
               )}
             </p>
             <p>
@@ -187,8 +188,8 @@ export function HelpDialog({
               <Info size={24} />
               <p>
                 {t(
-                  "Public availability, free features and supported iOS versions will be listed with the app release. No public download is configured in this installer yet.",
-                  "公开可用时间、免费功能和支持的 iOS 版本将随 App 发布说明提供。此安装器暂未配置公开下载入口。",
+                  requirements.en.fees,
+                  requirements.zh.fees,
                 )}
               </p>
             </div>

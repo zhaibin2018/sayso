@@ -778,6 +778,7 @@ function Firmware({ t, config }) {
         subtitle={t.firmwareSub}
       />
       <p className="lead">{t.firmwareBody}</p>
+      <p>{t.needs[5].join(" — ")}</p><p>{t.needs[6].join(" — ")}</p><p>{t.compatPending}</p>
       {config.installerPath || config.installerUrl ? (
         <Link
           className="button-primary"

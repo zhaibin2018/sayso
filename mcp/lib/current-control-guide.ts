@@ -90,7 +90,7 @@ const guides: Record<ControlWorkflow, Record<string, unknown>> = {
 export function controlGuide(workflow: ControlWorkflow) {
   return {
     state: "guidance_only",
-    guide_revision: "2.1.0",
+    guide_revision: "2.2.0",
     interaction_policy_version: interactionPolicyVersion,
     current_workflow: phoneWorkflowInstructions,
     workflow,
@@ -103,7 +103,7 @@ export function controlGuide(workflow: ControlWorkflow) {
       "Keep owner, device, sharing/control scope, coordinate geometry, command deadline, signed release and idempotency checks.",
       "Unknown input permits original-ID/key reads only; a missing record does not authorize resubmission.",
       "A confirmed action with a missing/loading image permits one bounded original-ID get_mouse_result observation.",
-      "Distinguish real-device outcomes, historical-image replay and synthetic fixtures. ACK alone is not app success.",
+      "A device acknowledgement alone does not establish the visible app effect.",
       "Do not invoke retired preparation, layout, source-query or parked-resume paths. Missing capability requires the current app, not a fallback.",
     ],
   };

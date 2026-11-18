@@ -37,3 +37,18 @@ test("a slow session cleanup does not delay starting stop on another phone", asy
   assert.deepEqual(new Set(result.stopped_sessions), new Set(["a", "b"]));
   assert.equal(result.system_broadcast_stop_confirmed, false);
 });
+
+test("invalid selector fallback does not turn cleanup failure into success", async () => {
+  const service = {
+    stmt: () => ({ all: async () => ({ results: [{ target_session_id: "failed" }] }) }),
+    stop: async () => {
+      throw Error("fixture");
+    },
+  } as unknown as BridgeEngine;
+  const result = await stopOwnedSessions(service, { id: "owner", label: "owner" }, null);
+  assert.equal(result.selector_fallback, true);
+  assert.equal(result.stopped, false);
+  assert.equal(result.input_control_enabled, null);
+  assert.equal(result.cloud_image_cleared, false);
+  assert.equal(result.failed_sessions.length, 1);
+});

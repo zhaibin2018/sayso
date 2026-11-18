@@ -11,6 +11,11 @@ import { BENCHMARK_UI_URI } from "./benchmark-widget.ts";
 import { RENDERER_PROBE_URI } from "./benchmark-renderer-probe.ts";
 
 export const idField = { type: "string", format: "uuid" };
+const stopIDField = {
+  type: ["string", "null"],
+  description:
+    "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A valid UUID selects only that owned target.",
+};
 
 export const liveMaxAge = {
   type: "integer",
@@ -88,7 +93,7 @@ export const allMcpTools = [
     name: "type_text_in_field",
     title: "在已聚焦的输入框输入文字",
     description:
-      "Type printable ASCII into the focused field, clearing first by default. Set clear_before_input=false only to append. For in-app search use submit=enter; omit it for app discovery or drafts. T6 final sends/payments must not be submitted. Inspect the returned image (see server instructions). Unknown input: query the original command.",
+      "Type printable ASCII into the focused field: 1–60 characters when clearing (default), up to 64 when appending. Set clear_before_input=false only to append. For in-app search use submit=enter; omit it for app discovery or drafts. T6 final sends/payments must not be submitted. Inspect the returned image (see server instructions). Unknown input: query the original command.",
     inputSchema: object(
       {
         device_id: idField,
@@ -120,7 +125,7 @@ export const allMcpTools = [
     name: "move_mouse_to",
     title: "绝对定位手机鼠标",
     description:
-      "Move without clicking to an original-image pixel target using its exact source and geometry. Use before scrolling or for T6 final-step handoff. Inspect the returned image, not metadata (see server instructions); only then describe where the pointer is. Unknown input: query the original command.",
+      "Move without clicking to a pixel target using the image’s original dimensions and orientation. Use before scrolling or for T6 final-step handoff. Inspect the returned image, not metadata (see server instructions); only then describe where the pointer is. Unknown input: query the original command.",
     inputSchema: object(
       {
         device_id: idField,
@@ -225,15 +230,14 @@ export const allMcpTools = [
         device_id: idField,
         source_frame_id: {
           ...idField,
-          description:
-            "Exact reviewed JPEG frame ID for a device reporting action_geometry_ready. Requires device_id.",
+          description: "Exact JPEG frame ID of the image you selected from. Requires device_id.",
         },
         source_point_proof: {
           type: "string",
           minLength: 1,
           maxLength: 2048,
           description:
-            "Exact proof from this same released visual read. Requires device_id and source_frame_id. Ordinary explicit pixel-coordinate clicks do not require crops. If omitted, the same frame is looked up automatically; never invent or modify the proof.",
+            "Exact proof from this same released visual read. Requires device_id and source_frame_id. If omitted, the same frame is looked up automatically; never invent or modify the proof.",
         },
         x: { type: "number", minimum: 0 },
         y: { type: "number", minimum: 0 },
@@ -384,8 +388,8 @@ export const allMcpTools = [
     name: "stop_mouse",
     title: "停止手机鼠标控制",
     description:
-      "Stop input immediately without a readiness lookup. Omit device_id to stop all your devices, or select one owned device. Returns cloud stop state; physical release is separately confirmed. Screen sharing may continue. Never automatically re-enable.",
-    inputSchema: object({ device_id: idField }),
+      "Stop input immediately without a readiness lookup. Omit device_id to stop all your devices, or select one owned device. Null, empty or malformed IDs also stop all your devices and report the fallback. Returns cloud stop state; physical release is separately confirmed. Screen sharing may continue. Never automatically re-enable.",
+    inputSchema: object({ device_id: stopIDField }),
     annotations: annotations(false),
   },
   {
@@ -509,15 +513,15 @@ export const allMcpTools = [
     name: "stop_session",
     title: "停止共享会话并清图",
     description:
-      "Stop sharing sessions and clear their cloud screen data without a readiness lookup. Omit bridge_session_id to stop all your ongoing sessions, or select one owned session. Returns stopped and failed session IDs. iOS screen-sharing termination must be confirmed separately; chat images cannot be erased here.",
-    inputSchema: object({ bridge_session_id: idField }),
+      "Stop sharing sessions and clear their cloud screen data without a readiness lookup. Omit bridge_session_id to stop all your ongoing sessions, or select one owned session. Null, empty or malformed IDs also use all your sessions and report the fallback. Returns stopped and failed session IDs. iOS screen-sharing termination must be confirmed separately; chat images cannot be erased here.",
+    inputSchema: object({ bridge_session_id: stopIDField }),
     annotations: annotations(false, true),
   },
   {
     name: "revoke_device",
     title: "撤销手机配对",
     description:
-      "Revoke the selected owned device, stop its cloud session and remove its associated cloud data. Requires device_id. Existing chat content is unaffected.",
+      "Revoke the selected owned device, stop its cloud session and remove its commands, sessions and cloud images. Requires device_id. Existing chat content is unaffected.",
     inputSchema: object({ device_id: idField }, ["device_id"]),
     annotations: annotations(false, true),
   },

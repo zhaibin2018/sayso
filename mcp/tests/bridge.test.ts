@@ -8488,3 +8488,42 @@ test("S6 bulk session stop continues after a cleanup failure and reports uncerta
  assert.equal(calls,2);assert.equal(result.stopped,false);assert.equal(result.input_control_enabled,null);assert.equal((result.failed_sessions as any[]).length,1);
  assert.equal(l.db.raw.prepare("SELECT state FROM sb_sessions WHERE id=?").get(b.identity.bridge_session_id)!.state,"stopped");
 });
+
+test("S6 malformed stop selectors fall back to all owned targets and disclose that scope",async t=>{
+ for(const name of ["stop_mouse","stop_session"] as const)for(const selector of [null,"","   ","My iPhone",12,{},[],"11111111-1111-4111-8111-111111111111 extra"]){
+  await t.test(`${name}: ${JSON.stringify(selector)}`,async()=>{
+   const l=lab(),a=await running(l),b=await running(l),other=await running(l,bob);
+   const first=seedStoppedMouse(l,a,"queued"),second=seedStoppedMouse(l,b,"executing",1),foreign=seedStoppedMouse(l,other,"queued");
+   const key=name==="stop_mouse"?"device_id":"bridge_session_id";
+   const reply=(await liveMcp(l.service,name,{[key]:selector})).result;
+   assert.equal(reply.isError,false);assert.equal(reply.structuredContent.stopped,true);assert.equal(reply.structuredContent.selector_fallback,true);
+   assert.equal(reply.structuredContent.scope,name==="stop_mouse"?"all_owned_devices":"all_owned_sessions");
+   assert.match(String(reply.structuredContent.selector_notice),/Invalid ID/);
+   const compact=JSON.parse(reply.content.find(x=>x.type==="text")!.text!);assert.equal(compact.selector_fallback,true);assert.match(compact.selector_notice,/Invalid ID/);
+   assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(first)!.state,"cancelled");
+   assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(second)!.state,"outcome_unknown");
+   assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(foreign)!.state,"queued");
+   assert.equal(l.db.raw.prepare("SELECT state FROM sb_sessions WHERE id=?").get(other.identity.bridge_session_id)!.state,"active");
+   const again=(await liveMcp(l.service,name,{[key]:selector})).result.structuredContent;assert.equal(again.already_stopped,true);
+   assert.equal(name==="stop_mouse"?again.board_release_confirmed:again.system_broadcast_stop_confirmed,false);
+  });
+ }
+});
+test("S6 valid UUID selectors never broaden stop scope, including foreign and missing IDs",async()=>{
+ for(const name of ["stop_mouse","stop_session"] as const){
+  const l=lab(),a=await running(l),b=await running(l),other=await running(l,bob);
+  const key=name==="stop_mouse"?"device_id":"bridge_session_id";
+  const target=(r:typeof a)=>name==="stop_mouse"?r.actor.id:r.identity.bridge_session_id;
+  const id=seedStoppedMouse(l,a,"queued"),remaining=seedStoppedMouse(l,b,"queued"),foreign=seedStoppedMouse(l,other,"queued");
+  for(const value of [target(other),uid()]){
+   const reply=(await liveMcp(l.service,name,{[key]:value})).result;
+   if(name==="stop_session")assert.equal(reply.structuredContent.error,"NOT_FOUND");
+   else {assert.equal(reply.structuredContent.selector_fallback,false);assert.equal(reply.structuredContent.scope,"selected_device");}
+   assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(id)!.state,"queued");
+  }
+  const selected=(await liveMcp(l.service,name,{[key]:target(a).toUpperCase()})).result.structuredContent;
+  assert.equal(selected.selector_fallback,false);assert.equal(selected.stopped,true);
+  assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(id)!.state,"cancelled");
+  for(const untouched of [remaining,foreign])assert.equal(l.db.raw.prepare("SELECT state FROM sb_mouse_commands WHERE id=?").get(untouched)!.state,"queued");
+ }
+});

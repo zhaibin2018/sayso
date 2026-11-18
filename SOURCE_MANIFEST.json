@@ -3,7 +3,7 @@
   "snapshot": "SaySo security source 2026-11-18",
   "license": "FSL-1.1-ALv2",
   "licensor": "ZHAI BIN",
-  "mcpRuntime": "0.13.251",
+  "mcpRuntime": "0.13.252",
   "skillSourceVersion": "1.2.42",
   "consumerEndToEndAccepted": false,
   "files": [
@@ -19,8 +19,8 @@
     },
     {
       "path": "INSTALL.md",
-      "bytes": 15131,
-      "sha256": "c34cca72fbbabc862fd75d92dc1ae52fc4a005dfbe4d31903e692a05b017051b"
+      "bytes": 15587,
+      "sha256": "88dc43361aa662fbd5ee61e8c0b3452c675f3f3e0be0bfc17f8b4f095a611161"
     },
     {
       "path": "LICENSE.md",
@@ -74,8 +74,8 @@
     },
     {
       "path": "mcp/README.md",
-      "bytes": 3627,
-      "sha256": "39e22e4d6e3057b5326bb5b010803167834ba681066899060227a0b813ff2ab5"
+      "bytes": 3951,
+      "sha256": "2aae084e3e5f4dd95828aff4e241e89a2a4e6d6725237c0931fae3f09e1537cc"
     },
     {
       "path": "mcp/SELF_HOSTING.md",
@@ -454,13 +454,13 @@
     },
     {
       "path": "mcp/contracts/current-actions.json",
-      "bytes": 50734,
-      "sha256": "da1d0b47c369904b226c547ecc3aaf167db4b6a190ca9a08b3f671da1b43a653"
+      "bytes": 51244,
+      "sha256": "688991b4614a57fd256588c4d068f5da0d73b098a622d941ad68cf45a5100d5f"
     },
     {
       "path": "mcp/contracts/openapi.json",
-      "bytes": 111974,
-      "sha256": "381338cb54247712d7e7c9fcdcedc7a9e4500edbb1a0f7eb0f9ed2222c957fcb"
+      "bytes": 113066,
+      "sha256": "a0f6d5f3f1621cbc75972d13c8639a656a4e10e3269dc637fdfb6327d8394420"
     },
     {
       "path": "mcp/db/index.ts",
@@ -914,8 +914,8 @@
     },
     {
       "path": "mcp/lib/current-control-guide.ts",
-      "bytes": 6261,
-      "sha256": "29ded5396b0aed0bbe920daec0161d48b85e3396a9f6df7e9cecbe117f280001"
+      "bytes": 6223,
+      "sha256": "4277b834f42ab46b85380f36b76e98112e4282ae320186e8efdeb9b87dca7186"
     },
     {
       "path": "mcp/lib/current-frame-admission.ts",
@@ -1034,8 +1034,8 @@
     },
     {
       "path": "mcp/lib/mcp-performance.ts",
-      "bytes": 25104,
-      "sha256": "92bf61448d7dea4848a9c2b04948b67844df86efc56f87c676982e8c4eed7fd5"
+      "bytes": 25142,
+      "sha256": "d8c43d2b743905353b11f89b97fa873516b3a453e9e01fb0b89e01c27bace748"
     },
     {
       "path": "mcp/lib/mcp-protocol.ts",
@@ -1044,13 +1044,13 @@
     },
     {
       "path": "mcp/lib/mcp-tool-catalog.ts",
-      "bytes": 29014,
-      "sha256": "9ab6edee694c23c2511d6fce5fe664fb02855abd510200cef52fcb9c7fd77fcd"
+      "bytes": 29355,
+      "sha256": "7c92c1c38e46df3e61c9842d399cd6e23687fac1408b4d756a7756bb91bf9034"
     },
     {
       "path": "mcp/lib/mouse-control.ts",
-      "bytes": 193297,
-      "sha256": "888e10d4bbd06880b543f3c7f35942e51b348156310e513dbccb9df1abef4acd"
+      "bytes": 193409,
+      "sha256": "082888156187db63328f375e877a40894b12e7fe1d42969c61a6422f72aa9811"
     },
     {
       "path": "mcp/lib/mouse-point.ts",
@@ -1150,7 +1150,7 @@
     {
       "path": "mcp/lib/runtime-identity.ts",
       "bytes": 78,
-      "sha256": "ec94d68b0a577e6fe92de1f545aa1fdd5c907cdab1da9603aec78a902fcce596"
+      "sha256": "2e20fdc74aec9e2dc0a69bfe83df2826c42bf5138d789a214746b5d29c032f1e"
     },
     {
       "path": "mcp/lib/screen-snapshot-query.ts",
@@ -1189,8 +1189,13 @@
     },
     {
       "path": "mcp/lib/stop-owned-sessions.ts",
-      "bytes": 1721,
-      "sha256": "a71a979f644ad61f1b575d1b27328e13a8a7a77cc422fc430eb7b9527d5a08d0"
+      "bytes": 1831,
+      "sha256": "da60ebc42981648097ae5d2804519e184a672f1749a66f311a482e5323458d9c"
+    },
+    {
+      "path": "mcp/lib/stop-selector.ts",
+      "bytes": 800,
+      "sha256": "1375fdb3aaacb442bb221ccf0f6ea34d95a66a983157e3c90402a1eed8f6eae4"
     },
     {
       "path": "mcp/lib/utils.ts",
@@ -1404,8 +1409,8 @@
     },
     {
       "path": "mcp/tests/bridge.test.ts",
-      "bytes": 625794,
-      "sha256": "2bc5cf483b2a2c70d6a0f092d15f411a0cf35e0a0fbb31412f36f0b344f391dc"
+      "bytes": 629171,
+      "sha256": "80b828da6ad6078b05fcffbdeee4e8aef2dfea979b4df60dea2b7bec873bf070"
     },
     {
       "path": "mcp/tests/click-at-schema.test.ts",
@@ -1459,8 +1464,8 @@
     },
     {
       "path": "mcp/tests/guidance-consistency.test.ts",
-      "bytes": 4012,
-      "sha256": "0c4e173186970be5647fd687d399f516e885bdd7a776fcedc119fb9bd5bf3e1c"
+      "bytes": 5620,
+      "sha256": "421731ea1cae0303cec1266251e958b686960dbcc4f987fb1c0a9c22c516fe3c"
     },
     {
       "path": "mcp/tests/http-failure.test.ts",
@@ -1544,8 +1549,8 @@
     },
     {
       "path": "mcp/tests/stop-owned-sessions.test.ts",
-      "bytes": 1358,
-      "sha256": "94e1012eed9db56c08f0e504ca93233f88ffeb8e1b5dfa04931d78688626dca0"
+      "bytes": 1986,
+      "sha256": "34e7f2e615f8eb0c109524be2cb696d684b42bd521e2ac7ece03ad19df1813ef"
     },
     {
       "path": "mcp/tests/text-request-digest.test.ts",

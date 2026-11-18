@@ -1,4 +1,5 @@
 import {visualReadPointOriginFences,visualReadPointOriginSQL} from "./current-frame-admission.ts";
+import {stopSelector,stopSelectorNotice} from "./stop-selector.ts";
 import {publicCommandPayload,privacyStorageReadySQL} from "./private-data-retention.ts";
 import {sourceObservationSQL,sourceObservationFields} from "./source-observation.ts";
 import {stoppedInputStatements} from "./control-stop.ts";
@@ -2209,12 +2210,12 @@ export class MouseControl {
     return {stopped:true,scope_matched:result[0].meta.changes===1,target_bridge_session_id:session,target_control_epoch:epoch,board_release_confirmed:false};
   }
   async stop(user: User, args: Record<string, unknown>) {
-    const device=args.device_id==null?null:uuid(args.device_id);
+    const {selected:device,fallback}=stopSelector(args.device_id);
     const stopped=await this.e.db.batch([
       this.e.stmt("UPDATE sb_sessions SET mouse_enabled=0,mouse_until=0,control_epoch=control_epoch+1,mouse_grant_request='00000000-0000-4000-8000-000000000000' WHERE owner_id=? AND (? IS NULL OR device_id=?) AND state='active' AND (mouse_enabled!=0 OR mouse_until!=0 OR mouse_grant_request IS NOT '00000000-0000-4000-8000-000000000000') AND EXISTS(SELECT 1 FROM sb_devices d WHERE d.id=sb_sessions.device_id AND d.owner_id=sb_sessions.owner_id) RETURNING device_id",user.id,device,device),
       ...stoppedInputStatements(this.e,user.id,device,null,"USER_STOPPED"),
     ]);
-    return {device_id:device,stopped:true,already_stopped:stopped[0].results.length===0&&stopped.slice(1).every(result=>Number(result.meta.changes??0)===0),
+    return {...stopSelectorNotice(fallback,"devices"),device_id:device,stopped:true,already_stopped:stopped[0].results.length===0&&stopped.slice(1).every(result=>Number(result.meta.changes??0)===0),
       scope:device===null?"all_owned_devices":"selected_device",screen_sharing_stopped:false,board_release_confirmed:false};
   }
 }

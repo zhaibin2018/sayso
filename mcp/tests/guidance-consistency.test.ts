@@ -39,7 +39,14 @@ export function validateReferences(text: string) {
   }
   assert.doesNotMatch(
     text,
-    /Region-center|x=0\s*(?:,|and)\s*y=0|target_region|landmark_region|calibrated relative path|focus PNG|current reviewed image|existing confirmation mechanism/,
+    /Region-center|x=0\s*(?:,|and)\s*y=0|target_region|landmark_region|calibrated relative path|focus PNG|current reviewed image|existing confirmation mechanism|\b(?:reviewed|crops|regions)\b/i,
+  );
+}
+function schemaDescriptions(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) return value.flatMap(schemaDescriptions);
+  return Object.entries(value).flatMap(([key, item]) =>
+    key === "description" && typeof item === "string" ? [item] : schemaDescriptions(item),
   );
 }
 test("production instructions and descriptions reference only current tools and call parameters", () => {
@@ -47,6 +54,7 @@ test("production instructions and descriptions reference only current tools and 
     phoneWorkflowInstructions,
     afterImageInstruction,
     ...tools.map((t) => t.description),
+    ...tools.flatMap((t) => schemaDescriptions(t.inputSchema)),
     ...controlWorkflows.map((w) => JSON.stringify(controlGuide(w))),
   ])
     validateReferences(text);
@@ -68,6 +76,9 @@ test("reference checker rejects retired tools and invented input parameters", ()
     "click_at(target_region=box)",
     "drag_at(invented_delay=3)",
     "click_at.target_region",
+    "Exact reviewed JPEG frame",
+    "No crops needed",
+    "Use two regions",
   ])
     assert.throws(() => validateReferences(text));
   validateReferences('type_text_in_field(submit="enter")');
@@ -100,3 +111,26 @@ test(
     }
   },
 );
+
+test("rereview wording states actual limits, binding and revocation scope", () => {
+  const tool = (name: string) => tools.find((t) => t.name === name)!;
+  assert.match(
+    tool("type_text_in_field").description,
+    /1–60 characters when clearing.*64 when appending/,
+  );
+  assert.match(tool("move_mouse_to").description, /original dimensions and orientation/);
+  assert.doesNotMatch(tool("move_mouse_to").description, /exact source/);
+  assert.match(tool("revoke_device").description, /commands, sessions and cloud images/);
+  assert.doesNotMatch(tool("revoke_device").description, /associated cloud data/);
+  assert.equal(controlGuide("overview").guide_revision, "2.2.0");
+  assert.doesNotMatch(
+    JSON.stringify(controlGuide("overview")),
+    /historical-image replay|synthetic fixtures/,
+  );
+  for (const name of ["stop_mouse", "stop_session"]) {
+    const props = tool(name).inputSchema.properties;
+    const field = Object.values(props)[0] as { type: unknown; format?: string };
+    assert.deepEqual(field.type, ["string", "null"]);
+    assert.equal(field.format, undefined);
+  }
+});

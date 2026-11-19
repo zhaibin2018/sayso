@@ -177,6 +177,9 @@ export function App() {
     case "start":
       page = <Start {...props} />;
       break;
+    case "requirements":
+      page = <Requirements {...props} />;
+      break;
     case "guides":
       page = <Guides {...props} />;
       break;
@@ -286,7 +289,7 @@ export function App() {
       <footer className="site-footer shell">
         <div className="footer-row">
           <nav aria-label={lang === "en" ? "Footer navigation" : "页脚导航"}>
-            {["privacy", "support", "licenses"].map((key) => (
+            {["requirements", "buy", "privacy", "support", "licenses"].map((key) => (
               <a key={key} href={`#/${key}`}>
                 {t[key]}
               </a>
@@ -362,6 +365,7 @@ function Download({ t, config }) {
           )}
         </div>
       </div>
+      {!config.appStoreUrl && <p className="small-note">{t.downloadNote}</p>}
     </div>
   );
 }
@@ -375,12 +379,12 @@ export function Home({ t, lang, config, preview }) {
           <span>{t.headline[1]}</span>
         </h1>
         <p className="hero-subtitle">{t.subtitle}</p>
+        <p className="small-note hero-safety-note">{t.finalTapNote}</p>
         <Download t={t} config={config} />
+        <Link to="start">{t.already}</Link>
         <div className="hero-requirements">
           <p>{t.hardware}</p>
-          <p>{t.setupNeed}</p>
-          <p>{t.needs[2].join(" — ")}</p>
-          <Link to="start">{t.checkAll}</Link>
+          <Link to="requirements">{t.checkAll}</Link>
         </div>
       </section>
       <section className="demo-section" aria-labelledby="demo-title">
@@ -415,15 +419,8 @@ export function Home({ t, lang, config, preview }) {
           {config.videos[scene] && <p className="playback-note">{t.playback}</p>}
         </div>
       </section>
-      <section
-        className="pricing-band"
-        aria-label={lang === "en" ? "Free allowance" : "免费额度"}
-      >
-        <h2>{t.free}</h2>
-        <p>{t.task}</p>
-        <p className="separate-costs">{t.costs}</p>
-        {preview && !config.quotaVerified && <small>{t.quotaPending}</small>}
-      </section>
+      <ScreenSharingComparison t={t} />
+      <Allowance t={t} config={config} preview={preview} />
       <section className="privacy-strip">
         <Info aria-hidden />
         <div>
@@ -441,6 +438,24 @@ export function Home({ t, lang, config, preview }) {
         </a>
       </p>
     </>
+  );
+}
+function ScreenSharingComparison({ t }) {
+  return (
+    <section className="document-sections screen-sharing-comparison">
+      <h2>{t.comparisonTitle}</h2>
+      <p>{t.comparisonBody}</p>
+      <p>{t.comparisonDisclaimer}</p>
+      <Link to="https://help.openai.com/en/articles/20001274-chatgpt-voice">{t.officialDocs}</Link>
+    </section>
+  );
+}
+function Allowance({ t }) {
+  return (
+    <section className="pricing-band" aria-label={t.feesTitle}>
+      <h2>{t.feesTitle}</h2>
+      <p>{t.free}</p>
+    </section>
   );
 }
 function PortraitVideo({ scene, video, t, lang }) {
@@ -593,6 +608,7 @@ function PortraitVideo({ scene, video, t, lang }) {
           </div>
         )}
       </div>
+      {scene === "food" && <p className="small-note">{t.appNameNote}</p>}
     </div>
   );
 }
@@ -605,7 +621,7 @@ const requirementIcons = [
   Cpu,
   Laptop,
 ];
-export function Start({ t, lang, config }) {
+export function Start({ t, lang, config, preview }) {
   return (
     <div className="start-flow">
       <section className="start-intro" aria-labelledby="start-title">
@@ -662,7 +678,6 @@ export function Start({ t, lang, config }) {
             );
           })}
         </ol>
-        <p className="start-allowance">{t.screenFree}</p>
       </section>
       <section className="optional-control" aria-labelledby="control-title">
         <h2 id="control-title">{t.controlTitle}</h2>
@@ -680,8 +695,8 @@ export function Start({ t, lang, config }) {
           ))}
         </ol>
         <p className="small-note">{t.controlCompatibility}</p>
-        <p className="start-allowance">{t.controlFree}</p>
       </section>
+      <Allowance t={t} config={config} preview={preview} />
       <section className="start-details" aria-labelledby="details-title">
         <h2 id="details-title">{t.detailsTitle}</h2>
         <details>
@@ -704,7 +719,6 @@ export function Start({ t, lang, config }) {
             <p>{t.beforeSub}</p><p>{t.needs[1][1]}</p>
             <h3>{t.approve}</h3><p>{t.approveSub}</p>
             <p>{t.connectedNote}</p><p>{t.keyboardNote}</p>
-            <p>{t.quotaPending}</p><p>{t.costs}</p>
             <Link to="support">{t.resume}</Link>
           </div>
         </details>
@@ -730,6 +744,23 @@ function PageHeading({ eyebrow, title, subtitle }) {
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
       <h1>{title}</h1>
       <p>{subtitle}</p>
+    </div>
+  );
+}
+export function Requirements({ t, config }) {
+  return (
+    <div className="document">
+      <PageHeading title={t.requirements} subtitle={t.hardware} />
+      <section className="document-sections">
+        <h2>{t.screenGroup}</h2>
+        {t.needs.slice(0, 4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i]} />)}
+        <h2>{t.controlGroup}</h2>
+        {t.needs.slice(4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i + 4]} />)}
+        <p>{t.controlCompatibility}</p>
+        <p>{t.keyboardNote}</p>
+      </section>
+      <Compatibility t={t} config={config} mode="control" />
+      <Link className="button-primary" to="start">{t.start}</Link>
     </div>
   );
 }
@@ -763,13 +794,15 @@ function Guides({ t, config, lang }) {
         title={t.guidesTitle}
         subtitle={t.guidesSub}
       />
-      <section className="document-sections"><h2>{t.trySaying}</h2>{t.guideExamples.map(([title,...examples])=><section key={title}><h3>{title}</h3><ul>{examples.map(example=><li key={example}>“{example}”</li>)}</ul></section>)}</section>
       <DocumentSections sections={t.guideSections} />
+      <section className="document-sections"><h2>{t.trySaying}</h2>{t.guideExamples.map(([title,...examples])=><section key={title}><h3>{title}</h3><ul>{examples.map(example=><li key={example}>“{example}”</li>)}</ul></section>)}</section>
+      <ScreenSharingComparison t={t} />
       <p>{t.needHelp} <Link to="support">{t.support}</Link></p>
       <details className="developer-details"><summary>{t.developerTitle}</summary>
+        <p>{t.developerSetup}</p>
         <p>{t.developerVersion}</p><Repository t={t} config={config} />
         <Link to="https://github.com/zhaibin2018/sayso/blob/main/INSTALL.md">{t.installGuide}</Link>
-        <p>{t.licensesSub}</p><Link to="https://github.com/zhaibin2018/sayso/blob/main/README.md">{lang === "zh" ? "复制一句话安装指令" : "Copyable one-sentence setup instruction"}</Link>
+        <Link to="https://github.com/zhaibin2018/sayso/blob/main/README.md">{lang === "zh" ? "复制一句话安装指令" : "Copyable one-sentence setup instruction"}</Link>
         <p><Link to="https://help.openai.com/en/articles/20001339-creating-and-using-chatgpt-sites">{t.sitesDocs}</Link></p>
       </details>
       <Link className="button-primary" to="start">
@@ -826,7 +859,7 @@ function Firmware({ t, config }) {
         subtitle={t.firmwareSub}
       />
       <p className="lead">{t.firmwareBody}</p>
-      <p>{t.needs[5].join(" — ")}</p><p>{t.needs[6].join(" — ")}</p><p>{t.compatPending}</p>
+      <p>{t.needs[5].join(" — ")}</p><p>{t.needs[6].join(" — ")}</p>
       {config.installerPath || config.installerUrl ? (
         <Link
           className="button-primary"
@@ -843,7 +876,7 @@ function Firmware({ t, config }) {
       )}
       <Compatibility t={t} config={config} mode="control" />
       <div className="link-row">
-        <Link to="start">{t.checkAll}</Link>
+        <Link to="requirements">{t.checkAll}</Link>
         <Link to="buy">{t.buy}</Link>
       </div>
     </div>
@@ -958,6 +991,7 @@ function Licenses({ t, config }) {
         title={t.licensesTitle}
         subtitle={t.licensesSub}
       />
+      <p className="lead">{t.licensesIntro}</p>
       <p className="lead">{t.licensesBody}</p>
       <p>
         <a

@@ -1,17 +1,17 @@
-// Terminology: Screen guidance=读屏; Tapping=帮你点; Screen sharing=屏幕共享 (iOS feature); accessory=配件; private SaySo service=你的私人服务; approval=批准.
+// Terminology: screen reading=读屏; tapping for you=帮你点; Stop Control=停止控制; End Sharing=结束共享.
 import {requirements,requirementRows} from "./requirements.js";
 export const copy = {
   "en": {
     "home": "Home",
     "start": "Get started",
     "guides": "Guides",
-    "firmware": "Install firmware",
+    "firmware": "Prepare the accessory",
     "github": "GitHub",
-    "privacy": "Privacy Policy",
-    "support": "Support",
+    "privacy": "Privacy",
+    "support": "Troubleshooting",
     "licenses": "Licenses",
-    "buy": "Where to buy",
-    "requirements": "Requirements",
+    "buy": "Where to buy the accessory",
+    "requirements": "What you’ll need",
     "skip": "Skip to content",
     "menu": "Open navigation",
     "closeMenu": "Close navigation",
@@ -21,40 +21,45 @@ export const copy = {
       "Tell ChatGPT.",
       "Let SaySo do the tapping."
     ],
-    "subtitle": "For payments, orders, messages and deletions, SaySo stops with the pointer on the button and lets you make the final tap.",
+    "subtitle": "Like having someone beside you: you ask, it watches your screen and takes it step by step.",
+    "finalTapNote": "For payments, orders, messages and deletions, SaySo leaves the pointer on the final button and waits for you to tap.",
+    "comparisonTitle": "How is this different from ChatGPT’s built-in screen sharing?",
+    "comparisonDisclaimer": "SaySo is an independent third-party tool and is not affiliated with OpenAI.",
+    "feesTitle": "Costs and free tasks",
+    "appNameNote": "To open an app, use its English name or pinyin. Support for Chinese app names is being improved.",
     "download": "Download SaySo",
-    "downloadPending": "App Store link pending",
-    "downloadNote": "Downloads are not open yet.",
-    "qrPending": "QR pending",
+    "downloadPending": "Coming soon on the App Store",
+    "downloadNote": "You can download it once it’s on the App Store.",
+    "qrPending": "QR code available at launch",
     "qrLabel": "Scan to download SaySo",
-    "already": "Already installed? Get started",
-    "checkAll": "Check all requirements",
+    "already": "Already installed? Here’s how to start",
+    "checkAll": "See what you’ll need",
     "everyday": [
-      "Everyday help,",
-      "one request away."
+      "Those little things you get stuck on,",
+      "just ask for a hand."
     ],
-    "chooseScene": "Choose a scene to see how SaySo helps.",
+    "chooseScene": "Pick a scene to see how SaySo can help.",
     "scenes": [
       [
         "Find my bus",
-        "Getting around"
+        "When the next bus arrives"
       ],
       [
         "Order food",
-        "You review the final order"
+        "You tap to place the order"
       ],
       [
         "Cancel a subscription",
-        "You confirm the final cancellation"
+        "You tap the final confirmation"
       ],
       [
-        "Explain a setting",
-        "Screen guidance, no accessory"
+        "Understand a setting",
+        "Just looking, no accessory needed"
       ]
     ],
-    "videoPending": "Video asset pending",
+    "videoPending": "Video coming soon",
     "portrait": "Portrait demo",
-    "scenePending": "Example, not a recorded demonstration.",
+    "scenePending": "This is an illustration, not a recording.",
     "playback": "Muted by default · Captions on · Pause anytime",
     "play": "Play video",
     "pause": "Pause video",
@@ -63,88 +68,105 @@ export const copy = {
     "replay": "Replay video",
     "mediaError": "This video could not be loaded. Try again or choose another scene.",
     "retry": "Try again",
-    "task": "One task may include multiple taps. Task counting and paid upgrades are planned; more tasks will be available in the app (planned).",
-    "quotaPending": "Planned allowance — task counting is still being verified.",
     "priceNote": "*Official item price checked Nov 16, 2026. Shipping and taxes may apply.",
     "currentPrice": "Check current price",
-    "privacyShort": "Your shared screen is sent to your private SaySo service and to ChatGPT.",
-    "privacyLink": "How your data is handled",
-    "disclaimer": "Works with ChatGPT. Not affiliated with or endorsed by OpenAI or M5Stack.",
-    "preview": "Development preview — SaySo isn't available yet.",
+    "privacyShort": "When you start sharing, your screen images go to your own SaySo service and ChatGPT so it can understand what’s on screen.",
+    "privacyLink": "Where do your screen images go?",
+    "disclaimer": "SaySo is an independent tool that works with ChatGPT. It is not affiliated with OpenAI or M5Stack.",
+    "preview": "SaySo is still in development and isn’t available to download yet.",
     "before": "Before you start.",
-    "beforeSub": "Setting this up for someone else? Use their iPhone and their ChatGPT account.",
+    "beforeSub": "Helping a family member set up? Use their own iPhone and ChatGPT account.",
     "need": "What you’ll need",
     "screenGroup": "Everyone needs",
     "controlGroup": "To let SaySo tap, also add",
-    "viewCompat": "View compatibility",
-    "startPrerequisite": "Before you start: iPhone + ChatGPT Plus or higher",
+    "viewCompat": "Check the compatibility list",
+    "startPrerequisite": "Before you start, have an iPhone and a ChatGPT Plus account (or higher) ready.",
     "storeSoon": "Coming soon on the App Store",
-    "threeSteps": "Three steps to get started",
-    "connectionPending": "The complete Connect ChatGPT → install plugin flow on iPhone is still being verified.",
-    "screenFree": "Screen guidance is free, with no session limit. ChatGPT subscription costs are separate.",
-    "controlTitle": "Want SaySo to tap for you?",
-    "controlSubtitle": "For tapping and typing, add a small accessory.",
+    "threeSteps": "Get started in three steps",
+    "connectionPending": "(The Connect ChatGPT step is still in development.)",
+    "controlTitle": "Want it to tap for you too?",
+    "controlSubtitle": "Add a small accessory, and it can tap, type and scroll for you.",
     "controlSteps": [
-      ["Buy the accessory and cable", "Get an M5Stack AtomS3 Lite (C124) and a USB-C data cable. Check verified tapping compatibility before buying."],
-      ["Install firmware on a computer", "Use desktop Chrome or Edge to open the firmware installer. Accepted firmware is not available yet."],
-      ["Pair it in SaySo", "Pair the accessory in SaySo. Each time you want tapping, tap Allow control for this session in the app."]
+      [
+        "Get a small accessory",
+        "You’ll need an M5Stack AtomS3 Lite (model C124) and a USB-C data cable. Check the compatibility list below before buying."
+      ],
+      [
+        "Set it up on a computer, just once",
+        "Open the installer in Chrome or Edge on your computer. It only takes a few minutes. (The installer is still being prepared.)"
+      ],
+      [
+        "Pair it with SaySo",
+        "Pair the accessory in SaySo. Whenever you want it to tap for you, first tap Allow tapping for this session in SaySo."
+      ]
     ],
-    "controlCompatibility": "Tapping supports only verified iPhone/iOS combinations. Check the compatibility list below.",
-    "controlFree": "Planned: 10 completed tapping tasks free each month. More tasks through an in-app subscription or one-time purchase (planned).",
-    "detailsTitle": "Requirements, compatibility and help",
+    "controlCompatibility": "Tapping for you currently supports only the tested iPhone models and iOS versions on the compatibility list. Hold your phone upright.",
+    "detailsTitle": "A few more details",
     "steps": [
       [
         "Download SaySo",
-        "You only need your iPhone and internet to download the app once it is available.",
+        "Get it from the App Store, then open it to begin.",
         "SaySo app page"
       ],
       [
-        "Connect ChatGPT in SaySo",
-        "Open SaySo and tap Connect ChatGPT. The intended flow opens the ChatGPT app; follow the prompts to install the SaySo plugin and authorize it.",
-        "ChatGPT plugin installation"
+        "Connect to ChatGPT",
+        "Tap Connect ChatGPT in SaySo. It takes you to ChatGPT to finish setup, then brings you back to SaySo automatically. No copying or pasting.",
+        "Set up SaySo in ChatGPT"
       ],
       [
-        "Start sharing, then speak",
-        "Back in SaySo, tap Start Sharing. Then speak or type in ChatGPT, for example: “Help me understand this settings page.”",
+        "Start sharing and just ask",
+        "Tap Start Sharing in SaySo, then go to the app you want to use. Open ChatGPT Voice and ask something like “What does this switch do?”",
         "Screen sharing in SaySo"
       ]
     ],
-    "screenshot": "Screenshot pending",
+    "screenshot": "Screenshot coming soon",
     "screenshotEn": "English screenshot shown; Chinese version pending.",
     "captured": "Captured",
-    "resume": "Resume setup or get help",
-    "approve": "When approval appears, tap the screen.",
-    "approveSub": "Use the on-screen approval controls in ChatGPT. Saying “yes” will not approve the action.",
-    "connectedNote": "Connecting your account doesn't share your screen. Tap Start Sharing in SaySo.",
-    "guidesTitle": "A little guidance, when you need it.",
-    "guidesSub": "Recommended setup starts with Connect ChatGPT in SaySo. Mobile setup is still being verified; developers can follow the GitHub Work instructions.",
+    "resume": "Stuck? Start here",
+    "approve": "When ChatGPT asks for permission, tap the screen.",
+    "approveSub": "Tap Allow or Decline on the card in ChatGPT. Saying “yes” doesn’t count.",
+    "connectedNote": "Connecting to ChatGPT doesn’t share your screen automatically. Tap Start Sharing in SaySo when you’re ready.",
+    "guidesTitle": "A few things to know",
+    "guidesSub": "First time? Start with Connect ChatGPT in SaySo.",
     "guideSections": [
       [
-        "Start and stop sharing",
-        "Start screen sharing in SaySo, then return to ChatGPT Voice. To stop tapping, use Stop control in SaySo. To stop sending the screen, stop screen sharing too. If a ChatGPT approval card blocks progress, use the local Stop control button in SaySo; it does not depend on the plugin permission setting."
+        "You can stop at any time",
+        "Want it to stop? Open SaySo and tap Stop Control. It works straight away, without waiting for ChatGPT. To stop sending screen images too, tap End Sharing. You can always stop, even after your free tasks run out."
       ],
       [
-        "When ChatGPT asks for approval",
-        "Look for the approval card with buttons in the ChatGPT conversation. Tap its on-screen approval control or decline. Saying “yes” is not an approval. This is separate from making the final tap yourself."
+        "Start and end sharing",
+        "Tap Start Sharing in SaySo, then go to the app you want to use and ask in ChatGPT Voice. When you’re done, tap End Sharing in SaySo."
       ],
       [
-        "Leave the final tap to you",
-        "For payments, orders, sending, deleting, cancelling a subscription or transferring money, the instruction is to park the pointer on the final button, check the image, and ask you to tap it yourself. This is an AI instruction, not a code-enforced block. C124 button approval is not available yet."
+        "When ChatGPT asks for permission",
+        "Tap Allow or Decline on the card. Saying “yes” doesn’t count. This is separate from making the final tap yourself."
       ],
       [
-        "Some screens are hidden",
-        "Banking/payment apps, identity apps such as Singpass, company/school-managed apps such as Teams with a work account, and protected videos may hide their screens. This protects your information; SaySo cannot help with a hidden screen or bypass the protection. Do that part yourself; if sharing prevents use, stop sharing and resume afterward. This is not a guarantee that all banking or sensitive apps hide their content."
+        "The final tap is yours",
+        "For payments, orders, messages, deletions, cancelling subscriptions and transfers, it leaves the pointer on the final button and waits for you to check and tap. This is a rule it follows, not a hard lock, so please look before you tap each time."
+      ],
+      [
+        "Enter card details and passwords yourself",
+        "Please enter bank card numbers, passwords and verification codes yourself. Don’t ask SaySo to fill them in."
+      ],
+      [
+        "Some screens stay hidden",
+        "Banking and payment apps, identity apps such as Singpass, company-managed apps and protected videos may hide their screens. SaySo will tell you it can’t see them and won’t try to get around it. This helps protect you. For example, some identity apps show “Screen recording disabled”; SaySo will tell you it can’t see the screen."
+      ],
+      [
+        "Hold your phone upright",
+        "Tapping for you needs portrait mode, so hold your phone upright."
       ]
     ],
     "officialDocs": "Official ChatGPT documentation",
-    "sitesDocs": "Sites availability and limits",
+    "sitesDocs": "ChatGPT service availability and limits",
     "voiceDocs": "Voice and on-screen approvals",
-    "firmwareTitle": "Prepare your accessory.",
-    "firmwareSub": "The free firmware installer lives in SaySo Install.",
-    "installerPending": "The public installer link is not available yet.",
-    "installer": "Open SaySo Install",
-    "firmwareBody": "Check compatibility before buying hardware or writing firmware. First-time installation uses a computer. This website does not connect to or flash your device.",
-    "compatTitle": "Compatibility",
+    "firmwareTitle": "Set up your accessory",
+    "firmwareSub": "The software is free. Install it once from a browser on your computer.",
+    "installerPending": "The installer is still being prepared.",
+    "installer": "Open the installer",
+    "firmwareBody": "Before buying an accessory or installing its software, check whether your phone is on the compatibility list. Setup happens on a separate installer page. This website won’t connect to your accessory.",
+    "compatTitle": "Compatibility list",
     "compatColumns": [
       "Use",
       "iPhone",
@@ -153,99 +175,99 @@ export const copy = {
       "Accessory / firmware",
       "Verified"
     ],
-    "screenMode": "Screen guidance",
+    "screenMode": "Screen reading",
     "controlMode": "Tapping",
-    "buyTitle": "The right accessory, from the right place.",
-    "buySub": "Look for AtomS3 Lite, model C124. Atom Lite, AtomS3 and AtomS3R are different products.",
+    "buyTitle": "Get the right accessory",
+    "buySub": "Look for AtomS3 Lite (model C124). Atom Lite, AtomS3 and AtomS3R have similar names, but they’re different products.",
     "officialShop": "M5Stack official store",
     "digikey": "DigiKey · C124",
     "vendor": "Visit product page",
-    "buyNote": "Compare the final checkout total, including shipping and any taxes. Prices and stock can change. Check SaySo compatibility before purchasing.",
-    "privacyTitle": "Know where your screen goes.",
-    "privacySub": "Sharing, tapping and data deletion are different choices.",
-    "draft": "Privacy information draft — not a finalized release policy.",
+    "buyNote": "Prices and stock can change. Before ordering, check the total including shipping and taxes.",
+    "privacyTitle": "Where your screen images go",
+    "privacySub": "Sharing your screen, letting it tap for you and deleting data are three separate choices.",
+    "draft": "This is a draft. The final privacy policy will be published before launch.",
     "privacySections": [
       [
-        "Your screen and your private SaySo service",
-        "When you start screen sharing, visible images go to your private SaySo service in your ChatGPT account and to ChatGPT. Other apps may show personal information. ChatGPT handles voice under its own policies."
+        "Where your images go",
+        "When you start sharing, screen images go to your own SaySo service under your ChatGPT account and to ChatGPT so it can understand the screen. Personal information from other apps may appear in those images. ChatGPT handles voice under its own policies. SaySo itself doesn’t use your microphone."
       ],
       [
-        "How long information stays — service 0.13.249 and later",
-        "Text SaySo types is removed from the service when the command ends. A keyed summary and basic records remain to prevent the same request running twice. Detailed command records are reduced after seven days when cleanup runs."
+        "How long information stays",
+        "Text SaySo types for you is deleted from the service when it’s finished. To prevent the same request running twice, it keeps only a short record without the content, which is trimmed after seven days."
       ],
       [
-        "Stopping and removing a device",
-        "Stopping tapping can leave screen sharing on. Ending the sharing session removes its cloud screen data. Removing a paired device deletes its related service records and screenshots. This does not delete your ChatGPT conversations."
+        "Stopping and disconnecting",
+        "Stop Control stops tapping for you; screen sharing may stay on. End Sharing clears the cloud images from that session. Disconnecting a device clears its related records and screenshots. None of these deletes your ChatGPT conversations."
       ],
       [
-        "When cleanup cannot run",
-        "Cleanup runs during normal use. If you stop using the service and no scheduled cleanup is configured, unfinished text may remain without a fixed deletion deadline. Account-wide deletion and a complete backup-deletion process are not available yet. When an image expires, SaySo stops using it, but that does not guarantee it has been erased."
+        "Still being finished",
+        "Full account deletion, backup deletion, and final publisher and contact details will be ready before launch."
       ],
       [
         "Protected screens",
-        "If an app does not allow screen sharing, SaySo respects that and will not try to get around it. Not all banking or sensitive apps hide their content."
-      ],
-      [
-        "Preview information",
-        "This describes the updated public service source, not an automatic update to your existing installation. Publisher/contact details and the final privacy policy still need to be completed."
+        "If an app doesn’t allow screen sharing, SaySo respects that and won’t try to get around it. Not every banking or sensitive app hides its screen automatically, so take care while sharing."
       ]
     ],
-    "supportTitle": "Let’s find the next step.",
-    "supportSub": "Start with the symptom. Keep personal information out of diagnostics.",
+    "supportTitle": "Let’s take a look together",
+    "supportSub": "Start with what happened. You don’t need to share any passwords or sensitive personal information.",
     "supportItems": [
       [
-        "I cannot see the screen",
-        "Confirm screen sharing is on and your phone is online. Connecting your account doesn't share your screen. Tap Start Sharing in SaySo."
+        "I want it to stop",
+        "Open SaySo and tap Stop Control. It stops straight away, without waiting for ChatGPT, even if ChatGPT is waiting for you to tap Allow. To stop sending screen images too, tap End Sharing."
       ],
       [
-        "ChatGPT is waiting for approval",
-        "Look at the ChatGPT screen and use its approval controls. Spoken approval does not work. You can decline instead."
+        "It says it can’t see my screen",
+        "Check that you’ve tapped Start Sharing in SaySo and your phone is online. Connecting to ChatGPT doesn’t start sharing automatically; you need to tap to begin."
       ],
       [
-        "Nothing happens when it tries to tap",
-        "Check the accessory, pairing and permission. If the result is uncertain, do not repeatedly retry a purchase, message or deletion. Even if the accessory reports a tap, check the screen to confirm the app actually did it."
+        "ChatGPT keeps waiting for permission",
+        "Tap Allow or Decline on the card in ChatGPT. Saying “yes” doesn’t count."
       ],
       [
-        "I need to stop",
-        "Use Stop control directly in the SaySo app if ChatGPT is waiting for approval. This local button is independent of ChatGPT plugin permission settings. Also stop screen sharing if you want to stop sending the screen. You can stop even if free tasks have run out."
+        "It says it tapped, but nothing changed",
+        "Check that the accessory is connected and you’ve tapped Allow tapping for this session in SaySo. If you’re unsure whether a payment, message or deletion went through, don’t keep trying. Look at the screen and check first."
+      ],
+      [
+        "Enter card details and passwords yourself",
+        "Please enter bank card numbers, passwords and verification codes yourself. Don’t ask SaySo to fill them in."
       ]
     ],
-    "report": "What to include in a report",
-    "reportBody": "SaySo version, iPhone model, iOS version, ChatGPT version, time, a short description and any non-sensitive error ID. Do not include passwords, verification codes, pairing keys or payment details.",
-    "contactPending": "A public support address has not been configured yet. This preview does not collect or submit reports.",
+    "report": "What you can tell us",
+    "reportBody": "Your SaySo version, iPhone model, iOS version, ChatGPT version, approximate time, what you did and any error number on screen. Please don’t send passwords, verification codes, pairing codes or payment details.",
+    "contactPending": "Contact details will be announced before launch.",
     "contact": "Email support",
     "copyReport": "Copy report checklist",
     "copied": "Checklist copied",
     "copyFailed": "Copy unavailable. Select the checklist above to copy it.",
-    "licensesTitle": "Free components. Clear boundaries.",
+    "licensesTitle": "Free to use, with source you can read",
     "licensesSub": "Source-available under FSL-1.1-ALv2.",
     "licensesBody": "Original SaySo website, installer frontend, MCP, plugin and skill source is available under FSL-1.1-ALv2. Copyright 2026 ZHAI BIN. Each covered version receives an additional Apache-2.0 license after two years. This is source-available software, not OSI-approved open source. Third-party licenses and SaySo trademark rights remain separate. The iOS app and ESP firmware source are not included.",
     "licenseFrontend": "Website dependencies and bundled font notices",
     "repoPending": "The public GitHub repository is not configured yet.",
     "repoOpen": "Open GitHub repository",
-    "notFound": "This page is not here.",
-    "backHome": "Back to SaySo",
+    "notFound": "This page doesn’t exist.",
+    "backHome": "Back to home",
     "configError": "Site configuration could not be loaded. Downloads and media remain unavailable.",
     "sceneExamples": {
       "bus": [
         "When is the next bus home?",
-        "SaySo opens the map and checks the route.",
+        "It opens Maps and checks the route.",
         "It tells you when the next bus arrives."
       ],
       "food": [
         "Help me order from my usual place.",
-        "SaySo opens the food app and helps choose dishes.",
-        "It parks the pointer on the final order button; you make the final tap."
+        "It opens the food app and helps you choose dishes.",
+        "At the order button, the pointer stops and waits for you to tap."
       ],
       "subscription": [
         "Help me cancel this subscription.",
-        "SaySo finds the subscription page.",
-        "It parks the pointer on the final cancellation button; you make the final tap."
+        "It finds the subscription page.",
+        "At the final confirmation, the pointer stops and waits for you to tap."
       ],
       "setting": [
         "What does this switch do?",
-        "SaySo reads the shared screen and explains it.",
-        "It does not tap anything."
+        "It looks at your screen and explains.",
+        "Just looking, no tapping."
       ]
     },
     "exampleLabel": "Illustrative conversation",
@@ -258,7 +280,7 @@ export const copy = {
       [
         "Food",
         "Help me choose dinner.",
-        "Show me the final order before I tap."
+        "Stop at the final order button. I’ll tap it myself."
       ],
       [
         "Subscriptions",
@@ -274,22 +296,26 @@ export const copy = {
     "trySaying": "Try saying",
     "needHelp": "Need help?",
     "developerTitle": "Developer information",
-    "developerVersion": "Service source 0.13.249 includes stop and privacy fixes. Existing private services need an update; see INSTALL.md.",
+    "developerVersion": "The latest service source includes fixes for stopping and privacy. If you deployed your own SaySo service, follow the installation guide to update it.",
     "installGuide": "Read the installation and update guide",
     "trademarkNotice": "SaySo trademark notice",
-    "thirdPartyNotices": "Third-party notices"
+    "thirdPartyNotices": "Third-party notices",
+    "compatPending": "Tapping for you supports only tested iPhone models and iOS versions. The compatibility list is still being prepared; please wait for it before buying an accessory.",
+    "comparisonBody": "As of November 2026, ChatGPT’s built-in screen sharing is available only in some voice modes. It can see your iPhone screen, but can’t operate it for you. With SaySo, ChatGPT can see your screen in its latest voice mode too. Add the accessory, and it can tap, type and scroll for you, working through things step by step.",
+    "developerSetup": "Want to host your own service? The GitHub setup guide includes a one-sentence instruction you can copy.",
+    "licensesIntro": "SaySo’s source is available for you to read and host yourself."
   },
   "zh": {
     "home": "首页",
     "start": "开始使用",
-    "guides": "使用文档",
-    "firmware": "安装固件",
+    "guides": "使用指南",
+    "firmware": "准备配件",
     "github": "GitHub",
-    "privacy": "隐私政策",
-    "support": "支持与帮助",
+    "privacy": "隐私",
+    "support": "遇到问题",
     "licenses": "许可说明",
-    "buy": "购买渠道",
-    "requirements": "使用要求",
+    "buy": "去哪里买配件",
+    "requirements": "需要准备什么",
     "skip": "跳转到正文",
     "menu": "打开导航",
     "closeMenu": "关闭导航",
@@ -299,40 +325,45 @@ export const copy = {
       "对 ChatGPT 说一句，",
       "让 SaySo 帮你点。"
     ],
-    "subtitle": "用 ChatGPT 语音说出需求。遇到付款、下单、发送、删除这类操作，SaySo 会把指针停在按钮上，最后一下由你自己点。",
+    "subtitle": "就像身边有人帮忙：你开口说，它看着你的屏幕，一步一步替你完成。",
+    "finalTapNote": "付款、下单、发送、删除这类最后一步，SaySo 会把指针停在按钮上，等你自己点。",
+    "comparisonTitle": "和 ChatGPT 自带的屏幕共享有什么不同？",
+    "comparisonDisclaimer": "SaySo 是独立的第三方工具，与 OpenAI 无关联。",
+    "feesTitle": "费用和次数",
+    "appNameNote": "打开 App 要用英文名或拼音，中文 App 名的支持在完善中。",
     "download": "下载 SaySo",
-    "downloadPending": "App Store 链接待接入",
-    "downloadNote": "目前尚未开放下载。",
-    "qrPending": "二维码待接入",
+    "downloadPending": "即将在 App Store 上架",
+    "downloadNote": "上架后就能下载。",
+    "qrPending": "上架后提供二维码",
     "qrLabel": "扫码下载 SaySo",
-    "already": "已经安装？开始连接",
-    "checkAll": "查看完整使用要求",
+    "already": "已经装好了？看看怎么开始",
+    "checkAll": "看看需要准备什么",
     "everyday": [
-      "日常的小事，",
-      "开口就能求助。"
+      "那些让你犯难的小事，",
+      "说一句，就有人帮你。"
     ],
-    "chooseScene": "选择一个场景，了解 SaySo 如何帮忙。",
+    "chooseScene": "点一个场景，看看 SaySo 怎么帮你。",
     "scenes": [
       [
-        "查找公交",
-        "出行时的帮助"
+        "查公交",
+        "下一班车几点到"
       ],
       [
         "点外卖",
-        "最终订单由你检查确认"
+        "最后的下单由你点"
       ],
       [
         "取消订阅",
-        "最终取消由你确认"
+        "最后的确认由你点"
       ],
       [
-        "解释设置",
-        "读屏，无需配件"
+        "看懂设置",
+        "只看不点，不用配件"
       ]
     ],
-    "videoPending": "视频素材待接入",
+    "videoPending": "视频准备中",
     "portrait": "竖屏演示",
-    "scenePending": "这是用法示例，不是真实操作录像。",
+    "scenePending": "以下是示意，不是真实录像。",
     "playback": "默认静音 · 显示字幕 · 随时暂停",
     "play": "播放视频",
     "pause": "暂停视频",
@@ -341,88 +372,105 @@ export const copy = {
     "replay": "重播视频",
     "mediaError": "视频加载失败，请重试或选择其他场景。",
     "retry": "重试",
-    "task": "一个任务可以包含多次点击。任务计数和付费升级均为计划中；更多任务额度将可在 App 内升级（计划中）。",
-    "quotaPending": "计划权益，任务计数仍待验证。",
     "priceNote": "*官方单件标价核对于 2026 年 11 月 16 日，运费和税费可能另计。",
     "currentPrice": "查看当前价格",
-    "privacyShort": "你共享的画面会发送至所连接的服务及 ChatGPT。",
-    "privacyLink": "了解数据如何处理",
-    "disclaimer": "适配 ChatGPT。与 OpenAI 或 M5Stack 无关联，亦未获其背书。",
-    "preview": "开发预览：SaySo 尚未开放使用。",
+    "privacyShort": "开始共享后，你的屏幕画面会发到你自己的 SaySo 服务和 ChatGPT，用来看懂你的屏幕。",
+    "privacyLink": "画面去了哪里？",
+    "disclaimer": "SaySo 配合 ChatGPT 使用，是独立开发的工具，和 OpenAI、M5Stack 没有关联。",
+    "preview": "SaySo 还在开发中，暂时不能下载使用。",
     "before": "开始前，先准备好。",
-    "beforeSub": "帮家人安装？请使用对方的 iPhone 和 ChatGPT 账号。",
-    "need": "你需要准备什么",
+    "beforeSub": "帮家人装？请用他自己的 iPhone 和 ChatGPT 账号。",
+    "need": "需要准备什么",
     "screenGroup": "所有人都需要",
     "controlGroup": "想让 SaySo 帮你点，还需要",
-    "viewCompat": "查看兼容性",
-    "startPrerequisite": "开始前：iPhone + ChatGPT Plus 或更高",
-    "storeSoon": "App Store 即将上架",
-    "threeSteps": "三步，开始使用",
-    "connectionPending": "“连接 ChatGPT → 安装插件”的 iPhone 完整流程仍在验证。",
-    "screenFree": "读屏免费，不限次数。ChatGPT 的订阅另算。",
-    "controlTitle": "想让 SaySo 帮你点？",
-    "controlSubtitle": "想让它直接帮你点、帮你打字，再加一个小配件。",
+    "viewCompat": "看看兼容列表",
+    "startPrerequisite": "开始前，准备好一台 iPhone 和 ChatGPT Plus（或更高）账号。",
+    "storeSoon": "即将在 App Store 上架",
+    "threeSteps": "三步就能用",
+    "connectionPending": "（“连接 ChatGPT”这一步还在开发中。）",
+    "controlTitle": "想让它直接帮你点？",
+    "controlSubtitle": "加一个小配件，它就能替你点、输入和滑动。",
     "controlSteps": [
-      ["买配件和数据线", "准备 M5Stack AtomS3 Lite（C124）和一根 USB-C 数据线。购买前先核对帮你点的已验证兼容组合。"],
-      ["用电脑安装固件", "用电脑上的 Chrome 或 Edge 打开刷写页面安装固件。目前尚无可用的已验收固件。"],
-      ["在 SaySo 里配对", "在 SaySo 里配对配件。之后每次要它帮你点，在 App 里点“允许本次控制”。"]
+      [
+        "买一个小配件",
+        "M5Stack AtomS3 Lite（型号 C124），再配一根 USB-C 数据线。买之前先看看下面的兼容列表。"
+      ],
+      [
+        "用电脑装好程序（只需一次）",
+        "用电脑上的 Chrome 或 Edge 打开安装页面，几分钟就好。（安装页面还在准备中。）"
+      ],
+      [
+        "和 SaySo 配对",
+        "在 SaySo 里配对配件。以后每次要它帮你点，先在 SaySo 里点“允许这次帮你点”。"
+      ]
     ],
-    "controlCompatibility": "帮你点只支持已验证的 iPhone 与 iOS 组合，请查看下方兼容性列表。",
-    "controlFree": "计划中：每月免费 10 个完成的帮你点任务；更多次数可在 App 内订阅或买断（计划中）。",
-    "detailsTitle": "需要什么、兼容性和帮助",
+    "controlCompatibility": "帮你点目前只支持兼容列表里验证过的 iPhone 和系统版本，手机要竖着拿。",
+    "detailsTitle": "更多细节",
     "steps": [
       [
         "下载 SaySo",
-        "上架后即可下载，只需要 iPhone 和网络。",
+        "在 App Store 下载，打开就能开始。",
         "SaySo App 页面"
       ],
       [
-        "在 SaySo 里连接 ChatGPT",
-        "打开 SaySo，点“连接 ChatGPT”。目标是跳到 ChatGPT App，按提示安装 SaySo 插件并完成授权。",
-        "ChatGPT 安装插件页"
+        "连上 ChatGPT",
+        "在 SaySo 里点“连接 ChatGPT”，它会带你到 ChatGPT 完成设置，再自动回到 SaySo。全程不用复制粘贴。",
+        "在 ChatGPT 里设置 SaySo"
       ],
       [
-        "开始共享，直接说话",
-        "回到 SaySo 点“开始共享”，再到 ChatGPT 里说话或打字，比如“帮我看看这个页面怎么设置”。",
+        "开始共享，开口就行",
+        "在 SaySo 点“开始共享”，然后去你要用的 App，打开 ChatGPT 语音直接问，比如“这个开关是干什么的？”",
         "SaySo 共享中的画面"
       ]
     ],
-    "screenshot": "真实截图待补",
+    "screenshot": "截图准备中",
     "screenshotEn": "当前为英文截图，中文版本待补。",
     "captured": "截图日期",
-    "resume": "继续安装或获取帮助",
-    "approve": "出现批准请求时，请在屏幕上点击。",
-    "approveSub": "请使用 ChatGPT 屏幕上的批准或拒绝控件。说“同意”不会批准这项操作。",
-    "connectedNote": "连接账号不会自动共享屏幕，请在 SaySo 里点“开始共享”。",
-    "guidesTitle": "需要的时候，有清楚的指引。",
-    "guidesSub": "推荐从 SaySo 的“连接 ChatGPT”开始。手机完整流程仍待验证；开发者可按 GitHub 的 Work 指令安装。",
+    "resume": "卡住了？看看这里",
+    "approve": "ChatGPT 问你“是否允许”时，要在屏幕上点。",
+    "approveSub": "在 ChatGPT 的提示卡片上点“允许”或“拒绝”；嘴上说“同意”不算。",
+    "connectedNote": "连上 ChatGPT 不会自动共享屏幕，需要时在 SaySo 里点“开始共享”。",
+    "guidesTitle": "几件值得知道的事",
+    "guidesSub": "第一次用，从 SaySo 里的“连接 ChatGPT”开始。",
     "guideSections": [
       [
-        "开始和停止共享",
-        "在 SaySo 开始屏幕共享，再回到 ChatGPT 语音。想停止帮你点，在 SaySo 点“停止控制”；想停止发送画面，还要停止屏幕共享。 如果 ChatGPT 的批准卡片挡住操作，直接使用 SaySo App 内的“停止控制”；它不依赖插件权限设置。"
+        "随时都能停",
+        "想让它停下来，打开 SaySo 点“停止控制”，马上生效，不用等 ChatGPT。想连画面也不再发送，再点“结束共享”。免费次数用完了也照样能停。"
       ],
       [
-        "ChatGPT 请求批准时",
-        "在 ChatGPT 对话里找到带按钮的批准卡片，在屏幕上批准或拒绝。说“同意”不会批准。这和最后一下由你自己点是两回事。"
+        "开始和结束共享",
+        "在 SaySo 点“开始共享”，然后去你要用的 App，打开 ChatGPT 语音就能问。用完在 SaySo 点“结束共享”。"
       ],
       [
-        "最后一下交给你",
-        "付款、下单、发送、删除、取消订阅、转账等最后一步，规则是先停指针、确认画面，再请你自己点。这是让 AI 遵守的软规则，不是代码强制拦截。C124 按键批准尚未提供。"
+        "ChatGPT 问“是否允许”时",
+        "在提示卡片上点“允许”或“拒绝”，嘴上说“同意”不算。这和“最后一步由你点”是两回事。"
       ],
       [
-        "有些画面看不到",
-        "银行和支付 App、身份认证 App（比如 Singpass）、公司或学校管理的 App（比如工作账号的 Teams）、受保护的视频可能隐藏画面。这是在保护你的信息；SaySo 无法在看不见的画面里帮忙，也不绕过保护。请自行处理；共享导致 App 不能用时，先停止共享，完成后再开启。这不代表所有银行或敏感 App 都会隐藏内容。"
+        "最后一步，交给你",
+        "付款、下单、发送、删除、取消订阅、转账，到最后一步时，它会把指针停在按钮上，等你看清楚再自己点。这是它遵守的规则，不是硬性锁；所以每次请你自己看一眼再点。"
+      ],
+      [
+        "卡号和密码请自己填",
+        "银行卡号、密码、验证码这类信息，请你自己输入，不要让 SaySo 代填。"
+      ],
+      [
+        "有些画面它看不到",
+        "银行和支付 App、身份认证 App（比如 Singpass）、公司管理的 App、受保护的视频，可能会把画面遮住，SaySo 会如实告诉你“看不到”，不会想办法绕过。这是在保护你。比如有些身份认证 App 会显示“屏幕录制已禁用”，这时它就会告诉你看不到。"
+      ],
+      [
+        "请竖着拿手机",
+        "帮你点需要竖屏，请竖着拿手机。"
       ]
     ],
     "officialDocs": "ChatGPT 官方说明",
-    "sitesDocs": "Sites 可用范围与限制",
+    "sitesDocs": "ChatGPT 服务的可用范围与限制",
     "voiceDocs": "语音与屏幕批准",
-    "firmwareTitle": "准备你的配件。",
-    "firmwareSub": "免费固件的安装由 SaySo Install 完成。",
-    "installerPending": "公开安装站链接尚未接入。",
-    "installer": "打开 SaySo Install",
-    "firmwareBody": "购买硬件或写入固件前，请先核对兼容性。首次安装需要电脑；此网站不会连接或烧录设备。",
-    "compatTitle": "兼容性",
+    "firmwareTitle": "给配件装好程序",
+    "firmwareSub": "程序免费，用电脑浏览器装一次就好。",
+    "installerPending": "安装页面还在准备中。",
+    "installer": "打开安装页面",
+    "firmwareBody": "买配件、装程序之前，先看看你的手机在不在兼容列表里。安装要在专门的安装页面上做，这个网站不会连接你的配件。",
+    "compatTitle": "兼容列表",
     "compatColumns": [
       "用途",
       "iPhone",
@@ -433,97 +481,97 @@ export const copy = {
     ],
     "screenMode": "读屏",
     "controlMode": "帮你点",
-    "buyTitle": "买对配件，找对渠道。",
-    "buySub": "请认准 AtomS3 Lite，型号 C124。Atom Lite、AtomS3 和 AtomS3R 是不同产品。",
+    "buyTitle": "买对配件",
+    "buySub": "认准 AtomS3 Lite（型号 C124）。名字很像的 Atom Lite、AtomS3、AtomS3R 都不是它。",
     "officialShop": "M5Stack 官方商城",
     "digikey": "DigiKey · C124",
     "vendor": "查看商品",
-    "buyNote": "请比较含运费及税费的最终结账金额。价格与库存可能变化，购买前先核对 SaySo 兼容性。",
-    "privacyTitle": "了解你的画面去了哪里。",
-    "privacySub": "共享、控制与删除数据，是不同的选择。",
-    "draft": "隐私信息草案，尚非正式发行政策。",
+    "buyNote": "价格和库存会变，下单前看清含运费和税的总价。",
+    "privacyTitle": "你的画面去了哪里",
+    "privacySub": "共享屏幕、让它帮你点、删除数据，是三件可以分开决定的事。",
+    "draft": "这是草稿，正式的隐私政策会在上架前发布。",
     "privacySections": [
       [
-        "屏幕会传到哪里",
-        "开始屏幕共享后，画面会传到你 ChatGPT 账号里的私人服务和 ChatGPT。其他 App 可能显示个人信息。语音由 ChatGPT 按其政策处理。"
+        "画面发到哪里",
+        "开始共享后，屏幕画面会发到你自己 ChatGPT 账号下的 SaySo 服务和 ChatGPT，用来看懂屏幕。其他 App 里的个人信息也可能出现在画面上。语音由 ChatGPT 按它的政策处理。SaySo 自己不使用麦克风。"
       ],
       [
-        "保存多久——服务0.13.249及之后版本",
-        "SaySo 输入的文字会在命令结束后从服务删除。为防止同一请求重复执行，会保留带密钥的摘要和基本记录；清理运行时，超过七天的详细命令记录会被精简。"
+        "会保存多久",
+        "SaySo 替你输入的文字，用完就从服务里删掉；为了防止同一个请求被重复执行，只保留不含内容的简短记录，七天后精简。"
       ],
       [
-        "停止和解除设备配对",
-        "停止帮你点后，屏幕共享可能仍在继续。结束共享会话会清除这次会话的云端屏幕数据；解除设备配对会清除其关联服务记录和截图。这不会删除 ChatGPT 对话。"
+        "停下来和断开连接",
+        "“停止控制”只是不再帮你点，画面可能还在共享；“结束共享”会清除这次的云端画面；断开设备连接会清除相关的记录和截图。这些都不会删除你的 ChatGPT 对话。"
       ],
       [
-        "清理无法运行时",
-        "日常使用会触发清理。如果不再使用服务，也没有配置定时清理，未完成命令里的文字可能继续保留，没有固定删除期限。账户整体删除和完整的备份删除流程尚未提供。图片过期后不再被使用，但不保证已被彻底删除。"
+        "还在完善的部分",
+        "完整的账号删除、备份删除流程，以及正式的发布者和联系方式，会在上架前补齐。"
       ],
       [
         "受保护的画面",
-        "如果某个 App 不允许共享屏幕，SaySo 会尊重它的设置，不会尝试绕过。这不代表所有银行或敏感 App 都会隐藏内容。"
-      ],
-      [
-        "预览说明",
-        "以上描述的是更新后的公开服务源码，不会自动更新你已经安装的私人服务。发布者、联系信息和正式隐私政策仍需完善。"
+        "如果某个 App 不允许共享屏幕，SaySo 会尊重它，不会绕过。但不是所有银行或敏感 App 都会自动遮住画面，共享时请留意。"
       ]
     ],
-    "supportTitle": "一起找到下一步。",
-    "supportSub": "从遇到的问题开始，不在诊断中提供个人敏感资料。",
+    "supportTitle": "我们一起看看",
+    "supportSub": "从你遇到的情况开始。不需要提供任何密码或个人敏感信息。",
     "supportItems": [
       [
-        "看不到手机画面",
-        "确认屏幕共享已开启，手机可以上网。连接账号不会自动共享屏幕，请在 SaySo 里点“开始共享”。"
+        "我想让它停下",
+        "打开 SaySo 点“停止控制”，马上就停，不用等 ChatGPT；就算 ChatGPT 正在等你点“允许”，也一样能停。想连画面也不发，再点“结束共享”。"
       ],
       [
-        "ChatGPT 在等待批准",
-        "查看 ChatGPT 屏幕，使用批准或拒绝控件。说“同意”不会完成批准，你也可以选择拒绝。"
+        "它说看不到我的屏幕",
+        "看看 SaySo 里是不是已经“开始共享”，手机有没有网。连上 ChatGPT 不会自动共享，需要你点一下。"
       ],
       [
-        "操作后没有变化",
-        "检查配件、配对和权限。结果不确定时，不要反复重试购买、发送或删除。配件显示已点击，也请看一眼屏幕，确认 App 真的完成了操作。"
+        "ChatGPT 一直在等我“允许”",
+        "在 ChatGPT 的提示卡片上点“允许”或“拒绝”，嘴上说“同意”不算。"
       ],
       [
-        "我想停止",
-        "ChatGPT 正在等待批准时，请直接在 SaySo App 里点“停止控制”，不用等批准卡片。这个本地按钮不受 ChatGPT 插件权限设置影响。想停止发送画面，还要停止屏幕共享；免费次数用完也能停止。"
+        "它说点了，但屏幕没变化",
+        "看看配件是不是连着、SaySo 里有没有“允许这次帮你点”。付款、发送、删除这类操作结果不确定时，先别反复重试，自己看一眼屏幕确认。"
+      ],
+      [
+        "卡号和密码请自己填",
+        "银行卡号、密码、验证码这类信息，请你自己输入，不要让 SaySo 代填。"
       ]
     ],
-    "report": "反馈时提供哪些资料",
-    "reportBody": "SaySo 版本、iPhone 型号、iOS 版本、ChatGPT 版本、发生时间、简短步骤及非敏感错误编号。不要提供密码、验证码、配对密钥或付款资料。",
-    "contactPending": "公开支持地址尚未配置。此预览不收集或提交反馈。",
+    "report": "反馈时可以告诉我们",
+    "reportBody": "SaySo 版本、iPhone 型号、iOS 版本、ChatGPT 版本、大概时间、你做了哪几步、屏幕上的错误编号。请不要发密码、验证码、配对码或付款信息。",
+    "contactPending": "联系方式会在上架前公布。",
     "contact": "邮件联系支持",
     "copyReport": "复制反馈清单",
     "copied": "清单已复制",
     "copyFailed": "无法自动复制，请选中上方清单手动复制。",
-    "licensesTitle": "组件免费，授权边界清楚。",
+    "licensesTitle": "免费使用，源码公开",
     "licensesSub": "采用 FSL-1.1-ALv2，源码公开。",
     "licensesBody": "SaySo 原创的网站、安装器前端、MCP、插件和 Skill 源码采用 FSL-1.1-ALv2。Copyright 2026 ZHAI BIN。每个适用版本公开满两年后额外获得 Apache-2.0 许可。这属于源码公开，不是 OSI 认可的开源许可。第三方许可和 SaySo 商标权另行处理；iOS App 与 ESP 固件源码未包含在仓库中。",
     "licenseFrontend": "网站依赖与字体许可",
     "repoPending": "公开 GitHub 仓库尚未配置。",
     "repoOpen": "打开 GitHub 仓库",
-    "notFound": "没有找到这个页面。",
-    "backHome": "返回 SaySo",
+    "notFound": "这个页面不存在。",
+    "backHome": "回到首页",
     "configError": "网站配置加载失败，下载和媒体保持不可用。",
     "sceneExamples": {
       "bus": [
         "回家的公交还有多久到？",
-        "SaySo 打开地图查询路线。",
+        "它打开地图查路线。",
         "告诉你下一班车几点到。"
       ],
       "food": [
         "帮我点常吃的那家。",
-        "SaySo 打开外卖 App，帮忙选好菜。",
-        "把指针停在最后的下单按钮上，最后一下由你自己点。"
+        "它打开外卖 App，帮你选好菜。",
+        "到下单那一步，指针停在按钮上，等你自己点。"
       ],
       "subscription": [
         "帮我取消这个订阅。",
-        "SaySo 找到订阅页面。",
-        "把指针停在最后的取消确认按钮上，最后一下由你自己点。"
+        "它找到订阅页面。",
+        "到最后确认那一步，指针停在按钮上，等你自己点。"
       ],
       "setting": [
         "这个开关是干什么的？",
-        "SaySo 读屏并解释开关。",
-        "不点击任何东西。"
+        "它看着你的屏幕给你解释。",
+        "只看不点。"
       ]
     },
     "exampleLabel": "对话示例",
@@ -536,7 +584,7 @@ export const copy = {
       [
         "外卖",
         "帮我选晚饭。",
-        "让我看看最后的订单，我自己点。"
+        "到最后下单那一步停下，我自己点。"
       ],
       [
         "订阅",
@@ -552,10 +600,14 @@ export const copy = {
     "trySaying": "可以这样说",
     "needHelp": "遇到问题？",
     "developerTitle": "开发者资料",
-    "developerVersion": "服务源码0.13.249已包含停止和隐私修复。已有私人服务需要自行更新，方法见INSTALL.md。",
+    "developerVersion": "最新的服务源码已包含停止和隐私方面的修复；如果你自己部署过 SaySo 服务，请按安装指南更新。",
     "installGuide": "查看安装与更新指南",
     "trademarkNotice": "SaySo 商标说明",
-    "thirdPartyNotices": "第三方许可说明"
+    "thirdPartyNotices": "第三方许可说明",
+    "compatPending": "帮你点只支持验证过的机型和系统版本。兼容列表还在准备中，买配件前请先等它公布。",
+    "comparisonBody": "截至 2026 年 11 月，ChatGPT 自带的屏幕共享只在部分语音模式里能用，而且只能看、不能动手。有了 SaySo，你在 ChatGPT 最新的语音里也能让它看见屏幕；加上配件，它还能替你点、输入和滑动，一步一步把事情做完。",
+    "developerSetup": "想自己部署？GitHub 的安装指南里有可以复制的一句话安装指令。",
+    "licensesIntro": "SaySo 的源码公开，你可以查看和自己部署。"
   }
 };
-for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, compatPending:requirements[lang].compatibilityNote, keyboardNote:requirements[lang].keyboardNote, noAccessory:requirements[lang].screenSummary});
+for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, keyboardNote:requirements[lang].keyboardNote, noAccessory:requirements[lang].screenSummary});

@@ -77,22 +77,36 @@ export const copy = {
     "screenGroup": "Everyone needs",
     "controlGroup": "To let SaySo tap, also add",
     "viewCompat": "View compatibility",
-    "threeSteps": "Three steps to connect",
+    "startPrerequisite": "Before you start: iPhone + ChatGPT Plus or higher",
+    "storeSoon": "Coming soon on the App Store",
+    "threeSteps": "Three steps to get started",
+    "connectionPending": "The complete Connect ChatGPT → install plugin flow on iPhone is still being verified.",
+    "screenFree": "Screen guidance is free, with no session limit. ChatGPT subscription costs are separate.",
+    "controlTitle": "Want SaySo to tap for you?",
+    "controlSubtitle": "For tapping and typing, add a small accessory.",
+    "controlSteps": [
+      ["Buy the accessory and cable", "Get an M5Stack AtomS3 Lite (C124) and a USB-C data cable. Check verified tapping compatibility before buying."],
+      ["Install firmware on a computer", "Use desktop Chrome or Edge to open the firmware installer. Accepted firmware is not available yet."],
+      ["Pair it in SaySo", "Pair the accessory in SaySo. Each time you want tapping, tap Allow control for this session in the app."]
+    ],
+    "controlCompatibility": "Tapping supports only verified iPhone/iOS combinations. Check the compatibility list below.",
+    "controlFree": "Planned: 10 completed tapping tasks free each month. More tasks through an in-app subscription or one-time purchase (planned).",
+    "detailsTitle": "Requirements, compatibility and help",
     "steps": [
       [
-        "Open SaySo",
-        "Tap Connect ChatGPT to open the setup message.",
-        "SaySo connection screen"
+        "Download SaySo",
+        "You only need your iPhone and internet to download the app once it is available.",
+        "SaySo app page"
       ],
       [
-        "Confirm in ChatGPT",
-        "The intended flow continues in ChatGPT on the iPhone. Follow sign-in and approval prompts. Complete mobile deployment is still being verified; see developer instructions for the current Work setup.",
-        "Setup message and approval"
+        "Connect ChatGPT in SaySo",
+        "Open SaySo and tap Connect ChatGPT. The intended flow opens the ChatGPT app; follow the prompts to install the SaySo plugin and authorize it.",
+        "ChatGPT plugin installation"
       ],
       [
-        "Share, then speak",
-        "Start screen sharing in SaySo, not in ChatGPT. Return to ChatGPT Voice and speak.",
-        "System sharing and Voice"
+        "Start sharing, then speak",
+        "Back in SaySo, tap Start Sharing. Then speak or type in ChatGPT, for example: “Help me understand this settings page.”",
+        "Screen sharing in SaySo"
       ]
     ],
     "screenshot": "Screenshot pending",
@@ -107,7 +121,7 @@ export const copy = {
     "guideSections": [
       [
         "Start and stop sharing",
-        "Start screen sharing in SaySo, then return to ChatGPT Voice. To stop tapping, use Stop control in SaySo. To stop sending the screen, stop screen sharing too."
+        "Start screen sharing in SaySo, then return to ChatGPT Voice. To stop tapping, use Stop control in SaySo. To stop sending the screen, stop screen sharing too. If a ChatGPT approval card blocks progress, use the local Stop control button in SaySo; it does not depend on the plugin permission setting."
       ],
       [
         "When ChatGPT asks for approval",
@@ -193,7 +207,7 @@ export const copy = {
       ],
       [
         "I need to stop",
-        "Use Stop tapping to end input. Stop screen sharing in SaySo to stop sending your screen. You can always stop, even if your free tasks have run out."
+        "Use Stop control directly in the SaySo app if ChatGPT is waiting for approval. This local button is independent of ChatGPT plugin permission settings. Also stop screen sharing if you want to stop sending the screen. You can stop even if free tasks have run out."
       ]
     ],
     "report": "What to include in a report",
@@ -341,22 +355,36 @@ export const copy = {
     "screenGroup": "所有人都需要",
     "controlGroup": "想让 SaySo 帮你点，还需要",
     "viewCompat": "查看兼容性",
-    "threeSteps": "三个步骤，完成连接",
+    "startPrerequisite": "开始前：iPhone + ChatGPT Plus 或更高",
+    "storeSoon": "App Store 即将上架",
+    "threeSteps": "三步，开始使用",
+    "connectionPending": "“连接 ChatGPT → 安装插件”的 iPhone 完整流程仍在验证。",
+    "screenFree": "读屏免费，不限次数。ChatGPT 的订阅另算。",
+    "controlTitle": "想让 SaySo 帮你点？",
+    "controlSubtitle": "想让它直接帮你点、帮你打字，再加一个小配件。",
+    "controlSteps": [
+      ["买配件和数据线", "准备 M5Stack AtomS3 Lite（C124）和一根 USB-C 数据线。购买前先核对帮你点的已验证兼容组合。"],
+      ["用电脑安装固件", "用电脑上的 Chrome 或 Edge 打开刷写页面安装固件。目前尚无可用的已验收固件。"],
+      ["在 SaySo 里配对", "在 SaySo 里配对配件。之后每次要它帮你点，在 App 里点“允许本次控制”。"]
+    ],
+    "controlCompatibility": "帮你点只支持已验证的 iPhone 与 iOS 组合，请查看下方兼容性列表。",
+    "controlFree": "计划中：每月免费 10 个完成的帮你点任务；更多次数可在 App 内订阅或买断（计划中）。",
+    "detailsTitle": "需要什么、兼容性和帮助",
     "steps": [
       [
-        "打开 SaySo",
-        "点击“连接 ChatGPT”，打开安装引导消息。",
-        "SaySo 连接页面"
+        "下载 SaySo",
+        "上架后即可下载，只需要 iPhone 和网络。",
+        "SaySo App 页面"
       ],
       [
-        "在 ChatGPT 中确认",
-        "目标是在 iPhone 的 ChatGPT 中继续，按提示登录和批准。手机完整部署尚待验证；当前 Work 安装方法见开发者资料。",
-        "安装消息与批准界面"
+        "在 SaySo 里连接 ChatGPT",
+        "打开 SaySo，点“连接 ChatGPT”。目标是跳到 ChatGPT App，按提示安装 SaySo 插件并完成授权。",
+        "ChatGPT 安装插件页"
       ],
       [
-        "开始共享，然后开口说",
-        "在 SaySo 中开始屏幕共享，不是在 ChatGPT 中。然后返回 ChatGPT 语音说出需求。",
-        "系统共享与语音界面"
+        "开始共享，直接说话",
+        "回到 SaySo 点“开始共享”，再到 ChatGPT 里说话或打字，比如“帮我看看这个页面怎么设置”。",
+        "SaySo 共享中的画面"
       ]
     ],
     "screenshot": "真实截图待补",
@@ -371,7 +399,7 @@ export const copy = {
     "guideSections": [
       [
         "开始和停止共享",
-        "在 SaySo 开始屏幕共享，再回到 ChatGPT 语音。想停止帮你点，在 SaySo 点“停止控制”；想停止发送画面，还要停止屏幕共享。"
+        "在 SaySo 开始屏幕共享，再回到 ChatGPT 语音。想停止帮你点，在 SaySo 点“停止控制”；想停止发送画面，还要停止屏幕共享。 如果 ChatGPT 的批准卡片挡住操作，直接使用 SaySo App 内的“停止控制”；它不依赖插件权限设置。"
       ],
       [
         "ChatGPT 请求批准时",
@@ -457,7 +485,7 @@ export const copy = {
       ],
       [
         "我想停止",
-        "用“停止控制”结束帮你点；在 SaySo 停止屏幕共享，就不再发送画面。即使免费次数用完，也随时可以停止。"
+        "ChatGPT 正在等待批准时，请直接在 SaySo App 里点“停止控制”，不用等批准卡片。这个本地按钮不受 ChatGPT 插件权限设置影响。想停止发送画面，还要停止屏幕共享；免费次数用完也能停止。"
       ]
     ],
     "report": "反馈时提供哪些资料",
@@ -530,4 +558,4 @@ export const copy = {
     "thirdPartyNotices": "第三方许可说明"
   }
 };
-for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, compatPending:requirements[lang].compatibilityNote, noAccessory:requirements[lang].screenSummary});
+for (const lang of ["en","zh"]) Object.assign(copy[lang], {hardware:requirements[lang].hardwareSummary, setupNeed:requirements[lang].setupSummary, needs:requirementRows(lang), free:requirements[lang].fees, costs:requirements[lang].costs, compatPending:requirements[lang].compatibilityNote, keyboardNote:requirements[lang].keyboardNote, noAccessory:requirements[lang].screenSummary});

@@ -607,36 +607,32 @@ const requirementIcons = [
 ];
 export function Start({ t, lang, config }) {
   return (
-    <>
-      <PageHeading eyebrow={t.start} title={t.before} subtitle={t.beforeSub} />
-      <div className="start-grid">
-        <section className="requirements">
-          <h2>{t.need}</h2>
-          <h3 className="group-label">{t.screenGroup}</h3>
-          {t.needs.slice(0, 4).map((r, i) => (
-            <Requirement key={i} row={r} Icon={requirementIcons[i]}>
-              {i === 0 && <a className="text-link" href="#compatibility" onClick={e => {e.preventDefault(); document.getElementById("compatibility")?.scrollIntoView({behavior:"smooth"});}}>{t.viewCompat}</a>}
-            </Requirement>
-          ))}
-          <h3 className="group-label control-group">{t.controlGroup}</h3>
-          {t.needs.slice(4).map((r, i) => (
-            <Requirement key={i} row={r} Icon={requirementIcons[i + 4]}>
-              {i === 1 && <Link to="buy">{t.buy}</Link>}
-            </Requirement>
-          ))}
-          <Link className="button-secondary" to="firmware">
-            {t.firmware}
-          </Link>
-          <p className="small-note">{t.noAccessory}</p>
-        </section>
-        <section className="steps">
-          <h2>{t.threeSteps}</h2>
+    <div className="start-flow">
+      <section className="start-intro" aria-labelledby="start-title">
+        <p className="start-prerequisite">{t.startPrerequisite}</p>
+        <h1 id="start-title">{t.threeSteps}</h1>
+        <ol className="connection-steps">
           {t.steps.map((step, i) => {
             const screenshot = config.screenshots.find(
               (s) => s.step === i + 1 && s.locale === lang,
             );
             return (
-              <article className="step-row" key={i}>
+              <li className="connection-step" key={step[0]}>
+                <div className="connection-copy">
+                  <span className="step-number" aria-hidden>{i + 1}</span>
+                  <h2>{step[0]}</h2>
+                  <p>{step[1]}</p>
+                  {i === 0 && (config.appStoreUrl ? (
+                    <a className="button-primary" href={config.appStoreUrl} {...external}>
+                      <DownloadSimple aria-hidden />{t.download}
+                    </a>
+                  ) : (
+                    <button className="button-primary" disabled>
+                      <DownloadSimple aria-hidden />{t.storeSoon}
+                    </button>
+                  ))}
+                  {i === 1 && <p className="small-note">{t.connectionPending}</p>}
+                </div>
                 <figure>
                   <div className="step-capture">
                     {screenshot ? (
@@ -662,32 +658,58 @@ export function Start({ t, lang, config }) {
                     )}
                   </figcaption>
                 </figure>
-                <div className="step-text">
-                  <span className="step-number">0{i + 1}</span>
-                  <h3>{step[0]}</h3>
-                  <p>{step[1]}</p>
-                </div>
-              </article>
+              </li>
             );
           })}
-          <p className="small-note">{t.connectedNote}</p>
-          <Link to="support">{t.resume}</Link>
-        </section>
-      </div>
-      <Compatibility t={t} config={config} />
-      <aside className="approval-band">
-        <HandTap aria-hidden />
-        <div>
-          <h2>{t.approve}</h2>
-          <p>{t.approveSub}</p>
-        </div>
-      </aside>
-      <div className="start-bottom">
-        <p>{t.free}</p><p>{t.quotaPending}</p>
-        <p>{t.costs}</p>
-        <small>{t.priceNote}</small>
-      </div>
-    </>
+        </ol>
+        <p className="start-allowance">{t.screenFree}</p>
+      </section>
+      <section className="optional-control" aria-labelledby="control-title">
+        <h2 id="control-title">{t.controlTitle}</h2>
+        <p className="control-subtitle">{t.controlSubtitle}</p>
+        <ol className="accessory-steps">
+          {t.controlSteps.map(([title, body], i) => (
+            <li key={title}>
+              <span className="accessory-letter" aria-hidden>{"ABC"[i]}</span>
+              <div>
+                <h3>{title}</h3><p>{body}</p>
+                {i === 0 && <Link to="buy">{t.buy}</Link>}
+                {i === 1 && <Link to="firmware">{t.firmware}</Link>}
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="small-note">{t.controlCompatibility}</p>
+        <p className="start-allowance">{t.controlFree}</p>
+      </section>
+      <section className="start-details" aria-labelledby="details-title">
+        <h2 id="details-title">{t.detailsTitle}</h2>
+        <details>
+          <summary>{t.need}</summary>
+          <div className="details-content">
+            <h3 className="group-label">{t.screenGroup}</h3>
+            {t.needs.slice(0, 4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i]} />)}
+            <h3 className="group-label">{t.controlGroup}</h3>
+            {t.needs.slice(4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i + 4]} />)}
+            <p>{t.noAccessory}</p>
+          </div>
+        </details>
+        <details>
+          <summary>{t.compatTitle}</summary>
+          <div className="details-content"><Compatibility t={t} config={config} /></div>
+        </details>
+        <details>
+          <summary>{t.support}</summary>
+          <div className="details-content start-help">
+            <p>{t.beforeSub}</p><p>{t.needs[1][1]}</p>
+            <h3>{t.approve}</h3><p>{t.approveSub}</p>
+            <p>{t.connectedNote}</p><p>{t.keyboardNote}</p>
+            <p>{t.quotaPending}</p><p>{t.costs}</p>
+            <Link to="support">{t.resume}</Link>
+          </div>
+        </details>
+      </section>
+    </div>
   );
 }
 function Requirement({ row, Icon, children }) {

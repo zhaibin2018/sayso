@@ -1,16 +1,16 @@
 export const requirements = {
   "en": {
     "phone": [
-      "A supported USB-C iPhone",
-      "Lightning models are not supported for screen guidance or tapping."
+      "iPhone with iOS 17.0 or later",
+      "iOS 17.0 is the App deployment target. Screen guidance does not require USB-C; iPhone 11 can share its screen. Model and iOS verification is separate."
     ],
     "chatgpt": [
-      "ChatGPT app and account",
-      "Plus or Pro for Sites. Work or school accounts may need an admin to turn this on."
+      "ChatGPT Plus or higher",
+      "Use the ChatGPT app with your account. Work or school accounts may need an admin to turn this on."
     ],
     "installer": [
-      "Someone comfortable with ChatGPT",
-      "A family member or helper sets up your private SaySo service using your account. The complete iPhone setup flow is not yet verified."
+      "Connect ChatGPT in SaySo",
+      "The intended route opens ChatGPT to install the SaySo plugin and authorize it. The complete iPhone setup flow is still being verified."
     ],
     "network": [
       "Internet and ChatGPT Voice",
@@ -28,25 +28,26 @@ export const requirements = {
       "Check the model and iOS combination",
       "Only combinations listed as verified are supported for tapping."
     ],
-    "fees": "Planned: free screen guidance and 5 completed tapping tasks per month. More tasks will be available in the app (planned).",
+    "fees": "Free screen guidance, with no session limit. Planned: 10 completed tapping tasks per month; more tasks through an in-app subscription or one-time purchase (planned).",
     "costs": "ChatGPT subscription and accessory costs are separate.",
-    "hardwareSummary": "SaySo needs a supported USB-C iPhone (Lightning models aren't supported yet). Tapping also needs an M5Stack AtomS3 Lite, sold separately (reference price US$7.50*).",
-    "setupSummary": "The intended setup starts in ChatGPT on the iPhone; the complete phone flow is not yet verified. A computer is needed once to install the accessory firmware.",
-    "compatibilityNote": "Listed combinations show their verified iOS version. Unlisted combinations have not been verified; USB-C alone does not establish support.",
-    "screenSummary": "Screen guidance does not need the accessory or firmware flashing. It still needs a supported USB-C iPhone and your private SaySo service."
+    "hardwareSummary": "Screen guidance needs an iPhone with iOS 17.0 or later and internet; USB-C is not required. Tapping also needs a verified iPhone/iOS combination and an M5Stack AtomS3 Lite, sold separately.",
+    "setupSummary": "Download SaySo, then connect ChatGPT in the app with ChatGPT Plus or higher. The complete phone setup flow is still being verified. Only accessory firmware installation needs a computer.",
+    "compatibilityNote": "Screen guidance does not require USB-C; iPhone 11 screen guidance is user-confirmed. iOS 17.0 is the App deployment target, not verification of every combination. Tapping supports only listed verified model/iOS combinations.",
+    "keyboardNote": "Before typing with SaySo, switch your iPhone keyboard to English (ABC).",
+    "screenSummary": "Screen guidance needs no accessory, USB-C connection or firmware flashing. It needs internet and your connected SaySo service."
   },
   "zh": {
     "phone": [
-      "受支持的 USB-C iPhone",
-      "暂不支持 Lightning 机型，读屏和帮你点都不支持。"
+      "iPhone，iOS 17.0 或更高版本",
+      "iOS 17.0 是 App 的最低部署目标。读屏不要求 USB-C，iPhone 11 也能共享画面；机型与系统组合的验证另列。"
     ],
     "chatgpt": [
-      "ChatGPT App 和账号",
-      "使用 Sites 需要 Plus 或 Pro；工作或学校账号可能需要管理员开通。"
+      "ChatGPT Plus 或更高",
+      "使用 ChatGPT App 和你的账号；工作或学校账号可能需要管理员开通。"
     ],
     "installer": [
-      "由熟悉 ChatGPT 的人安装",
-      "请家人或帮忙的人使用你的账号设置私人服务。iPhone 内完整安装流程尚未验证。"
+      "在 SaySo 里连接 ChatGPT",
+      "目标是跳转到 ChatGPT 安装 SaySo 插件并授权；iPhone 内完整安装流程仍在验证。"
     ],
     "network": [
       "网络连接和 ChatGPT 语音",
@@ -64,12 +65,13 @@ export const requirements = {
       "核对机型与 iOS 版本",
       "帮你点只支持兼容表中已验证的组合。"
     ],
-    "fees": "计划中：免费读屏，每月 5 个完成的帮你点任务；更多任务额度将可在 App 内升级（计划中）。",
+    "fees": "读屏免费，不限次数。计划中：每月 10 个完成的帮你点任务；更多次数可在 App 内订阅或买断（计划中）。",
     "costs": "ChatGPT 订阅和配件费用另计。",
-    "hardwareSummary": "SaySo 需要受支持的 USB-C iPhone（暂不支持 Lightning 机型）。如需帮你点，还要单独购买 M5Stack AtomS3 Lite（参考价 US$7.50*）。",
-    "setupSummary": "目标是在 iPhone 的 ChatGPT 中开始设置，手机完整流程尚未验证。只有安装配件固件时，才需要用一次电脑。",
-    "compatibilityNote": "已列出的组合显示已验证的 iOS 版本；未列出的组合尚未验证。有 USB-C 接口不等于已获支持。",
-    "screenSummary": "读屏不需要配件或刷写固件，但仍需要受支持的 USB-C iPhone 和你的私人服务。"
+    "hardwareSummary": "读屏需要 iOS 17.0 或更高版本的 iPhone 和网络，不要求 USB-C。帮你点还需要已验证的机型与系统组合，并单独购买 M5Stack AtomS3 Lite。",
+    "setupSummary": "先下载 SaySo，再在 App 里连接 ChatGPT，账号需为 ChatGPT Plus 或更高。手机完整流程仍在验证；只有安装配件固件时需要电脑。",
+    "compatibilityNote": "读屏不要求 USB-C，用户已确认 iPhone 11 能读屏。iOS 17.0 是 App 最低部署目标，不代表所有组合均已验证。帮你点只支持表中已验证的机型与系统组合。",
+    "keyboardNote": "用 SaySo 打字前，请把手机键盘切到英文（ABC）。",
+    "screenSummary": "读屏不需要配件、USB-C 连接或刷写固件；需要网络和所连接的 SaySo 服务。"
   }
 };
 export const requirementRows = lang => ["phone","chatgpt","installer","network","verified","accessory","computer"].map(key => requirements[lang][key]);

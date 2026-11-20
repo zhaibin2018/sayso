@@ -892,7 +892,8 @@ small {
 .document > .text-link {
   margin-right: 24px;
 }
-.document ul {
+.document ul,
+.document ol {
   padding-left: 24px;
   line-height: 1.8;
   color: var(--muted);

@@ -23,7 +23,6 @@ import {
   Info,
   DownloadSimple,
   QrCode,
-  Copy,
   ImageSquare,
 } from "@phosphor-icons/react";
 import { copy } from "./copy";
@@ -764,13 +763,36 @@ export function Requirements({ t, config }) {
     </div>
   );
 }
+function DocumentText({ text }) {
+  return text.split(/(\*\*.*?\*\*|saysoapp\.help@gmail\.com)/g).map((part, i) =>
+    part.startsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> :
+    part === "saysoapp.help@gmail.com" ? <a key={i} href={`mailto:${part}`}>{part}</a> : part
+  );
+}
+function DocumentBody({ body }) {
+  if (body?.blocks) return body.blocks.map((block, i) => {
+    if (block.type === "p") return <p key={i}><DocumentText text={block.text} /></p>;
+    const Tag = block.type === "ol" ? "ol" : "ul";
+    return <Tag key={i}>{block.items.map((item) => <li key={item}><DocumentText text={item} /></li>)}</Tag>;
+  });
+  if (!Array.isArray(body)) return <p>{body}</p>;
+  const [lead, ...details] = body;
+  return (
+    <>
+      <p>{lead}</p>
+      {details.length > 0 && (
+        <ul>{details.map((item) => <li key={item}>{item}</li>)}</ul>
+      )}
+    </>
+  );
+}
 function DocumentSections({ sections }) {
   return (
     <div className="document-sections">
       {sections.map(([title, body]) => (
         <section key={title}>
           <h2>{title}</h2>
-          <p>{body}</p>
+          <DocumentBody body={body} />
         </section>
       ))}
     </div>
@@ -928,21 +950,22 @@ function Privacy({ t, config }) {
           {t.draft}
         </p>
       )}
+      <p className="small-note">{t.publisherLabel}{t.publisherType}{config.publisherName || t.publisherPending}{t.publisherContact}<a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a></p>
+      <p className="lead">{t.privacyIntro}</p>
       <DocumentSections sections={t.privacySections} />
+      <section className="document-sections">
+        <h2>{t.privacyResources}</h2>
+        <ul>
+          <li><Link arrow={false} to="https://openai.com/policies/privacy-policy/">{t.openaiPrivacy}</Link></li>
+          <li><Link arrow={false} to="https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt">{t.openaiDataControls}</Link></li>
+          <li><Link arrow={false} to="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">{t.githubPagesData}</Link></li>
+        </ul>
+      </section>
       <Link to="support">{t.support}</Link>
     </div>
   );
 }
-function Support({ t, config }) {
-  const [status, setStatus] = useState("");
-  const copyReport = async () => {
-    try {
-      await navigator.clipboard.writeText(t.reportBody);
-      setStatus(t.copied);
-    } catch {
-      setStatus(t.copyFailed);
-    }
-  };
+function Support({ t }) {
   return (
     <div className="document">
       <PageHeading
@@ -954,31 +977,19 @@ function Support({ t, config }) {
         {t.supportItems.map(([q, a]) => (
           <details key={q}>
             <summary>{q}</summary>
-            <p>{a}</p>
+            <DocumentBody body={a} />
           </details>
         ))}
       </div>
       <section className="document-sections">
-        <h2>{t.report}</h2>
-        <p>{t.reportBody}</p>
-        <button className="button-secondary" onClick={copyReport}>
-          <Copy />
-          {t.copyReport}
-        </button>
-        <p className="small-note" role="status">
-          {status}
-        </p>
-        {config.supportEmail ? (
-          <a className="text-link" href={`mailto:${config.supportEmail}`}>
-            {t.contact}
-            <ArrowUpRight />
-          </a>
-        ) : (
-          <p className="notice">
-            <Info aria-hidden />
-            {t.contactPending}
-          </p>
-        )}
+        <h2>{t.supportContactTitle}</h2>
+        <DocumentBody body={t.supportContactBody} />
+        <div className="link-row">
+          <Link to="start">{t.start}</Link>
+          <Link to="requirements">{t.requirements}</Link>
+          <Link to="firmware">{t.firmware}</Link>
+        </div>
+        <p><Link to="privacy">{t.supportPrivacyLink}</Link></p>
       </section>
     </div>
   );

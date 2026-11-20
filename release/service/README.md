@@ -1,6 +1,6 @@
 # SaySo service release index / 服务发行包索引
 
-**New candidate: local review only, November 20, 2026. No push or deployment.** The new links below will be usable only after Claude review and a separate publication instruction. Their presence on GitHub is not yet verified.
+**Current published package: `v0.13.256-site244-plugin1.2.49`.** Its immutable manifest/checksum was read back from the public commit on November 21, 2026. This documentation update is local only; it does not publish the new website or update a private service. Start with the [short installation page](https://zhaibin2018.github.io/sayso/install) after the website update is published. The package remains a development preview without production L06 pairing or T83 scheduled maintenance.
 
 | Component | Candidate |
 |---|---|
@@ -15,21 +15,25 @@ Read [v0.13.256-site244-plugin1.2.49/README.md](v0.13.256-site244-plugin1.2.49/R
 
 ## One-sentence installation prompts / 一句话安装指令
 
-Open ChatGPT **Work / 工作** in the intended owner account and send the instruction yourself. A prefilled Chat prompt should be switched to Work first. Do not delete an existing installation as part of this prompt. If the requested slug is unavailable, pause for its owner to decide; immediate deleted-slug reuse is not guaranteed.
+Open ChatGPT **Work / 工作** in the intended owner account and send the instruction yourself. A prefilled Chat prompt should be switched to Work first. The short page selects the fixed package and checksum; change only that page when selecting a new release. Do not delete an existing installation as part of this prompt. If the requested slug is unavailable, ask the user to choose; never rename automatically.
 
 中文：
 
 ```text
-请按 https://github.com/zhaibin2018/sayso/blob/ccc8b913c2e04162d5cc3d251fcdb650cec2e969/release/service/v0.13.256-site244-plugin1.2.49/INSTALL.md 全新安装我的私人 SaySo（slug 请求 sayso，显示名 SaySo），使用 manifest 的新名称和简介，自动配置配套技能与受保护资料，不显示凭证；旧安装由我另行移除。
+请帮我安装 SaySo：https://zhaibin2018.github.io/sayso/install
 ```
 
 English:
 
 ```text
-Follow https://github.com/zhaibin2018/sayso/blob/ccc8b913c2e04162d5cc3d251fcdb650cec2e969/release/service/v0.13.256-site244-plugin1.2.49/INSTALL.md to install a new private SaySo Site (requested slug sayso, display title SaySo), use its manifest presentation, configure its skills and protected settings without displaying credentials; I handle removal of the old installation separately.
+Please install SaySo for me: https://zhaibin2018.github.io/sayso/install
 ```
 
 Source-only acceptance: 994 tests passed; both website integrated builds passed 58 tests; manifest and credential-pattern verification passed. Full mobile setup, new App metadata provisioning, approval defaults and InstructionAttempt remain unverified. Production L06 `/pair` and first-time C124 button pairing are absent; assisted developer handoff remains necessary.
+
+## Next INSTALL draft
+
+[NEXT_INSTALL_DRAFT.md](NEXT_INSTALL_DRAFT.md) is review-only and outside both frozen packages. It covers language-specific descriptions, the icon, owner-only scheduled maintenance with request-based fallback and the next phone handoff. Replace the official INSTALL only when A + T79 and maintenance changes have been merged, reviewed and repackaged with a new manifest. Do not execute the draft against the current package.
 
 ## Historical package
 

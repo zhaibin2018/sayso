@@ -39,10 +39,13 @@ def main():
     files = inventory(root)
     if args.write_manifest:
         provenance = json.loads((root / "PROVENANCE.json").read_text())
-        manifest = {"schema": 1, "version": "0.13.256", "skill_version": "1.2.45",
+        runtime = re.search(r'runtimeVersion\s*=\s*"([^"]+)"', (root / "mcp/lib/runtime-identity.ts").read_text())
+        presentation = json.loads((root / "plugins/sayso/plugin.json").read_text(encoding="utf-8"))
+        manifest = {"schema": 1, "version": runtime.group(1), "skill_version": presentation["version"], "release_label": root.name,
+                    "app_presentation": presentation["extensions"]["com.openai"]["interface"],
                     "worker_commit": provenance["worker_commit"], "plugin_commit": provenance["plugin_commit"],
                     "license": "FSL-1.1-ALv2", "licensor": "ZHAI BIN",
-                    "self_exclusion": "manifest.json is the index, excluded from its own hash list to avoid self-reference; its SHA-256 is in the sibling v0.13.256.manifest.sha256 file and pinned Git tree.",
+                    "self_exclusion": f"manifest.json is excluded from its own hash list; its SHA-256 is in sibling {root.name}.manifest.sha256 and the pinned Git tree.",
                     "fresh_account_installation_verified": False, "files": list(files.values())}
         (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
         (root.parent / (root.name + ".manifest.sha256")).write_text(
@@ -65,6 +68,19 @@ def main():
     detached = (root.parent / (root.name + ".manifest.sha256")).read_text().split()[0]
     if detached != hashlib.sha256((root / "manifest.json").read_bytes()).hexdigest():
         raise ValueError("Detached manifest digest mismatch")
+    if manifest.get("release_label"):
+        expected = {"displayName": "SaySo", "shortDescription": "iPhone 读屏和帮你点",
+                    "longDescription": "SaySo 读取已共享的 iPhone 画面；连接 SaySo 配件后，可帮你点、输入和滚动。停止帮你点与结束共享可在 SaySo App 中完成。"}
+        for name in ["plugin.json", ".codex-plugin/plugin.json"]:
+            p = json.loads((root / "plugins/sayso" / name).read_text(encoding="utf-8"))
+            ext = p["extensions"]["com.openai"] if name == "plugin.json" else p
+            if p["name"] != "sayso" or p["version"] != manifest["skill_version"] or "apps" in ext:
+                raise ValueError("Owner-neutral manifest identity mismatch")
+            for key, value in expected.items():
+                if ext["interface"].get(key) != value or manifest["app_presentation"].get(key) != value:
+                    raise ValueError("Fresh App presentation mismatch")
+            if p.get("description") != expected["shortDescription"]:
+                raise ValueError("Fresh App description mismatch")
     findings = []
     synthetic = []
     known_secrets = set()

@@ -1,0 +1,20 @@
+{
+  "interface": {
+    "capabilities": [],
+    "category": "Other",
+    "defaultPrompt": null,
+    "developerName": "ZHAI BIN",
+    "displayName": "SaySo",
+    "longDescription": "SaySo 读取已共享的 iPhone 画面；连接 SaySo 配件后，可帮你点、输入和滚动。停止帮你点与结束共享可在 SaySo App 中完成。",
+    "shortDescription": "iPhone 读屏和帮你点",
+    "websiteURL": "https://zhaibin2018.github.io/sayso/"
+  },
+  "name": "sayso",
+  "version": "1.2.49",
+  "description": "iPhone 读屏和帮你点",
+  "author": {
+    "name": "ZHAI BIN"
+  },
+  "keywords": [],
+  "skills": "./skills"
+}

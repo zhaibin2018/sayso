@@ -45,14 +45,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--worker", type=Path, required=True)
     parser.add_argument("--plugin", type=Path, required=True)
+    parser.add_argument("--worker-ref", default=WORKER)
+    parser.add_argument("--plugin-ref", default=PLUGIN)
+    parser.add_argument("--release-label", default="v" + VERSION)
+    parser.add_argument("--published-plugin", type=Path, help="Exact readback of a published skill release, local-only input")
     parser.add_argument("--output", type=Path, help="Optional fresh local staging directory")
     args = parser.parse_args()
     public = Path(__file__).resolve().parents[1]
-    output = args.output.resolve() if args.output else public / "release/service" / ("v" + VERSION)
+    output = args.output.resolve() if args.output else public / "release/service" / args.release_label
     if output.exists():
         raise SystemExit("Release already exists; refuse to overwrite a versioned package")
-    worker = snapshot(args.worker, WORKER)
-    plugin = snapshot(args.plugin, PLUGIN)
+    worker = snapshot(args.worker, args.worker_ref)
+    plugin = snapshot(args.plugin, args.plugin_ref)
+    if args.published_plugin:
+        plugin = {p.relative_to(args.published_plugin).as_posix(): p.read_bytes()
+                  for p in args.published_plugin.rglob("*") if p.is_file()}
     baseline_files = snapshot(public, "HEAD")
     hosting = json.loads(worker[".openai/hosting.json"])
     project = hosting.pop("project_id")
@@ -86,17 +93,38 @@ def main():
         changes = []
         selected = {}
         for name, original in sorted(files.items()):
-            if label == "plugin" and not (name.startswith("skills/") or name == "plugin.json"):
+            if label == "plugin" and not (name.startswith("skills/") or name in {"plugin.json", ".codex-plugin/plugin.json"}):
                 continue
             if label == "worker" and name == OMITTED:
                 continue  # Native App implementation snippet is outside the distribution boundary.
             data = (json.dumps(hosting, indent=2) + "\n").encode() if name == ".openai/hosting.json" else neutral(original)
             if label == "worker" and name == ".gitattributes":
                 data = b"# Preserve pinned distribution bytes across Windows and Unix checkouts.\n* -text\n*.png binary\n*.jpg binary\n*.jpeg binary\n"
-            if label == "plugin" and name == "plugin.json":
+            test_adapter = False
+            if args.published_plugin and label == "worker" and name == "tests/batch2-offline.test.ts":
+                before = b"assert.ok(text.includes(stopInstruction.trim()));"
+                after = b'assert.ok(text.includes(stopInstruction.trim().replace("SaySo control permission", "SaySo tapping permission")));'
+                assert data.count(before) == 2
+                head, separator, tail = data.rpartition(before)
+                data = head + after + tail
+                test_adapter = True
+            if args.published_plugin and label == "worker" and name == "tests/bridge.test.ts":
+                before = b"  if(storage){"
+                after = b'  if(storage && existsSync("tests/fixtures/app-current-action-capabilities.swift.txt")){'
+                assert data.count(before) == 1
+                data = data.replace(before, after)
+                test_adapter = True
+            if label == "plugin" and name in {"plugin.json", ".codex-plugin/plugin.json"}:
                 presentation = json.loads(original)
                 presentation["name"] = "sayso"
-                presentation["extensions"]["com.openai"].pop("apps", None)
+                presentation["author"] = {"name": "ZHAI BIN"}
+                presentation["description"] = "iPhone 读屏和帮你点"
+                extension = presentation["extensions"]["com.openai"] if name == "plugin.json" else presentation
+                extension.pop("apps", None)
+                interface = extension["interface"]
+                interface.update(displayName="SaySo", shortDescription="iPhone 读屏和帮你点",
+                    longDescription="SaySo 读取已共享的 iPhone 画面；连接 SaySo 配件后，可帮你点、输入和滚动。停止帮你点与结束共享可在 SaySo App 中完成。",
+                    developerName="ZHAI BIN", websiteURL="https://zhaibin2018.github.io/sayso/")
                 data = (json.dumps(presentation, indent=2, ensure_ascii=False) + "\n").encode()
             if any(value in data for value in identities):
                 raise SystemExit("Owner identity remains in a source file; values suppressed")
@@ -107,7 +135,7 @@ def main():
             selected[relative] = data
             provenance.append({"path": relative, "source": label, "source_path": name,
                                "upstream_sha256": digest(original),
-                               "transformation": "distribution-byte-preservation" if label == "worker" and name == ".gitattributes" else "owner-neutral-plugin-presentation" if label == "plugin" and name == "plugin.json" else "owner-binding-neutralization" if data != original else "none"})
+                               "transformation": "distribution-test-adapter" if test_adapter else "distribution-byte-preservation" if label == "worker" and name == ".gitattributes" else "owner-neutral-plugin-presentation" if label == "plugin" and name in {"plugin.json", ".codex-plugin/plugin.json"} else "owner-binding-neutralization" if data != original else "none"})
             baseline = baseline_files.get(relative)
             status = "added" if baseline is None else "identical" if neutral(baseline) == data else "changed"
             counts[status] += 1
@@ -126,8 +154,10 @@ def main():
                               "commit": subprocess.check_output(["git", "-C", str(public), "rev-parse", "HEAD"], text=True).strip(),
                               "mcpRuntime": old["mcpRuntime"], "skillSourceVersion": old["skillSourceVersion"]}
     (output / "SOURCE_DIFF.json").write_text(json.dumps(comparison, indent=2) + "\n", encoding="utf-8", newline="\n")
-    (output / "PROVENANCE.json").write_text(json.dumps({"worker_commit": WORKER, "plugin_commit": PLUGIN,
-        "files": provenance, "exclusions": ["plugin account/App manifests (.app.json, .codex-plugin/plugin.json); plugin.json is presentation-only with neutral name and no apps dependency",
+    (output / "PROVENANCE.json").write_text(json.dumps({"worker_commit": args.worker_ref, "plugin_commit": args.plugin_ref,
+        "plugin_source": "published 1.2.49 file readback" if args.published_plugin else "pinned Git commit",
+        "plugin_commit_role": "ancestry reference; published file digests are authoritative" if args.published_plugin else "exact source",
+        "files": provenance, "exclusions": ["plugin account binding .app.json; both presentation manifests have neutral names/descriptions and no apps dependency",
         OMITTED], "note": "Service logic is unchanged. Owner identities are neutralized; distribution Git attributes preserve exact bytes; the native Swift snippet is excluded. TypeScript protocol fixtures and synthetic firmware-info JSON are test data, not native App/firmware source."}, indent=2) + "\n", encoding="utf-8", newline="\n")
     for name in ["LICENSE.md", "LICENSE_DETAILS.md", "TRADEMARK.md", "CONTRIBUTING.md"]:
         (output / name).write_bytes((public / name).read_bytes())

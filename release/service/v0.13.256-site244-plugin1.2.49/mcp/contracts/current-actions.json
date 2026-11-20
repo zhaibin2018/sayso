@@ -1,0 +1,1515 @@
+{
+  "schema": "current-actions.v1",
+  "runtime": {
+    "name": "sayso",
+    "version": "0.13.256"
+  },
+  "production_mcp_path": "/mcp",
+  "development_mcp_path": "/mcp/development",
+  "public_tools": [
+    {
+      "name": "open_system_search",
+      "title": "Open system search / 打开系统搜索",
+      "description": "Opens installed-app System Search and returns the command receipt and, by default, an after-image. No source frame is required. The receipt includes the original command ID.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "compact_png",
+              "original_jpeg"
+            ],
+            "description": "Compact PNG for Spotlight focus or the original JPEG; the format is tool-default when absent."
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "device_id",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "type_text_in_field",
+      "title": "Type in focused field / 输入文字",
+      "description": "Enters printable ASCII in the focused field. Default clearing supports single-line text of 1–60 characters; intentional append supports 1–64 characters, including multiline editors. Optional submit=enter adds Return. Returns the original command receipt and, by default, an after-image.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "clear_before_input": {
+            "type": "boolean",
+            "default": true
+          },
+          "submit": {
+            "type": "string",
+            "enum": [
+              "enter"
+            ]
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "device_id",
+          "text",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_control_guide",
+      "title": "Get usage guide / 使用说明",
+      "description": "Returns instructions for the selected workflow, including input, image handling, stopping and final-step handoff. No phone inspection or control enablement occurs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "open_app",
+              "field_input",
+              "pointer",
+              "local_plan",
+              "search_taobao",
+              "scroll",
+              "drag",
+              "maps",
+              "clipboard",
+              "stop"
+            ]
+          }
+        },
+        "required": [
+          "workflow"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "move_mouse_to",
+      "title": "Move pointer / 移动指针",
+      "description": "Positions the pointer without clicking, using original dimensions and orientation. Returns the command receipt and, by default, an after-image. The default confirmed-input image window is 5000 ms, separate from the action wait.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0
+          },
+          "image_width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "image_height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "orientation_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "default": 2000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "image_width",
+          "image_height",
+          "orientation_epoch",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_mouse_state",
+      "title": "Check tapping status / 查看帮你点状态",
+      "description": "Returns the selected phone’s current input authorization, readiness and capabilities. This lookup does not enable control.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "scroll_mouse",
+      "title": "Scroll content / 滚动内容",
+      "description": "Sends bounded wheel steps at the current pointer position. Returns the original command receipt and, by default, an after-image. The default confirmed-scroll image window is 5000 ms, separate from the 2000 ms action wait; wait_ms specifies a total budget. ACTION_NO_SCREEN_CHANGE indicates a possible missed action.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "steps": {
+            "type": "integer",
+            "minimum": -8,
+            "maximum": 8
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "description": "Optional total action and image budget. The default is a 2000 ms action wait with an independent confirmed-scroll image window."
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+          }
+        },
+        "required": [
+          "steps",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "click_at",
+      "title": "Click target / 点击目标",
+      "description": "Clicks a target at original-image x/y using device_id, source_frame_id, image dimensions, orientation and an optional same-frame source_point_proof. Returns the original command receipt and, by default, an after-image. SCREEN_CHANGED_SINCE_IMAGE indicates a changed source scene; ACTION_NO_SCREEN_CHANGE indicates a possible missed action. Workflow rules are in get_control_guide.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_frame_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Exact JPEG frame ID of the selected source image, paired with device_id."
+          },
+          "source_point_proof": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Unmodified proof from the same released visual read, paired with device_id and source_frame_id. When absent, the server looks up that same frame automatically."
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0
+          },
+          "image_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8192
+          },
+          "image_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8192
+          },
+          "orientation_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 300
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Optional total budget for input and after-image. The default uses an independent paired after-image window."
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "image_width",
+          "image_height",
+          "orientation_epoch",
+          "idempotency_key",
+          "device_id",
+          "source_frame_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_mouse_result",
+      "title": "Check original result / 查看原操作结果",
+      "description": "Returns an original command’s state without resubmitting input. Lookup accepts command_id alone or the original click_at_idempotency_key with device_id. Optional include_after_screen returns a read-only after-image for supported commands. Pending, missing and uncertain states remain distinct from confirmed board receipt and visible app effect.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "compact_png",
+              "original_jpeg"
+            ],
+            "description": "Compact PNG for Spotlight focus or the original JPEG; the format is tool-default when absent."
+          },
+          "command_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 170,
+            "description": "Original command ID; mutually exclusive with device_id and click_at_idempotency_key."
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Device paired with click_at_idempotency_key for receipt lookup without an image; mutually exclusive with command_id."
+          },
+          "click_at_idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "include_after_screen": {
+            "type": "boolean",
+            "default": false
+          },
+          "after_command_min_gap_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "description": "Minimum newer-capture gap, within 0–5000 ms, paired with include_after_screen and an original confirmed click, open_system_search or type_text_in_field command ID. The ceiling of the previous after_command.lower_gap_ms identifies a newer capture. Observation waits up to 5000 ms for an image below 2000 ms old; ACTION_NO_SCREEN_CHANGE is a possible-failure warning after 1500 ms without a callback. No input is resubmitted."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "drag_at",
+      "title": "Drag target / 拖动物件",
+      "description": "Drags a visible object or handle between original-image endpoints with the source frame’s geometry. Uses direct absolute HID with no calibration or relative fallback. Duration is 350 ms by default, within 120–1000 ms. Returns the original command receipt and, by default, an after-image.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_frame_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from_x": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Start x in original image pixels; normalized x maps to x*(image_width-1)."
+          },
+          "from_y": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Start y in original image pixels; normalized y maps to y*(image_height-1)."
+          },
+          "to_x": {
+            "type": "number",
+            "minimum": 0,
+            "description": "End x in original image pixels, in the same coordinate space as from_x."
+          },
+          "to_y": {
+            "type": "number",
+            "minimum": 0,
+            "description": "End y in original image pixels, in the same coordinate space as from_y."
+          },
+          "image_width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "image_height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "orientation_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 120,
+            "maximum": 1000,
+            "default": 350,
+            "description": "Drag duration, 350 ms by default, within 120–1000 ms."
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 300
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Optional total action and image budget. The default is a 6000 ms action wait with an independent confirmed-drag image window."
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "device_id",
+          "source_frame_id",
+          "from_x",
+          "from_y",
+          "to_x",
+          "to_y",
+          "image_width",
+          "image_height",
+          "orientation_epoch",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "stop_mouse",
+      "title": "Stop tapping / 停止帮你点",
+      "description": "Stops control for owned devices and sessions. An omitted, invalid or unmatched device_id selects all owned targets and reports the fallback. Returns cloud stop results and available board-release state. Cloud stop and physical release are separate; screen sharing may continue.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "read_screen",
+      "title": "Read shared screen / 读取共享画面",
+      "description": "Returns a shared screen image and its source metadata in content_items or MCP content. structuredContent metadata alone contains no visible pixels. static_screen.proven with usable_for_input=true identifies an unchanged input-capable source with its original capture age. SCREEN_CHANGED_SINCE_IMAGE identifies a changed scene; ACTION_NO_SCREEN_CHANGE marks a possible missed action and a non-targeting warning image. wait_for_new_ms defaults to 15000; 5000 is within its range.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "include_read_timing": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optional bounded database timing and server frame-age timestamps for diagnostics, measured before response serialization rather than host image receipt."
+          },
+          "if_unchanged_since": {
+            "type": "string",
+            "format": "uuid",
+            "description": "An earlier actual image_ref visible in the current conversation."
+          },
+          "after_command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "after_command_min_gap_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum new-capture delay after the confirmed after_command_id. After 1500 ms, a proven no-change fallback carries an explicit warning, separate from confirmed app effect. 动作后无变化会明确警告。"
+          },
+          "wait_for_new_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000,
+            "default": 15000
+          },
+          "max_age_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000,
+            "default": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_pairing_code",
+      "title": "Create phone pairing code / 创建手机配对码",
+      "description": "Creates a short-lived code for the SaySo phone app’s service-pairing field. This code does not pair the C124 accessory or enable control.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_devices",
+      "title": "List my phones / 我的手机",
+      "description": "Returns owned phones with home_status for the four SaySo home rows. next_step is a legacy hint. The result includes current screen-sharing and control state.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "stop_session",
+      "title": "Stop sharing and clear images / 停止共享并清图",
+      "description": "Stops owned cloud sharing sessions and clears their cloud screen data. An omitted, invalid, unmatched or old stopped bridge_session_id selects ongoing owned sessions and reports the fallback. Returns stopped and failed session IDs. Cloud completion is separate from iOS screen-sharing termination; existing chat images are unaffected.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bridge_session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "revoke_device",
+      "title": "Unpair phone / 解除手机配对",
+      "description": "Revokes the selected owned device, stops its cloud session and removes its commands, sessions and cloud images. device_id identifies the device. Existing chat content is unaffected.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  ],
+  "development_tools": [
+    {
+      "name": "move_mouse",
+      "title": "相对移动手机鼠标",
+      "description": "Moves the pointer by signed HID dx/dy integers from -127 to 127, rather than pixels, within a phone-enabled control session. Returns the original command receipt and, by default, an after-image. Only board_acked confirms board receipt.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dx": {
+            "type": "integer",
+            "minimum": -127,
+            "maximum": 127
+          },
+          "dy": {
+            "type": "integer",
+            "minimum": -127,
+            "maximum": 127
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "default": 2000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+          }
+        },
+        "required": [
+          "dx",
+          "dy",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "click_mouse",
+      "title": "点击手机鼠标左键",
+      "description": "Clicks the left button once at the current pointer position within a phone-enabled control session. No positioning occurs. Returns the original command receipt and, by default, an after-image. Queued state is separate from board acknowledgement and visible app effect.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "button": {
+            "type": "string",
+            "enum": [
+              "left"
+            ],
+            "default": "left"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "default": 2000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "read_screen_live",
+      "title": "读取供 Live 查看的一张手机截图",
+      "description": "Returns one fresh, view-only shared phone image for visual description or image-delivery diagnosis. Default compact_png and optional compact_jpeg share preview dimensions; original_jpeg contains original capture bytes. Released image age is below 2000 ms. No action evidence is issued by this tool.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "compact_png",
+              "compact_jpeg",
+              "original_jpeg"
+            ],
+            "default": "compact_png"
+          },
+          "wait_for_new_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "default": 1500
+          },
+          "max_age_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000,
+            "default": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_led",
+      "title": "开关 ESP32 板载灯",
+      "description": "Sets the ESP32 board LED in a phone-enabled foreground control session. Returns the original command ID and receipt state. board_acked confirms the board receipt; queued, pending and error states are separate outcomes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "default": 5000
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_command_result",
+      "title": "读取云端灯控执行回执",
+      "description": "Returns the authenticated user’s LED command state and phone-verified board receipt. Queued, claimed and executing states are separate from confirmed physical results. This lookup does not resubmit input.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "command_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_profile",
+      "title": "当前 SaySo 授权身份",
+      "description": "Returns the stable identity represented by this Site’s authenticated OAuth connection, including its ID and name.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "openai/profile": true
+      }
+    },
+    {
+      "name": "get_screen_metrics",
+      "title": "查看屏幕链路实测指标",
+      "description": "Returns bounded metadata-only timings for the authenticated user’s phone. Upload-handler and MCP image-handler durations are separate; neither measures internal model inference or voice playback.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "open_screen_benchmark",
+      "title": "打开合成看屏预取基准",
+      "description": "Opens a labelled synthetic-image benchmark widget. It prefetches fixture pixels and probes host model-context and sampling capabilities, without reading a phone or controlling a device. Synthetic benchmark results are separate from real Live-client latency measurements.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ],
+            "default": "c00"
+          },
+          "preview": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://sayso/benchmark/v4.html"
+        },
+        "openai/outputTemplate": "ui://sayso/benchmark/v4.html"
+      }
+    },
+    {
+      "name": "read_benchmark_frame",
+      "title": "读取合成基准图片",
+      "description": "Returns one synthetic fixture image without a UI template. Default carrier is mixed PNG; image_format and response_layout select other carriers. match_payload_size aligns full PNG byte count with JPEG while preserving pixels. preview returns a 240×427 PNG with original-size metadata. No phone capture, device command, product-data write or model call occurs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ]
+          },
+          "preview": {
+            "type": "boolean",
+            "default": false
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpeg"
+            ],
+            "default": "png"
+          },
+          "response_layout": {
+            "type": "string",
+            "enum": [
+              "mixed",
+              "content_only"
+            ],
+            "default": "mixed"
+          },
+          "match_payload_size": {
+            "type": "boolean",
+            "default": false,
+            "description": "Full-size PNG byte count aligned with the corresponding JPEG length, with unchanged pixel data."
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "visibility": [
+            "model",
+            "app"
+          ]
+        },
+        "openai/widgetAccessible": true
+      }
+    },
+    {
+      "name": "open_benchmark_renderer_probe",
+      "title": "SaySo 组件加载诊断",
+      "description": "Opens a minimal text-only MCP Apps renderer and handshake probe for synthetic benchmark UI loading diagnosis. No image, model, microphone, phone, device storage or command is involved. The probe result is separate from performance measurements.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://sayso/renderer-probe/v1.html"
+        },
+        "openai/ui": {
+          "entrypoints": [
+            {
+              "type": "thread"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "read_benchmark_pixels",
+      "title": "读取合成基准图片内容",
+      "description": "Returns a synthetic fixture PNG and provenance text in content blocks, without structuredContent or a UI template, for image-delivery measurements. No phone access, device-data write or model call occurs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ]
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "read_benchmark_jpeg",
+      "title": "读取 JPEG 合成基准图片",
+      "description": "Returns an encoded synthetic fixture JPEG and provenance text in content blocks, without structuredContent or a UI template. The format matches phone JPEG capture; the pixels are generated fixture data. No phone access, device-data write or model API call occurs.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ]
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ],
+  "device_routes": [
+    {
+      "key": "pair",
+      "method": "POST",
+      "path": "pair",
+      "authority": "pairing_code",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "frame",
+      "method": "POST",
+      "path": "frame",
+      "authority": "atomic_device",
+      "body": {
+        "type": "string",
+        "format": "binary"
+      }
+    },
+    {
+      "key": "observation",
+      "method": "POST",
+      "path": "frame-observation",
+      "authority": "atomic_device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "mouseClaim",
+      "method": "POST",
+      "path": "mouse/commands/claim",
+      "authority": "atomic_device",
+      "body": {
+        "type": "object",
+        "properties": {
+          "bridge_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "broadcast_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "worker_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lease_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "control_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "raw_dispatch_protocol": {
+            "const": "raw_mouse_claim_start.v1"
+          },
+          "point_protocol": {
+            "enum": [
+              "paired_mouse_point.v1",
+              null
+            ]
+          },
+          "spotlight_dispatch_protocol": {
+            "const": "spotlight_claim_start.v1"
+          },
+          "raw_dispatch_ttl_profiles": {
+            "type": "array",
+            "maxItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "const": "scope_only_system_search.v1"
+            }
+          }
+        },
+        "required": [
+          "bridge_session_id",
+          "broadcast_id",
+          "worker_id",
+          "lease_epoch",
+          "control_epoch",
+          "raw_dispatch_protocol"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "mouseResult",
+      "method": "POST",
+      "path": "mouse/commands/{command_id}/result",
+      "authority": "atomic_device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "status",
+      "method": "GET",
+      "path": "status",
+      "authority": "device"
+    },
+    {
+      "key": "requests",
+      "method": "GET",
+      "path": "requests",
+      "authority": "device"
+    },
+    {
+      "key": "mouseGrant",
+      "method": "POST",
+      "path": "mouse/grant",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "mouseStart",
+      "method": "POST",
+      "path": "mouse/commands/{command_id}/start",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "hardwareBind",
+      "method": "POST",
+      "path": "hardware/bind",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "sessionCreate",
+      "method": "POST",
+      "path": "sessions",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "workerClaim",
+      "method": "POST",
+      "path": "worker/claim",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "heartbeat",
+      "method": "POST",
+      "path": "worker/heartbeat",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "clockProbe",
+      "method": "POST",
+      "path": "clock-probes",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "sessionStop",
+      "method": "POST",
+      "path": "sessions/{session_id}/stop",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "captureState",
+      "method": "POST",
+      "path": "state",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "unpair",
+      "method": "POST",
+      "path": "unpair",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "pushToken",
+      "method": "POST",
+      "path": "push-token",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "requestAck",
+      "method": "POST",
+      "path": "requests/{request_id}/ack",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "ledClaim",
+      "method": "POST",
+      "path": "commands/claim",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "ledStart",
+      "method": "POST",
+      "path": "commands/{command_id}/start",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "ledResult",
+      "method": "POST",
+      "path": "commands/{command_id}/result",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  ],
+  "hardware_capabilities": [
+    "led.set",
+    "hid.mouse.relative",
+    "hid.mouse.click",
+    "hid.mouse.scroll",
+    "hid.mouse.absolute",
+    "hid.mouse.drag_absolute",
+    "hid.mouse.drag_absolute.v2",
+    "hid.keyboard.system_search",
+    "hid.keyboard.ascii_stable",
+    "hid.keyboard.ascii_clear_stable",
+    "hid.keyboard.ascii_enter_stable"
+  ],
+  "app_capabilities": [
+    "sayso.action_geometry.v1",
+    "sayso.drag_at",
+    "sayso.drag_cloud_acceptance.v1",
+    "sayso.drag_model_decision.v1",
+    "sayso.focused_text",
+    "sayso.focused_text.no_visual.v1",
+    "sayso.focused_text_clear_before_input",
+    "sayso.focused_text_submit_enter",
+    "sayso.system_search",
+    "sayso.system_search.raw_claim_5s.v1",
+    "sayso.system_search.scope_only.v1"
+  ],
+  "action_rules": {
+    "decision_boundary": "between_tool_calls",
+    "source_use_time_limit_ms": null,
+    "changed_screen_policy": "informational_only",
+    "click_diagnostics": [
+      "source_age_ms",
+      "screen_changed_since_source",
+      "source_observed_at_server_utc_ms"
+    ],
+    "default_after_image_wait_ms": 5000,
+    "maximum_released_image_age_exclusive_ms": 2000,
+    "unknown_input": "read_original_id_or_key_only",
+    "source_reference_is_authority": false
+  }
+}

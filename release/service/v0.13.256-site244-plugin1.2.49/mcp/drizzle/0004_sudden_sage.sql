@@ -1,0 +1,2 @@
+CREATE INDEX `sb_metrics_device_time_idx` ON `sb_metrics` (`owner_id`,`device_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `sb_refresh_claim_idx` ON `sb_refreshes` (`device_id`,`session_id`,`state`,`expires_at`);

@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "checked_utc": "2026-11-20T12:41:53.580620+00:00",
+  "local_only": true,
+  "service": {
+    "tests": 994,
+    "pass": 994,
+    "fail": 0,
+    "skipped": 0,
+    "checks": {
+      "install": {
+        "exit_code": 0,
+        "seconds": 51.252872,
+        "log_sha256": "c8d321a4915dc37090c3e890f649b29a5b5706f6c260d0df75567777c29fb5fc"
+      },
+      "tests": {
+        "exit_code": 0,
+        "seconds": 210.791577,
+        "log_sha256": "dd31219a559b573ed7c4d5c6fea502351fd1eb1cf6e90a69a6e2a9ec6925bb8c"
+      },
+      "typecheck": {
+        "exit_code": 0,
+        "seconds": 13.331053,
+        "log_sha256": "f8d4288be24ea7f1b0b0e39ec428ab243425d66b11b6c631c37f86d93b61d9e3"
+      },
+      "contracts": {
+        "exit_code": 0,
+        "seconds": 0.784399,
+        "log_sha256": "c5d81ccd2876ed55e0e202e4ffa7d8a527ca1d537c6d398480668f945e462caf"
+      },
+      "source-budgets": {
+        "exit_code": 0,
+        "seconds": 0.70504,
+        "log_sha256": "9506912028fa30935df3087d784c38f33ed911506160897a936ea6299c20366f"
+      },
+      "build": {
+        "exit_code": 0,
+        "seconds": 7.178155,
+        "log_sha256": "5506949ec80875ca45e9867c7ab89add837f738a719b75f055456591aaa0b8df"
+      }
+    },
+    "package_matches_tested_source": true,
+    "test_concurrency": 1
+  },
+  "website": {
+    "website-integrated": {
+      "tests": 58,
+      "pass": 58,
+      "fail": 0,
+      "skipped": 0,
+      "integrated_build_exit": 0,
+      "log_sha256": "5ff90c5c2f42cfd32bad778b568086295648757751143bd583522d67222d24ae"
+    },
+    "public-website-integrated": {
+      "tests": 58,
+      "pass": 58,
+      "fail": 0,
+      "skipped": 0,
+      "integrated_build_exit": 0,
+      "log_sha256": "c537adb22b45a5ee9f12ff49681952fc6c994ba2b450ab5db606f7be7f6e8814"
+    }
+  },
+  "database": {
+    "ordered_sql_migrations": 29,
+    "tables": 27,
+    "privacy_triggers": 3,
+    "live_D1_verified": false
+  },
+  "attempts": {
+    "first": {
+      "pass": 991,
+      "fail": 3,
+      "skipped": 0,
+      "log_sha256": "368bc32712b8aa4ecb4ba3885fd35bea8f1154c4cb2d12f4d6b46088da763650"
+    },
+    "second_before_test_adapters": {
+      "pass": 992,
+      "fail": 2,
+      "skipped": 0,
+      "log_sha256": "d6ef83fd7c4f8e25b15966de6e063064f74b416dfbffe51b8c9a5f385b6e2778"
+    },
+    "final": {
+      "tests": 994,
+      "pass": 994,
+      "fail": 0,
+      "skipped": 0
+    }
+  },
+  "changes": "Two explicit test-only distribution adapters; no service runtime changes. Owner bindings removed and new-App presentation corrected. Published skill text normalized to LF.",
+  "boundaries": {
+    "pushed": false,
+    "deployed": false,
+    "site_created": false,
+    "phone_accessed_for_validation": false,
+    "firmware_changed": false
+  },
+  "security": {
+    "status": "verified by companion verifier after manifest generation",
+    "matched_values": "never included"
+  }
+}

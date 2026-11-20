@@ -1,0 +1,358 @@
+{
+  "worker": {
+    "counts": {
+      "identical": 268,
+      "changed": 38,
+      "added": 33,
+      "removed": 3
+    },
+    "changes": [
+      {
+        "path": "mcp/.gitattributes",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/.gitignore",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/README.md",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/SELF_HOSTING.md",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/app/internal/timing-journal/route.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/app/page.tsx",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/app/v1/voice-benchmark/route.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/cloudflare-env.d.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/contracts/current-actions.json",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/contracts/openapi.json",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/db/schema.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/drizzle/0028_timing_journal.sql",
+        "change": "added"
+      },
+      {
+        "path": "mcp/drizzle/meta/_journal.json",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/eslint.config.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/examples/d1/app/api/notes/route.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/examples/d1/db/schema.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/absolute-drag.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/benchmark-frame.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/benchmark-images.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/benchmark-jpegs.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/benchmark-metadata.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/benchmark-previews.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/benchmark-resources.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/bridge-context.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/bridge-engine.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/bridge-runtime.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/build-profile.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/control-stop.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/current-control-guide.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/device-next-step.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/interaction-guidance.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/led-control.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/mcp-arguments.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/mcp-performance.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/mcp-protocol.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/mcp-tool-catalog.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/mouse-control.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/mouse-point.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/mouse-stop.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/runtime-identity.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/sensitive-input.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/stop-guidance.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/stop-owned-sessions.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/stop-selector.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/timing-journal-auth.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/timing-journal-http.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/timing-journal.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/lib/tool-risk-policy.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/package-lock.json",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/package.json",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/scripts/check-batch2-catalog.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/scripts/check-production-build.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/scripts/export-self-hosted.py",
+        "change": "added"
+      },
+      {
+        "path": "mcp/scripts/generate-contracts.mjs",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/scripts/vite/diagnostics-build-plugin.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/app-batch-offline.test.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/batch2-offline.test.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/benchmark-ui.test.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/tests/bridge.test.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/tests/current-action-chain-workerd.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/current-only-chain-workerd.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/fixtures/app-capability-filter.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/fixtures/firmware-info-c12806a.json",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/fixtures/generate-firmware-info.py",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/guidance-consistency.test.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/tests/host-reviewed-search-workerd.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/joint-review.test.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/live-image-carrier-workerd.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/no-visual-field-workerd.mjs",
+        "change": "added"
+      },
+      {
+        "path": "mcp/tests/timing-journal.test.ts",
+        "change": "added"
+      },
+      {
+        "path": "mcp/vite.config.ts",
+        "change": "changed"
+      },
+      {
+        "path": "mcp/lib/public-origin.ts",
+        "change": "removed"
+      },
+      {
+        "path": "mcp/scripts/test.mjs",
+        "change": "removed"
+      },
+      {
+        "path": "mcp/tests/public-origin.test.ts",
+        "change": "removed"
+      }
+    ],
+    "comparison": "owner-neutral bytes against existing public checkout; includes packaging differences"
+  },
+  "plugin": {
+    "counts": {
+      "identical": 10,
+      "changed": 8,
+      "added": 0,
+      "removed": 0
+    },
+    "changes": [
+      {
+        "path": "plugins/sayso/plugin.json",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-control/SKILL.md",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-control/agents/openai.yaml",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-control/references/recovery.md",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-control/references/workflows.md",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-onboarding/agents/openai.yaml",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-open-app/SKILL.md",
+        "change": "changed"
+      },
+      {
+        "path": "plugins/sayso/skills/sayso-type-text/SKILL.md",
+        "change": "changed"
+      }
+    ],
+    "comparison": "owner-neutral bytes against existing public checkout; includes packaging differences"
+  },
+  "baseline": {
+    "repository": "https://github.com/zhaibin2018/sayso",
+    "commit": "26638a60c9b0fe97af3078cc6b41728390b74750",
+    "mcpRuntime": "0.13.252",
+    "skillSourceVersion": "1.2.42"
+  }
+}

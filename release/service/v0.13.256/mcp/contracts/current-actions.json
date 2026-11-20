@@ -1,0 +1,1515 @@
+{
+  "schema": "current-actions.v1",
+  "runtime": {
+    "name": "sayso",
+    "version": "0.13.256"
+  },
+  "production_mcp_path": "/mcp",
+  "development_mcp_path": "/mcp/development",
+  "public_tools": [
+    {
+      "name": "open_system_search",
+      "title": "Open system search / 打开系统搜索",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Open installed-app System Search; inspect after-image, type app name without Return, select installed icon. Uncertain input: query original ID; never replay.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "compact_png",
+              "original_jpeg"
+            ],
+            "description": "Compact PNG for Spotlight focus or the original JPEG. Omit for the tool's default."
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "device_id",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "type_text_in_field",
+      "title": "Type in focused field / 输入文字",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. ASCII clear(default,1 line):1–60;append(multiline):64. Search:enter;T6 handoff. Garbled:stop;ask ABC;no retype. No cards/passwords/OTPs/CVV/identity numbers;park the pointer;卡号/密码/验证码/身份证号:这一项请你自己输入。System app search:pinyin without asking;never transliterate elsewhere. ID.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "clear_before_input": {
+            "type": "boolean",
+            "default": true
+          },
+          "submit": {
+            "type": "string",
+            "enum": [
+              "enter"
+            ]
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 12000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "device_id",
+          "text",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_control_guide",
+      "title": "Get usage guide / 使用说明",
+      "description": "Read detailed guidance for the selected workflow when needed. Returns instructions only; does not inspect the phone or grant readiness. T6 final-step handoff and hidden-screen rules apply.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "open_app",
+              "field_input",
+              "pointer",
+              "local_plan",
+              "search_taobao",
+              "scroll",
+              "drag",
+              "maps",
+              "clipboard",
+              "stop"
+            ]
+          }
+        },
+        "required": [
+          "workflow"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "move_mouse_to",
+      "title": "Move pointer / 移动指针",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Move without clicking using original dimensions and orientation. For T6 park only; inspect actual after-image before describing pointer location. Unknown input: query original ID.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0
+          },
+          "image_width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "image_height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "orientation_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "default": 2000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; UI effect still requires inspecting the image."
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "image_width",
+          "image_height",
+          "orientation_epoch",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_mouse_state",
+      "title": "Check tapping status / 查看帮你点状态",
+      "description": "Check the selected phone’s current input authorization and capabilities when unknown. Returns readiness, not permission to bypass missing authorization. Do not call this before Stop.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "scroll_mouse",
+      "title": "Scroll content / 滚动内容",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Bounded wheel steps; first position pointer inside visible content. Inspect actual after-image for direction and movement. Uncertain: original ID/key, never replay.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "steps": {
+            "type": "integer",
+            "minimum": -8,
+            "maximum": 8
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "description": "Optional total action and image budget. Omit for the default 2000 ms action wait and independent confirmed-scroll image window."
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; UI effect still requires inspecting the image."
+          }
+        },
+        "required": [
+          "steps",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "click_at",
+      "title": "Click target / 点击目标",
+      "description": "T6: For final payments, orders, sends, deletions, subscription cancellations or transfers, do not call click_at; park with move_mouse_to, inspect its after-image, name the button and ask the user to tap. No Return/input substitute; soft guidance, not code enforcement. Ordinary targets: original-image x/y, device_id, source_frame_id, dimensions, orientation and unchanged source_point_proof if supplied. Inspect actual image. Unknown: original ID, never replay. 停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. ",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_frame_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Exact JPEG frame ID of the image you selected from. Requires device_id."
+          },
+          "source_point_proof": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Exact proof from this same released visual read. Requires device_id and source_frame_id. If omitted, the same frame is looked up automatically; never invent or modify the proof."
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0
+          },
+          "image_width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8192
+          },
+          "image_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8192
+          },
+          "orientation_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 300
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Optional total budget for input and after-image. Omit for the default independent paired after-image window."
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "image_width",
+          "image_height",
+          "orientation_epoch",
+          "idempotency_key",
+          "device_id",
+          "source_frame_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_mouse_result",
+      "title": "Check original result / 查看原操作结果",
+      "description": "Recover an original command without repeating input. Use command_id alone, or the original click_at_idempotency_key with device_id if IDs were lost. Pending, missing and uncertain results do not authorize replay. include_after_screen requests a read-only after-image when supported; inspect actual image blocks, not metadata (see server instructions). Use after_command_min_gap_ms only as its parameter describes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "compact_png",
+              "original_jpeg"
+            ],
+            "description": "Compact PNG for Spotlight focus or the original JPEG. Omit for the tool's default."
+          },
+          "command_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 170,
+            "description": "Original command ID. When provided, omit device_id and click_at_idempotency_key."
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Only with click_at_idempotency_key for receipt lookup without an image. Omit when using command_id."
+          },
+          "click_at_idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "include_after_screen": {
+            "type": "boolean",
+            "default": false
+          },
+          "after_command_min_gap_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "description": "Only with include_after_screen and the original confirmed click, open_system_search or type_text_in_field command ID. Round the previous after_command.lower_gap_ms up to require a newer capture, within 0–5000 ms. The read-only observation waits up to 5000 ms and returns images strictly younger than 2000 ms; it never resubmits input."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "drag_at",
+      "title": "Drag target / 拖动物件",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Drag visible object/handle using original-image endpoints and exact source geometry. Default 350ms; deliberate 120?1000ms. No calibration/relative fallback. Inspect after-image. Uncertain: original ID, never replay.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_frame_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from_x": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Start x in original image pixels. Convert a normalized fraction as x*(image_width-1)."
+          },
+          "from_y": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Start y in original image pixels. Convert a normalized fraction as y*(image_height-1)."
+          },
+          "to_x": {
+            "type": "number",
+            "minimum": 0,
+            "description": "End x in original image pixels; use the same coordinate space as from_x."
+          },
+          "to_y": {
+            "type": "number",
+            "minimum": 0,
+            "description": "End y in original image pixels; use the same coordinate space as from_y."
+          },
+          "image_width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "image_height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8192
+          },
+          "orientation_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 120,
+            "maximum": 1000,
+            "default": 350,
+            "description": "Normally omit for the default 350 ms. When deliberately needed, choose 120–1000 ms."
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 300
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "description": "Optional total action and image budget. Omit for the default 6000 ms action wait and independent confirmed-drag image window."
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "device_id",
+          "source_frame_id",
+          "from_x",
+          "from_y",
+          "to_x",
+          "to_y",
+          "image_width",
+          "image_height",
+          "orientation_epoch",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "stop_mouse",
+      "title": "Stop tapping / 停止帮你点",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Stop immediately; no readiness lookup. Omit device_id for all owned devices; invalid/unmatched IDs also stop all and report fallback. Cloud stop is separate from physical release; sharing may continue.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "read_screen",
+      "title": "Read shared screen / 读取共享画面",
+      "description": "Inspect type=image blocks in content_items or MCP content; structuredContent metadata is not the image. Display image(block) with host support if needed. Read the shared screen only when no usable action image exists; reuse action after-images. Returns actual pixels and source geometry. Voice requests may set wait_for_new_ms=5000 to avoid the default wait of up to 15000 ms.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "include_read_timing": {
+            "type": "boolean",
+            "default": false,
+            "description": "Opt in to bounded database timing and server frame-age timestamps for diagnostics. These precede response serialization and do not measure host image receipt."
+          },
+          "if_unchanged_since": {
+            "type": "string",
+            "format": "uuid",
+            "description": "An earlier actual image_ref still visible in this conversation."
+          },
+          "after_command_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "after_command_min_gap_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Require actual capture strictly after the confirmed command phone timestamp plus this delay; requires after_command_id."
+          },
+          "wait_for_new_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15000,
+            "default": 15000
+          },
+          "max_age_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000,
+            "default": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "create_pairing_code",
+      "title": "Create phone pairing code / 创建手机配对码",
+      "description": "Create a short-lived code for pairing the SaySo phone app with your private service. Enter it in SaySo. This does not pair the C124 accessory or authorize control.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_devices",
+      "title": "List my phones / 我的手机",
+      "description": "List your phones and active sharing sessions. Returns readiness metadata, not an image or credentials. When next_step is non-null, explain that step in the user's language without guessing screen contents. next_step 不为空时，用用户的语言告诉用户下一步，不要猜测画面内容。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "stop_session",
+      "title": "Stop sharing and clear images / 停止共享并清图",
+      "description": "Stop sharing sessions and clear their cloud screen data without a readiness lookup. Omit bridge_session_id to stop all your ongoing sessions, or select one owned session. Invalid or unmatched IDs also use all your sessions and report the fallback. An old stopped session ID also stops ongoing sessions. Returns stopped and failed session IDs. iOS screen-sharing termination must be confirmed separately; chat images cannot be erased here.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bridge_session_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "revoke_device",
+      "title": "Unpair phone / 解除手机配对",
+      "description": "Revoke the selected owned device, stop its cloud session and remove its commands, sessions and cloud images. Requires device_id. Existing chat content is unaffected.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  ],
+  "development_tools": [
+    {
+      "name": "move_mouse",
+      "title": "相对移动手机鼠标",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Move by signed HID dx/dy integers [-127,127], not pixels; never clamp or split. Requires phone-approved control. Only board_acked confirms receipt; inspect after-image. Uncertain: original ID/key, never replay.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dx": {
+            "type": "integer",
+            "minimum": -127,
+            "maximum": 127
+          },
+          "dy": {
+            "type": "integer",
+            "minimum": -127,
+            "maximum": 127
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "default": 2000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; UI effect still requires inspecting the image."
+          }
+        },
+        "required": [
+          "dx",
+          "dy",
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "click_mouse",
+      "title": "点击手机鼠标左键",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Click current pointer once in the phone-approved session for the authorized task; no positioning. No T6 final steps. Inspect after-image; queued is not success. Uncertain: original ID/key, never replay.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "button": {
+            "type": "string",
+            "enum": [
+              "left"
+            ],
+            "default": "left"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3000,
+            "default": 2000
+          },
+          "observe_after": {
+            "type": "boolean",
+            "default": true
+          },
+          "settle_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 0,
+            "description": "Minimum actual capture gap after phone board acknowledgement; UI effect still requires inspecting the image."
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "read_screen_live",
+      "title": "读取供 Live 查看的一张手机截图",
+      "description": "Read one fresh real phone image through SaySo for visual description or image-delivery diagnosis. Default compact_png; compact_jpeg uses the same preview dimensions, and original_jpeg sends the original capture bytes in the same small response. These are view-only pictures. Use read_screen to obtain exact visual action evidence. The released image is under 2 seconds old. If you cannot see the actual pixels, say so.Inspect actual type=image blocks in content_items and MCP content, including nested results. structuredContent metadata alone is not a visible image. If pixels are not visible, decode and display the original block with host image support; code-mode uses image(block). Do not let an empty array hide populated image content. Preserve mimeType/mime_type and Base64 data. Stop if the host cannot display the image.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "compact_png",
+              "compact_jpeg",
+              "original_jpeg"
+            ],
+            "default": "compact_png"
+          },
+          "wait_for_new_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "default": 1500
+          },
+          "max_age_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 2000,
+            "default": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_led",
+      "title": "开关 ESP32 板载灯",
+      "description": "停/停下/暂停/别弄了/等一下/stop/wait/pause/hold on：先调用stop_mouse，无需确认；不能只答应；用户明确继续且SaySo重授权后才操作。 FIRST call stop_mouse; no confirmation or verbal-only stop. No action tools until explicit resume AND renewed SaySo control permission. Explicit LED diagnostic only; requires phone-approved foreground session. Report board_acked or pending/error; queued is not success. Uncertain: original ID/key, never replay.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5000,
+            "default": 5000
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_command_result",
+      "title": "读取云端灯控执行回执",
+      "description": "Read the authenticated user's LED command state and phone-verified board receipt. Queued, claimed and executing are not confirmed physical results. Do not resend an uncertain command.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "command_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_profile",
+      "title": "当前 SaySo 授权身份",
+      "description": "Return the stable identity represented by this Site's authenticated OAuth connection.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "openai/profile": true
+      }
+    },
+    {
+      "name": "get_screen_metrics",
+      "title": "查看屏幕链路实测指标",
+      "description": "Read bounded metadata-only timings for this user's phone. Upload handler and MCP image-handler durations are separate; they do not measure internal model inference or voice playback.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "device_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "open_screen_benchmark",
+      "title": "打开合成看屏预取基准",
+      "description": "Open a clearly labelled synthetic-image benchmark widget only when explicitly testing screen-feedback performance without a phone. The widget prefetches fixture pixels and probes the host's model-context/sampling capabilities. It never reads a phone or controls a device. It is not evidence that the existing Live client meets a latency target.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ],
+            "default": "c00"
+          },
+          "preview": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://sayso/benchmark/v4.html"
+        },
+        "openai/outputTemplate": "ui://sayso/benchmark/v4.html"
+      }
+    },
+    {
+      "name": "read_benchmark_frame",
+      "title": "读取合成基准图片",
+      "description": "Use only for an explicitly requested synthetic screen-feedback benchmark without a phone. Returns one actual fixture image without a UI template. Defaults to mixed PNG. Optional image_format and response_layout select the carrier. With match_payload_size=true, the full PNG has the same image bytes count as the corresponding JPEG without changing pixels. Optional preview=true returns a 240x427 PNG with truthful native-size metadata. Analyze only those pixels and answer the requested brief visual task. This is not an iPhone screenshot or real-time screen capture; it never calls a model, sends a device command, or writes product data. Never use this to answer questions about the user's real phone.Inspect actual type=image blocks in content_items and MCP content, including nested results. structuredContent metadata alone is not a visible image. If pixels are not visible, decode and display the original block with host image support; code-mode uses image(block). Do not let an empty array hide populated image content. Preserve mimeType/mime_type and Base64 data. Stop if the host cannot display the image.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ]
+          },
+          "preview": {
+            "type": "boolean",
+            "default": false
+          },
+          "image_format": {
+            "type": "string",
+            "enum": [
+              "png",
+              "jpeg"
+            ],
+            "default": "png"
+          },
+          "response_layout": {
+            "type": "string",
+            "enum": [
+              "mixed",
+              "content_only"
+            ],
+            "default": "mixed"
+          },
+          "match_payload_size": {
+            "type": "boolean",
+            "default": false,
+            "description": "Full-size only. Match PNG image bytes to the corresponding JPEG length without modifying pixel data."
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "visibility": [
+            "model",
+            "app"
+          ]
+        },
+        "openai/widgetAccessible": true
+      }
+    },
+    {
+      "name": "open_benchmark_renderer_probe",
+      "title": "SaySo 组件加载诊断",
+      "description": "Use only to diagnose the synthetic benchmark UI failing to load. Opens a minimal text-only MCP Apps renderer and handshake probe, with no image, model, microphone, phone, device storage or command. Not a performance success sample.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "_meta": {
+        "ui": {
+          "resourceUri": "ui://sayso/renderer-probe/v1.html"
+        },
+        "openai/ui": {
+          "entrypoints": [
+            {
+              "type": "thread"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "read_benchmark_pixels",
+      "title": "读取合成基准图片内容",
+      "description": "Use only for an explicitly requested synthetic-image performance benchmark without a phone. Returns the actual fixture PNG plus provenance text using content blocks only, without structuredContent or a UI template, to test image delivery. Analyze those pixels and answer briefly. Never reads or controls a phone, writes device data, or calls a model. Never use this for the user's real screen.Inspect actual type=image blocks in content_items and MCP content, including nested results. structuredContent metadata alone is not a visible image. If pixels are not visible, decode and display the original block with host image support; code-mode uses image(block). Do not let an empty array hide populated image content. Preserve mimeType/mime_type and Base64 data. Stop if the host cannot display the image.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ]
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "read_benchmark_jpeg",
+      "title": "读取 JPEG 合成基准图片",
+      "description": "Use only for an explicitly requested synthetic image-delivery benchmark without a phone. Returns actual correctly encoded JPEG image content blocks and provenance text, without structuredContent or a UI template. This matches the real app's JPEG format but is strictly generated fixture data. Analyze the returned image and answer briefly. No device access, cloud device writes or model API calls. Never use it for the user's real screen.Inspect actual type=image blocks in content_items and MCP content, including nested results. structuredContent metadata alone is not a visible image. If pixels are not visible, decode and display the original block with host image support; code-mode uses image(block). Do not let an empty array hide populated image content. Preserve mimeType/mime_type and Base64 data. Stop if the host cannot display the image.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "enum": [
+              "c00",
+              "c01",
+              "c02",
+              "c03",
+              "c04",
+              "c05",
+              "c06",
+              "c07",
+              "c08",
+              "c09",
+              "c10",
+              "c11"
+            ]
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ],
+  "device_routes": [
+    {
+      "key": "pair",
+      "method": "POST",
+      "path": "pair",
+      "authority": "pairing_code",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "frame",
+      "method": "POST",
+      "path": "frame",
+      "authority": "atomic_device",
+      "body": {
+        "type": "string",
+        "format": "binary"
+      }
+    },
+    {
+      "key": "observation",
+      "method": "POST",
+      "path": "frame-observation",
+      "authority": "atomic_device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "mouseClaim",
+      "method": "POST",
+      "path": "mouse/commands/claim",
+      "authority": "atomic_device",
+      "body": {
+        "type": "object",
+        "properties": {
+          "bridge_session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "broadcast_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "worker_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lease_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "control_epoch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "raw_dispatch_protocol": {
+            "const": "raw_mouse_claim_start.v1"
+          },
+          "point_protocol": {
+            "enum": [
+              "paired_mouse_point.v1",
+              null
+            ]
+          },
+          "spotlight_dispatch_protocol": {
+            "const": "spotlight_claim_start.v1"
+          },
+          "raw_dispatch_ttl_profiles": {
+            "type": "array",
+            "maxItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "const": "scope_only_system_search.v1"
+            }
+          }
+        },
+        "required": [
+          "bridge_session_id",
+          "broadcast_id",
+          "worker_id",
+          "lease_epoch",
+          "control_epoch",
+          "raw_dispatch_protocol"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "key": "mouseResult",
+      "method": "POST",
+      "path": "mouse/commands/{command_id}/result",
+      "authority": "atomic_device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "status",
+      "method": "GET",
+      "path": "status",
+      "authority": "device"
+    },
+    {
+      "key": "requests",
+      "method": "GET",
+      "path": "requests",
+      "authority": "device"
+    },
+    {
+      "key": "mouseGrant",
+      "method": "POST",
+      "path": "mouse/grant",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "mouseStart",
+      "method": "POST",
+      "path": "mouse/commands/{command_id}/start",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "hardwareBind",
+      "method": "POST",
+      "path": "hardware/bind",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "sessionCreate",
+      "method": "POST",
+      "path": "sessions",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "workerClaim",
+      "method": "POST",
+      "path": "worker/claim",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "heartbeat",
+      "method": "POST",
+      "path": "worker/heartbeat",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "clockProbe",
+      "method": "POST",
+      "path": "clock-probes",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "sessionStop",
+      "method": "POST",
+      "path": "sessions/{session_id}/stop",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "captureState",
+      "method": "POST",
+      "path": "state",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "unpair",
+      "method": "POST",
+      "path": "unpair",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "pushToken",
+      "method": "POST",
+      "path": "push-token",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "requestAck",
+      "method": "POST",
+      "path": "requests/{request_id}/ack",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "ledClaim",
+      "method": "POST",
+      "path": "commands/claim",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "ledStart",
+      "method": "POST",
+      "path": "commands/{command_id}/start",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    {
+      "key": "ledResult",
+      "method": "POST",
+      "path": "commands/{command_id}/result",
+      "authority": "device",
+      "body": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  ],
+  "hardware_capabilities": [
+    "led.set",
+    "hid.mouse.relative",
+    "hid.mouse.click",
+    "hid.mouse.scroll",
+    "hid.mouse.absolute",
+    "hid.mouse.drag_absolute",
+    "hid.mouse.drag_absolute.v2",
+    "hid.keyboard.system_search",
+    "hid.keyboard.ascii_stable",
+    "hid.keyboard.ascii_clear_stable",
+    "hid.keyboard.ascii_enter_stable"
+  ],
+  "app_capabilities": [
+    "sayso.action_geometry.v1",
+    "sayso.drag_at",
+    "sayso.drag_cloud_acceptance.v1",
+    "sayso.drag_model_decision.v1",
+    "sayso.focused_text",
+    "sayso.focused_text.no_visual.v1",
+    "sayso.focused_text_clear_before_input",
+    "sayso.focused_text_submit_enter",
+    "sayso.system_search",
+    "sayso.system_search.raw_claim_5s.v1",
+    "sayso.system_search.scope_only.v1"
+  ],
+  "action_rules": {
+    "decision_boundary": "between_tool_calls",
+    "source_use_time_limit_ms": null,
+    "changed_screen_policy": "informational_only",
+    "click_diagnostics": [
+      "source_age_ms",
+      "screen_changed_since_source",
+      "source_observed_at_server_utc_ms"
+    ],
+    "default_after_image_wait_ms": 5000,
+    "maximum_released_image_age_exclusive_ms": 2000,
+    "unknown_input": "read_original_id_or_key_only",
+    "source_reference_is_authority": false
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "checked_at_utc": "2026-11-20T03:58:00.088336+00:00",
+  "local_only": true,
+  "environment": {
+    "node": "26.13.1",
+    "npm": "11.20.0",
+    "platform": "Windows"
+  },
+  "service": {
+    "tests": 828,
+    "pass": 828,
+    "fail": 0,
+    "skipped": 0,
+    "duration_ms": 154575.4043,
+    "dependency_install": "PASS; fresh temporary source copy, locked install",
+    "typecheck": "PASS",
+    "contracts_check": "PASS; 15 public tools, 12 development tools, 22 device routes",
+    "source_budgets": "PASS",
+    "production_build": "PASS; diagnostic boundary checked 61 JS artifacts",
+    "test_setup": "All mcp and plugins files copied from this package. A temporary plugin/ alias copies plugins/sayso/ so both original and public skill-layout tests execute. No runtime or test source modified. Native sibling repository cross-checks not exercised."
+  },
+  "website": {
+    "working_source": {
+      "tests": 58,
+      "fail": 0,
+      "build": "PASS"
+    },
+    "public_export": {
+      "tests": 58,
+      "fail": 0,
+      "build": "PASS"
+    },
+    "note": "Public integrated run emitted a Vite dependency-scan server-closing warning during test-server teardown; tests and final artifact assembly exited 0. No website source changed."
+  },
+  "database": {
+    "ordered_sql_migrations_applied_to_fresh_local_sqlite": 29,
+    "tables": 27,
+    "privacy_triggers": 3,
+    "deployed_D1_verified": false
+  },
+  "provenance": {
+    "included_upstream_files": 357,
+    "exact_upstream_blobs": 352,
+    "explicit_packaging_transformations": 5,
+    "validation_source_matches_package": true
+  },
+  "security": {
+    "credential_findings": 0,
+    "private_site_bindings": 0,
+    "exact_hash_negative_auth_fixture_exceptions": 1,
+    "exception_note": "Upstream public synthetic invalid-header assertion, identified by exact full-line SHA-256 in verify.py. No blanket tests-directory exclusion.",
+    "tamper_rejection": "PASS",
+    "synthetic_provider_token_rejection": "PASS",
+    "local_private_env_files_found": 0
+  },
+  "git_export_verification": "PASS; staged bytes and fresh checkout-index extraction match all inventory hashes",
+  "boundaries": {
+    "pushed": false,
+    "deployed": false,
+    "site_created": false,
+    "private_site_accessed": false,
+    "device_accessed": false,
+    "worker_mainline_modified": false,
+    "app_repository_modified": false,
+    "native_app_or_firmware_source_included": false,
+    "fresh_account_mobile_installation_verified": false,
+    "L06_pairing_flow_implemented": false
+  },
+  "evidence": [
+    {
+      "name": "service-build.log",
+      "bytes": 3582,
+      "sha256": "9a9c9e1eb160c7803a6eec2c0171fa435b4cbc5b48ff4edf5d6ed3507265f623",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "service-contracts.log",
+      "bytes": 546,
+      "sha256": "30c92edd6f4ebee3322f3c4aec6c0fd0bde987145be8e2e5a4da81c5017ed5cb",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "service-install.log",
+      "bytes": 2632,
+      "sha256": "0ffdbfdc8d552024075add0442051823c9c73bf897274db53e0e8cac4402e9af",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "service-package-integration-recheck.log",
+      "bytes": 2556,
+      "sha256": "631badb1c8e5b9cd06bf2e994be22d7c049a6ae7f586767825c084b3fb852949",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "service-source-budgets.log",
+      "bytes": 206,
+      "sha256": "787e8a023f1d9fc15e9fa63b06259f3a516e27b4ae16c1d071fa55a43b1f71c0",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "service-tests-final.log",
+      "bytes": 4314730,
+      "sha256": "c92860478b8d4e298536dad087090becca717ad15fd90c78e2e26d705400f2d7",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "service-typecheck.log",
+      "bytes": 92,
+      "sha256": "1b7a372d215da121f8fd3a6044b19956e54d110e786ca9967a53a8ecca525db9",
+      "location": "local validation directory only; log contents are not distributed"
+    },
+    {
+      "name": "release-website-working-build.log",
+      "bytes": 18340,
+      "sha256": "d3a0f7dcfc837e5b831ddf54c65282fc388063fd33cda82ad0433e585e0d6ee4",
+      "location": "local website publication audit directory only; log contents are not distributed"
+    },
+    {
+      "name": "release-website-public-build.log",
+      "bytes": 54998,
+      "sha256": "b93df1d1aa7452a35ae0271bc368fc60df1a325a44ab01da707a80195ec1ad21",
+      "location": "local website publication audit directory only; log contents are not distributed"
+    }
+  ]
+}

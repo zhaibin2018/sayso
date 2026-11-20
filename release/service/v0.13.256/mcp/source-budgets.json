@@ -1,0 +1,12 @@
+{
+  "default_lines": 1000,
+  "existing_file_limits": {
+    "lib/bridge-engine.ts": 2266,
+    "lib/mouse-control.ts": 2241
+  },
+  "policy": "Existing large files cannot grow in lines or UTF-8 bytes; new modules stay below 1000 lines.",
+  "existing_file_bytes": {
+    "lib/bridge-engine.ts": 211628,
+    "lib/mouse-control.ts": 194132
+  }
+}

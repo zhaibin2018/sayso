@@ -1,0 +1,5 @@
+# Preserve pinned distribution bytes across Windows and Unix checkouts.
+* -text
+*.png binary
+*.jpg binary
+*.jpeg binary

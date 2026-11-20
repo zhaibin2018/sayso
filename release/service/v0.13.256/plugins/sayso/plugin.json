@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "sayso",
+  "version": "1.2.45",
+  "description": "With your permission, SaySo reads your shared iPhone screen and uses your accessory for tapping and scrolling. Stop directly in SaySo at any time. 在你授权后，SaySo 读屏并通过配件帮你点、滚动；你可随时在 SaySo App 内停止。",
+  "author": {
+    "name": "ZHAI BIN"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [],
+        "category": "Productivity",
+        "defaultPrompt": null,
+        "developerName": "ZHAI BIN",
+        "displayName": "SaySo",
+        "longDescription": "With your permission, SaySo reads your shared iPhone screen and uses your accessory for tapping and scrolling. Stop directly in SaySo at any time. 在你授权后，SaySo 读屏并通过配件帮你点、滚动；你可随时在 SaySo App 内停止。",
+        "shortDescription": "Read & tap / 读屏和帮你点",
+        "websiteURL": "https://zhaibin2018.github.io/sayso/"
+      }
+    }
+  }
+}

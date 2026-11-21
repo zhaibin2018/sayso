@@ -1,0 +1,6 @@
+interface:
+  display_name: "Debug report / 调试报告"
+  short_description: "Read-only SaySo diagnostics. 只读调试报告。"
+  default_prompt: "Use $sayso-debug to generate my SaySo debug report."
+policy:
+  allow_implicit_invocation: true

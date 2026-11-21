@@ -1,0 +1,1 @@
+ALTER TABLE `sb_sessions` ADD `blocked` integer DEFAULT 0 NOT NULL;

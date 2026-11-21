@@ -1,0 +1,94 @@
+{
+  "firmware_commit": "c12806abb91066627add3b3ea659aa285a0ba01f",
+  "source_sha256": {
+    "main/board_identity.cpp": "1162557ff4f6faaaf9d594eeb290105ef3536d6d1e8d78eac3ddb6b07dab2cd1",
+    "main/Kconfig.projbuild": "9123321dbe2989adbc95c46745189726d37d6fbae2d30b0c6385649d8014da0a",
+    "components/bridge_core/guard.cpp": "75832248fb8cc6d46c88aaa5292d75df3be087c009ff8918137a9dde851bb4fe",
+    "components/bridge_core/include/bridge_core.hpp": "237e4e71156027556162be0275b9eeb274c99956ef338f35dfddb742272266ed",
+    "boards/c124-production.defaults": "1168a45e1b8ad07ba8c33782a5d058a8526c98106cf2c1228784024bb6c11dbd",
+    "boards/c124-test-iphone11.defaults": "251627a30ceae27bfc979243fecd92eaf1cf75eeeba01bd781f1546cfcd7f70d"
+  },
+  "generator": "tests/fixtures/generate-firmware-info.py",
+  "synthetic_inputs": "fixed UUIDs, uptime=1000, lease_floor=0, readiness=true; no NVS or real keys",
+  "samples": [
+    {
+      "profile": "production-usb",
+      "ingress": "USB_NCM",
+      "info": {
+        "protocol_revision": 3,
+        "control_links": [
+          "usb"
+        ],
+        "protocol_version": "1.0",
+        "hardware_id": "00000000-0000-4000-8000-000000000001",
+        "board_boot_id": "00000000-0000-4000-8000-000000000002",
+        "firmware_profile": "production-usb",
+        "firmware_version": "0.5.1-dev-usb",
+        "transport": "usb_ncm",
+        "descriptor_version": "sayso-ncm-minimal-absolute-stable-keyboard-v2",
+        "uptime_ms": 1000,
+        "lease_epoch_floor": 0,
+        "pointer_terminal_receipt_wait_ms": 60,
+        "usb_state": "configured",
+        "hardware_validation": "not_attested_by_firmware",
+        "capabilities": {
+          "hid.mouse.relative": true,
+          "hid.mouse.click": true,
+          "hid.mouse.scroll": true,
+          "hid.keyboard": true,
+          "hid.keyboard.ascii": false,
+          "hid.keyboard.ascii_stable": true,
+          "hid.keyboard.system_search": true,
+          "hid.keyboard.ascii_enter_stable": true,
+          "hid.keyboard.ascii_clear_stable": true,
+          "hid.mouse.absolute": true,
+          "hid.mouse.physical_start_button3": true,
+          "user.physical_action_confirmation": true,
+          "hid.mouse.double_click": true,
+          "hid.mouse.drag_absolute": true,
+          "hid.mouse.drag_absolute.v2": true
+        }
+      }
+    },
+    {
+      "profile": "test-dual",
+      "ingress": "WIFI_STA",
+      "info": {
+        "protocol_revision": 3,
+        "control_links": [
+          "usb",
+          "wifi_ble"
+        ],
+        "protocol_version": "1.0",
+        "hardware_id": "00000000-0000-4000-8000-000000000001",
+        "board_boot_id": "00000000-0000-4000-8000-000000000002",
+        "firmware_profile": "test-dual",
+        "firmware_version": "0.5.1-dev-test-dual",
+        "transport": "usb_ncm",
+        "descriptor_version": "sayso-wifi-ble-hid-bench-v2",
+        "uptime_ms": 1000,
+        "lease_epoch_floor": 0,
+        "pointer_terminal_receipt_wait_ms": 60,
+        "usb_state": "configured",
+        "hardware_validation": "not_attested_by_firmware",
+        "capabilities": {
+          "hid.mouse.relative": true,
+          "hid.mouse.click": true,
+          "hid.mouse.scroll": true,
+          "hid.keyboard": true,
+          "hid.keyboard.ascii": false,
+          "hid.keyboard.ascii_stable": true,
+          "hid.keyboard.system_search": true,
+          "hid.keyboard.ascii_enter_stable": true,
+          "hid.keyboard.ascii_clear_stable": true,
+          "hid.mouse.absolute": true,
+          "hid.mouse.physical_start_button3": true,
+          "user.physical_action_confirmation": true,
+          "hid.mouse.double_click": true,
+          "hid.mouse.drag_absolute": true,
+          "hid.mouse.drag_absolute.v2": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+CREATE INDEX `sb_browse_scope_lock` ON `sb_browse_runs` (`device_id`,`session_id`,`control_epoch`,`state`);

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Connect / 连接准备"
+  short_description: "Resolve missing SaySo pairing, share or control. 准备缺失的连接。"
+  default_prompt: "Use $sayso-onboarding to resolve the missing connection or permission for my phone task."
+policy:
+  allow_implicit_invocation: true

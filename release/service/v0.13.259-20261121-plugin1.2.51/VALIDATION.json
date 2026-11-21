@@ -1,0 +1,89 @@
+{
+  "date": "2026-11-21",
+  "worker_tests": {
+    "tests": 1110,
+    "passed": 1110,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": {
+    "install": {
+      "exit": 0,
+      "seconds": 53.79
+    },
+    "tests": {
+      "exit": 0,
+      "seconds": 221.62
+    },
+    "types": {
+      "exit": 0,
+      "seconds": 5.09
+    },
+    "contracts": {
+      "exit": 0,
+      "seconds": 0.67
+    },
+    "budgets": {
+      "exit": 0,
+      "seconds": 0.73
+    },
+    "build": {
+      "exit": 0,
+      "seconds": 6.54
+    }
+  },
+  "logs_sha256": {
+    "budgets.log": "9506912028fa30935df3087d784c38f33ed911506160897a936ea6299c20366f",
+    "build.log": "adb4374dc12532c8539778b527e99cff67e19c7b1a25db809ae1dd583e4da03a",
+    "contracts.log": "666d0bcda5f1b062f15a1cf07f1ebebd054a5ecb2a90ad5c9fe443bb3880807a",
+    "install.log": "43cb1455567afdaefa251f344db2533815f2b1398ec7352317dde52c3aa25b58",
+    "tests.log": "8fa2e072af31c9d9e3ffeabf728c382b5996587ee0299a8e2b32a2f16d2321d0",
+    "types.log": "f8d4288be24ea7f1b0b0e39ec428ab243425d66b11b6c631c37f86d93b61d9e3"
+  },
+  "sql_migrations_applied_to_memory_sqlite": 36,
+  "skills": [
+    "sayso-app-guides",
+    "sayso-click-at",
+    "sayso-control",
+    "sayso-debug",
+    "sayso-drag-to",
+    "sayso-onboarding",
+    "sayso-open-app",
+    "sayso-scroll-view",
+    "sayso-type-text"
+  ],
+  "runtime": "0.13.259",
+  "production_diagnostics_excluded": true,
+  "app": {
+    "source_commit": "1e5e57f",
+    "tests": 885,
+    "skipped": 2,
+    "failures": 0,
+    "source_budgets": "PASS; USBClients.swift 1307 lines <= 1313; unchanged limits",
+    "ui_contracts": 21,
+    "build": "Release iphoneos 3403; app and broadcast signatures verified"
+  },
+  "firmware": {
+    "source_commit": "c5a9ad8",
+    "version": "0.6.1",
+    "native_programs": 11,
+    "python_tests": 6,
+    "physical_flash_verified": false
+  },
+  "website": {
+    "tests": 66,
+    "browser_checks": 18,
+    "desktop_and_mobile_screenshots": true
+  },
+  "private_site_updated": false,
+  "private_site_blocker": "Live source 0a4f0019725dcb505c24dc35988f0ab278841049 is not an ancestor of this Worker; explicit user stop condition honored",
+  "unattended_schedule_verified": false,
+  "phone_functional_acceptance": false,
+  "published_at_validation": false,
+  "notes": [
+    "No service runtime behavior transformation. Sources from exact committed blobs; working drafts excluded.",
+    "T92: installation retains manifest verification, required locked dependencies, one production build, migration/environment readback and minimal harmless self-check; full gates stay here.",
+    "Initial missing archived Git metadata and missing IDF_PATH were corrected by checking original App Git checkout and using pinned existing IDF checkout.",
+    "Runtime contracts regenerated after version bump; full package suite rerun."
+  ]
+}

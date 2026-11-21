@@ -1,0 +1,146 @@
+[
+  {
+    "path": "mcp/drizzle/0000_low_screwball.sql",
+    "sha256": "deabccb6daa78a519e3cd7408927ab86d94c6e32f87fb27e58c8d3fa645ff653"
+  },
+  {
+    "path": "mcp/drizzle/0001_exotic_freak.sql",
+    "sha256": "2243d4c565acbc13844996b49bef5ab65a34abd74df3e6469246433cf32ccd31"
+  },
+  {
+    "path": "mcp/drizzle/0002_blue_energizer.sql",
+    "sha256": "e21519a7e933da41d775ac4c0e2dc5be8aef3cd16494b91ad54d152c4030bf2f"
+  },
+  {
+    "path": "mcp/drizzle/0003_melodic_war_machine.sql",
+    "sha256": "cd7290330a9b8a7088308d0464e05850f3adf976ad70ed2f137d0eee42ac2261"
+  },
+  {
+    "path": "mcp/drizzle/0004_sudden_sage.sql",
+    "sha256": "bf242109d00df7d3a3594e7ef204c5a03349fe953f015b7ed07d329e7afdd03b"
+  },
+  {
+    "path": "mcp/drizzle/0005_tiresome_mystique.sql",
+    "sha256": "e90b40eb3e53eeea2be42db3de22ae02fb59a5106373decaf114afb0f27926cd"
+  },
+  {
+    "path": "mcp/drizzle/0006_confused_tyrannus.sql",
+    "sha256": "5d47a8f9bd6e2383e24bf8fb107153cb6236d51fe338b28e792ec7da8b8b2b38"
+  },
+  {
+    "path": "mcp/drizzle/0007_free_miek.sql",
+    "sha256": "6dd5c4399264e8d80a5fb25c02c17ff8a098b2cea5cb5994e0e9dc112fb8beb2"
+  },
+  {
+    "path": "mcp/drizzle/0008_harsh_adam_destine.sql",
+    "sha256": "ffd6d082904a068261db63fb657910b5609679cc9ef8bee2ba81f0ac13bd33c2"
+  },
+  {
+    "path": "mcp/drizzle/0009_charming_praxagora.sql",
+    "sha256": "7841e7eefa6f5d0c32cd43da6741cd0e9f6899f043e34b5c9df8e00d03fd4ae7"
+  },
+  {
+    "path": "mcp/drizzle/0010_absent_norrin_radd.sql",
+    "sha256": "657be7129e5b22b92e6c2b8abffc1f44ecf3bb504fb2f271efbb447666fb37f4"
+  },
+  {
+    "path": "mcp/drizzle/0011_cold_venom.sql",
+    "sha256": "c6debcfe20459531c715c8be1b427df4d6787a6c25596c5270a7e78ddc820cb9"
+  },
+  {
+    "path": "mcp/drizzle/0012_neat_william_stryker.sql",
+    "sha256": "7629b0a9e0ba66c0913af75fba0f11620e2c7e549f520e8c7d5eb4179c96828e"
+  },
+  {
+    "path": "mcp/drizzle/0013_daily_praxagora.sql",
+    "sha256": "7e001181fb76ecb3c9fb062c8f730dd8053d71759d3a3d54d1eeb1192c2ab987"
+  },
+  {
+    "path": "mcp/drizzle/0014_cheerful_bruce_banner.sql",
+    "sha256": "f207758e5b58a15d05fd283d3d0a6da2a6a39ca19f13bdcc5a939797360febed"
+  },
+  {
+    "path": "mcp/drizzle/0015_perfect_stephen_strange.sql",
+    "sha256": "6143db41b7dd7d3884925498fe855eb0811fed8d55d68ec99d3e3390442967cc"
+  },
+  {
+    "path": "mcp/drizzle/0016_tranquil_albert_cleary.sql",
+    "sha256": "c397305727ae2bd941135ab020910445079cd2f91e665c7deb5c07b1dd6ae764"
+  },
+  {
+    "path": "mcp/drizzle/0017_repeat_presentation.sql",
+    "sha256": "b4b571ab842be3665723252d135f5ea739ccda5cc9e5b747d015f48ed5fc0d62"
+  },
+  {
+    "path": "mcp/drizzle/0018_flat_moira_mactaggert.sql",
+    "sha256": "97fc1745459820d22931b4a1326d3aa82283de8b405f68448a257ca139ba9545"
+  },
+  {
+    "path": "mcp/drizzle/0019_regular_gorilla_man.sql",
+    "sha256": "a439bfc2286d495b5f8ebf49ba04ddaa9292e544635d4b01e8612ccf1c21b9b8"
+  },
+  {
+    "path": "mcp/drizzle/0020_daily_invaders.sql",
+    "sha256": "88399ef9934d0ed5f282bab9e5ad382ab0b28b18cd7fd85178d3e37ac2da8040"
+  },
+  {
+    "path": "mcp/drizzle/0021_burly_thundra.sql",
+    "sha256": "0e9f66398b2f1e20793cca9b482ee5a59f9c90208e44542cce86323bf700aea4"
+  },
+  {
+    "path": "mcp/drizzle/0022_mouse_active_device.sql",
+    "sha256": "75f1ed88ae7f3def9c3195c33a5700a6b8b9884745adbfff52745a1b95b2ac53"
+  },
+  {
+    "path": "mcp/drizzle/0023_app_search_query_runs.sql",
+    "sha256": "4be321bdbfd9c107e6f622a184f720e11bca3c886c62c350a1f923751bc947f4"
+  },
+  {
+    "path": "mcp/drizzle/0024_native_search_review_state.sql",
+    "sha256": "f5f7605122d79803c27518c7b600dd2550dad2d0751f155c44bb8f28e1b8a63e"
+  },
+  {
+    "path": "mcp/drizzle/0025_released_system_search_field_proofs.sql",
+    "sha256": "8894a9c1985a258d1cd313c14d8a9062a98d67068f8f4d13c5d62deaa36de599"
+  },
+  {
+    "path": "mcp/drizzle/0026_terminal_text_privacy.sql",
+    "sha256": "fc16adf298a85e23cea70746987130443425b8c04875e9d081340bbdbc9a3f30"
+  },
+  {
+    "path": "mcp/drizzle/0027_retire_unkeyed_text_digests.sql",
+    "sha256": "da397ae861a11ea0e686420501a182490fd31c15edc21f6dbd5bb473a7de1d28"
+  },
+  {
+    "path": "mcp/drizzle/0028_timing_journal.sql",
+    "sha256": "cc261fbc40eed356bc2151c25fcfee5f409ae7ea0336d6cc10bf3a31db1c6964"
+  },
+  {
+    "path": "mcp/drizzle/0029_service_pairing.sql",
+    "sha256": "87cb9d54e227edd24ef5cbe645080b5c2714a6d87bb42c9aeacdf61715b79986"
+  },
+  {
+    "path": "mcp/drizzle/0030_event_clock.sql",
+    "sha256": "5edf0e0a311540151d6e908dbaafc66eb60e6e8e94e0b7487e0ddff5d9350c76"
+  },
+  {
+    "path": "mcp/drizzle/0031_resumable_erasure.sql",
+    "sha256": "8223c30bf44b7b95bab96a213ea8b5cf008d50cfa25ca2ba9b405f93f06b0751"
+  },
+  {
+    "path": "mcp/drizzle/0032_retention_maintenance.sql",
+    "sha256": "aa7b34b50ff7280011df7542e7b62515e1e684132cc58ea3b6f802738badef53"
+  },
+  {
+    "path": "mcp/drizzle/0033_stop_and_idle.sql",
+    "sha256": "159182e7b2a758abcf6a664743161856f07754d7d617344c012fa6cf54546aaa"
+  },
+  {
+    "path": "mcp/drizzle/0034_install_pairing.sql",
+    "sha256": "9a904df609775a03882d632dccd125899d298c47150b1d03f7dee0649d5da7bd"
+  },
+  {
+    "path": "mcp/drizzle/0035_d1_placement.sql",
+    "sha256": "c7618ad26fb568804c4c6151b50cc3823008e5918373fc1e9b0e6b511782d723"
+  }
+]

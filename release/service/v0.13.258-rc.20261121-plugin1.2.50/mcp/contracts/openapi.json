@@ -1,0 +1,3580 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SaySo current Worker API",
+    "version": "0.13.258",
+    "description": "Generated from the runtime route registry and MCP catalogue. Device schemas specify envelopes; lease, ownership, original receipt and image-order semantics remain enforced by domain services and regression tests."
+  },
+  "paths": {
+    "/v1/device/pair": {
+      "post": {
+        "operationId": "pair",
+        "parameters": [],
+        "security": [],
+        "x-sayso-authority": "pairing_code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/frame": {
+      "post": {
+        "operationId": "frame",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "atomic_device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/frame-observation": {
+      "post": {
+        "operationId": "observation",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "atomic_device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/mouse/commands/claim": {
+      "post": {
+        "operationId": "mouseClaim",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "atomic_device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bridge_session_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "broadcast_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "worker_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "lease_epoch": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "event_clock": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "control_epoch": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "raw_dispatch_protocol": {
+                    "const": "raw_mouse_claim_start.v1"
+                  },
+                  "point_protocol": {
+                    "enum": [
+                      "paired_mouse_point.v1",
+                      null
+                    ]
+                  },
+                  "spotlight_dispatch_protocol": {
+                    "const": "spotlight_claim_start.v1"
+                  },
+                  "raw_dispatch_ttl_profiles": {
+                    "type": "array",
+                    "maxItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "const": "scope_only_system_search.v1"
+                    }
+                  }
+                },
+                "required": [
+                  "bridge_session_id",
+                  "broadcast_id",
+                  "worker_id",
+                  "lease_epoch",
+                  "control_epoch",
+                  "raw_dispatch_protocol"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/mouse/commands/{command_id}/result": {
+      "post": {
+        "operationId": "mouseResult",
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "atomic_device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/status": {
+      "get": {
+        "operationId": "status",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/sharing/preflight": {
+      "get": {
+        "operationId": "sharingPreflight",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/name": {
+      "post": {
+        "operationId": "phoneRename",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/requests": {
+      "get": {
+        "operationId": "requests",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/mouse/grant": {
+      "post": {
+        "operationId": "mouseGrant",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/mouse/commands/{command_id}/start": {
+      "post": {
+        "operationId": "mouseStart",
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/hardware/bind": {
+      "post": {
+        "operationId": "hardwareBind",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/sessions": {
+      "post": {
+        "operationId": "sessionCreate",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/worker/claim": {
+      "post": {
+        "operationId": "workerClaim",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/mouse/cancel-receipt": {
+      "post": {
+        "operationId": "cancelReceipt",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/worker/heartbeat": {
+      "post": {
+        "operationId": "heartbeat",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/clock-probes": {
+      "post": {
+        "operationId": "clockProbe",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/sessions/{session_id}/stop": {
+      "post": {
+        "operationId": "sessionStop",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/state": {
+      "post": {
+        "operationId": "captureState",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/unpair": {
+      "post": {
+        "operationId": "unpair",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/push-token": {
+      "post": {
+        "operationId": "pushToken",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/requests/{request_id}/ack": {
+      "post": {
+        "operationId": "requestAck",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/commands/claim": {
+      "post": {
+        "operationId": "ledClaim",
+        "parameters": [],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/commands/{command_id}/start": {
+      "post": {
+        "operationId": "ledStart",
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/v1/device/commands/{command_id}/result": {
+      "post": {
+        "operationId": "ledResult",
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "DeviceBearer": []
+          }
+        ],
+        "x-sayso-authority": "device",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/mcp": {
+      "post": {
+        "operationId": "productionMcp",
+        "description": "MCP JSON-RPC. Authenticated identity is supplied by the Sites gateway; device actions retain owner and current-grant checks.",
+        "x-sites-authentication": true,
+        "x-mcp-tools": [
+          {
+            "name": "get_debug_report",
+            "title": "Debug report / 调试报告",
+            "description": "Returns a read-only troubleshooting report containing recent SaySo operation records and current state, excluding typed text, images and credentials.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "minutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60,
+                  "default": 15
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 50,
+                  "default": 20
+                },
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Owned device UUID. Omitted when exactly one device is paired."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "run_due_maintenance",
+            "title": "Run due maintenance / 到期清理",
+            "description": "Installation owner only. Advances bounded server-due retention and already-authorized erasure jobs. No target, TTL, credentials or force parameters. Returns content-free execution records.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "get_maintenance_status",
+            "title": "Maintenance status / 清理状态",
+            "description": "Installation owner only. Reads content-free retention execution records and backlog.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "open_system_search",
+            "title": "Open system search / 打开系统搜索",
+            "description": "Opens installed-app System Search and returns the command receipt and, by default, an after-image. No source frame is required. The receipt includes the original command ID.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "image_format": {
+                  "type": "string",
+                  "enum": [
+                    "compact_png",
+                    "original_jpeg"
+                  ],
+                  "description": "Compact PNG for Spotlight focus or the original JPEG; the format is tool-default when absent."
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "device_id",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "type_text_in_field",
+            "title": "Type in focused field / 输入文字",
+            "description": "Enters printable ASCII in the focused field, up to the accessory max_text_len (candidate ceiling 150; legacy 64, or 60 with clearing). Default clearing supports single-line fields; append supports multiline editors. Optional submit=enter adds Return. Results contain the original receipt, typed_count when available and an after-image. Counted partial-input continuation uses reviewed_input_command_id and reviewed_frame_id.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "reviewed_input_command_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Original counted terminal input command associated with an explicit continuation."
+                },
+                "reviewed_frame_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Released image captured after the counted terminal receipt, within the current control scope."
+                },
+                "reviewed_frame_proof": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "description": "Unmodified same-image source_point_proof associated with reviewed_frame_id."
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "clear_before_input": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "submit": {
+                  "type": "string",
+                  "enum": [
+                    "enter"
+                  ]
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 12000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "device_id",
+                "text",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "get_control_guide",
+            "title": "Get usage guide / 使用说明",
+            "description": "Returns instructions for the selected workflow, including input, image handling, stopping and final-step handoff. No phone inspection or control enablement occurs.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "workflow": {
+                  "type": "string",
+                  "enum": [
+                    "overview",
+                    "open_app",
+                    "field_input",
+                    "pointer",
+                    "local_plan",
+                    "search_taobao",
+                    "scroll",
+                    "drag",
+                    "maps",
+                    "clipboard",
+                    "stop"
+                  ]
+                }
+              },
+              "required": [
+                "workflow"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "move_mouse_to",
+            "title": "Move pointer / 移动指针",
+            "description": "Positions the pointer without clicking, using original dimensions and orientation. Returns the command receipt and, by default, an after-image. The default confirmed-input image window is 5000 ms, separate from the action wait.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "image_width": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "image_height": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "orientation_epoch": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3000,
+                  "default": 2000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "image_width",
+                "image_height",
+                "orientation_epoch",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "get_mouse_state",
+            "title": "Check tapping status / 查看帮你点状态",
+            "description": "Returns the selected phone’s current input authorization, readiness and capabilities. This lookup does not enable control.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "scroll_mouse",
+            "title": "Scroll content / 滚动内容",
+            "description": "Sends bounded wheel steps at the current pointer position. Returns the original command receipt and, by default, an after-image. The default confirmed-scroll image window is 5000 ms, separate from the 2000 ms action wait; wait_ms specifies a total budget. ACTION_NO_SCREEN_CHANGE indicates a possible missed action.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "steps": {
+                  "type": "integer",
+                  "minimum": -8,
+                  "maximum": 8
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3000,
+                  "description": "Optional total action and image budget. The default is a 2000 ms action wait with an independent confirmed-scroll image window."
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+                }
+              },
+              "required": [
+                "steps",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "click_at",
+            "title": "Click target / 点击目标",
+            "description": "Clicks a target at original-image x/y using device_id, source_frame_id, image dimensions, orientation and an optional same-frame source_point_proof. Returns the original command receipt and, by default, an after-image. SCREEN_CHANGED_SINCE_IMAGE indicates a changed source scene; ACTION_NO_SCREEN_CHANGE indicates a possible missed action. Workflow rules are in get_control_guide.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source_frame_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Exact JPEG frame ID of the selected source image, paired with device_id."
+                },
+                "source_point_proof": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "description": "Unmodified proof from the same released visual read, paired with device_id and source_frame_id. When absent, the server looks up that same frame automatically."
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "image_width": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8192
+                },
+                "image_height": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8192
+                },
+                "orientation_epoch": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 300
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "description": "Optional total budget for input and after-image. The default uses an independent paired after-image window."
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "image_width",
+                "image_height",
+                "orientation_epoch",
+                "idempotency_key",
+                "device_id",
+                "source_frame_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "get_mouse_result",
+            "title": "Check original result / 查看原操作结果",
+            "description": "Returns an original command’s state without resubmitting input. Lookup accepts command_id alone or the original click_at_idempotency_key with device_id. Optional include_after_screen returns a read-only after-image for supported commands. Pending, missing and uncertain states remain distinct from confirmed board receipt and visible app effect.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "image_format": {
+                  "type": "string",
+                  "enum": [
+                    "compact_png",
+                    "original_jpeg"
+                  ],
+                  "description": "Compact PNG for Spotlight focus or the original JPEG; the format is tool-default when absent."
+                },
+                "command_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 170,
+                  "description": "Original command ID; mutually exclusive with device_id and click_at_idempotency_key."
+                },
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Device paired with click_at_idempotency_key for receipt lookup without an image; mutually exclusive with command_id."
+                },
+                "click_at_idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "include_after_screen": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "after_command_min_gap_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5000,
+                  "description": "Minimum newer-capture gap, within 0–5000 ms, paired with include_after_screen and an original confirmed click, open_system_search or type_text_in_field command ID. The ceiling of the previous after_command.lower_gap_ms identifies a newer capture. Observation waits up to 5000 ms for an image below 2000 ms old; ACTION_NO_SCREEN_CHANGE is a possible-failure warning after 1500 ms without a callback. No input is resubmitted."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "drag_at",
+            "title": "Drag target / 拖动物件",
+            "description": "Drags a visible object or handle between original-image endpoints with the source frame’s geometry. Uses direct absolute HID with no calibration or relative fallback. Duration is 350 ms by default, within 120–1000 ms. Returns the original command receipt and, by default, an after-image.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source_frame_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "from_x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Start x in original image pixels; normalized x maps to x*(image_width-1)."
+                },
+                "from_y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Start y in original image pixels; normalized y maps to y*(image_height-1)."
+                },
+                "to_x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "End x in original image pixels, in the same coordinate space as from_x."
+                },
+                "to_y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "End y in original image pixels, in the same coordinate space as from_y."
+                },
+                "image_width": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "image_height": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "orientation_epoch": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 120,
+                  "maximum": 1000,
+                  "default": 350,
+                  "description": "Drag duration, 350 ms by default, within 120–1000 ms."
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 300
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "description": "Optional total action and image budget. The default is a 6000 ms action wait with an independent confirmed-drag image window."
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "required": [
+                "device_id",
+                "source_frame_id",
+                "from_x",
+                "from_y",
+                "to_x",
+                "to_y",
+                "image_width",
+                "image_height",
+                "orientation_epoch",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "cancel_current_operation",
+            "title": "Cancel current operation / 取消当前操作",
+            "description": "Cancels running and queued operations. Control permission and screen sharing are unchanged. Results include original command IDs, cancellation state and available typed_count. Missing typed_count is unknown; physical release requires an original receipt.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "stop_mouse",
+            "title": "Cancel current operation / 取消当前操作",
+            "description": "Cancels running and queued operations for owned devices. An omitted, invalid or unmatched device_id selects all owned targets. Control permission, authorization generations and screen sharing are unchanged. Returns original command IDs and available typed_count; physical release is confirmed only by an original receipt.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "read_screen",
+            "title": "Read shared screen / 读取共享画面",
+            "description": "Returns a shared screen image and its source metadata in content_items or MCP content. structuredContent metadata alone contains no visible pixels. static_screen.proven with usable_for_input=true identifies an unchanged input-capable source with its original capture age. SCREEN_CHANGED_SINCE_IMAGE identifies a changed scene; ACTION_NO_SCREEN_CHANGE marks a possible missed action and a non-targeting warning image. wait_for_new_ms defaults to 15000; 5000 is within its range.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "include_read_timing": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Optional bounded database timing and server frame-age timestamps for diagnostics, measured before response serialization rather than host image receipt."
+                },
+                "if_unchanged_since": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "An earlier actual image_ref visible in the current conversation."
+                },
+                "after_command_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "after_command_min_gap_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum new-capture delay after the confirmed after_command_id. After 1500 ms, a proven no-change fallback carries an explicit warning, separate from confirmed app effect. 动作后无变化会明确警告。"
+                },
+                "wait_for_new_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15000,
+                  "default": 15000
+                },
+                "max_age_ms": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 2000,
+                  "default": 2000
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "get_profile",
+            "title": "当前 SaySo 授权身份",
+            "description": "Returns the stable identity represented by this Site’s authenticated OAuth connection, including its ID and name.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            },
+            "_meta": {
+              "openai/profile": true
+            }
+          },
+          {
+            "name": "create_pairing_link",
+            "title": "Create phone connection link / 创建手机连接链接",
+            "description": "Registers a phone request ID and X25519 public key and returns a private Site pairing-page URL valid for five minutes.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "request_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "public_key": {
+                  "type": "string",
+                  "minLength": 44,
+                  "maxLength": 44
+                }
+              },
+              "required": [
+                "request_id",
+                "public_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": false,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "create_pairing_code",
+            "title": "Create phone pairing code / 创建手机配对码",
+            "description": "Creates a short-lived code for the SaySo phone app’s service-pairing field. This code does not pair the C124 accessory or enable control.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": false,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "list_devices",
+            "title": "List my phones / 我的手机",
+            "description": "Returns owned phones with home_status for the four SaySo home rows. next_step is a legacy hint. The result includes current screen-sharing and control state.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "stop_session",
+            "title": "Cancel session operations / 取消会话操作",
+            "description": "Compatibility alias that cancels running and queued operations in owned sessions. Control permission and screen sharing are unchanged. An omitted, invalid, unmatched or old stopped bridge_session_id selects all owned targets. Returns original command IDs and available typed_count.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "bridge_session_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {
+                    "const": "2.0"
+                  },
+                  "id": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/mcp/development": {
+      "post": {
+        "operationId": "developmentMcp",
+        "x-build-condition": "SAYSO_BUILD_DIAGNOSTICS=1",
+        "description": "MCP JSON-RPC. Authenticated identity is supplied by the Sites gateway; device actions retain owner and current-grant checks.",
+        "x-sites-authentication": true,
+        "x-mcp-tools": [
+          {
+            "name": "get_debug_report",
+            "title": "Debug report / 调试报告",
+            "description": "Returns a read-only troubleshooting report containing recent SaySo operation records and current state, excluding typed text, images and credentials.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "minutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60,
+                  "default": 15
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 50,
+                  "default": 20
+                },
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Owned device UUID. Omitted when exactly one device is paired."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "run_due_maintenance",
+            "title": "Run due maintenance / 到期清理",
+            "description": "Installation owner only. Advances bounded server-due retention and already-authorized erasure jobs. No target, TTL, credentials or force parameters. Returns content-free execution records.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "get_maintenance_status",
+            "title": "Maintenance status / 清理状态",
+            "description": "Installation owner only. Reads content-free retention execution records and backlog.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "open_system_search",
+            "title": "Open system search / 打开系统搜索",
+            "description": "Opens installed-app System Search and returns the command receipt and, by default, an after-image. No source frame is required. The receipt includes the original command ID.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "image_format": {
+                  "type": "string",
+                  "enum": [
+                    "compact_png",
+                    "original_jpeg"
+                  ],
+                  "description": "Compact PNG for Spotlight focus or the original JPEG; the format is tool-default when absent."
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "device_id",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "type_text_in_field",
+            "title": "Type in focused field / 输入文字",
+            "description": "Enters printable ASCII in the focused field, up to the accessory max_text_len (candidate ceiling 150; legacy 64, or 60 with clearing). Default clearing supports single-line fields; append supports multiline editors. Optional submit=enter adds Return. Results contain the original receipt, typed_count when available and an after-image. Counted partial-input continuation uses reviewed_input_command_id and reviewed_frame_id.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 150
+                },
+                "reviewed_input_command_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Original counted terminal input command associated with an explicit continuation."
+                },
+                "reviewed_frame_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Released image captured after the counted terminal receipt, within the current control scope."
+                },
+                "reviewed_frame_proof": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "description": "Unmodified same-image source_point_proof associated with reviewed_frame_id."
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "clear_before_input": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "submit": {
+                  "type": "string",
+                  "enum": [
+                    "enter"
+                  ]
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 12000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "device_id",
+                "text",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "get_control_guide",
+            "title": "Get usage guide / 使用说明",
+            "description": "Returns instructions for the selected workflow, including input, image handling, stopping and final-step handoff. No phone inspection or control enablement occurs.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "workflow": {
+                  "type": "string",
+                  "enum": [
+                    "overview",
+                    "open_app",
+                    "field_input",
+                    "pointer",
+                    "local_plan",
+                    "search_taobao",
+                    "scroll",
+                    "drag",
+                    "maps",
+                    "clipboard",
+                    "stop"
+                  ]
+                }
+              },
+              "required": [
+                "workflow"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "move_mouse_to",
+            "title": "Move pointer / 移动指针",
+            "description": "Positions the pointer without clicking, using original dimensions and orientation. Returns the command receipt and, by default, an after-image. The default confirmed-input image window is 5000 ms, separate from the action wait.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "image_width": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "image_height": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "orientation_epoch": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3000,
+                  "default": 2000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "image_width",
+                "image_height",
+                "orientation_epoch",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "get_mouse_state",
+            "title": "Check tapping status / 查看帮你点状态",
+            "description": "Returns the selected phone’s current input authorization, readiness and capabilities. This lookup does not enable control.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "move_mouse",
+            "title": "相对移动手机鼠标",
+            "description": "Moves the pointer by signed HID dx/dy integers from -127 to 127, rather than pixels, within a phone-enabled control session. Returns the original command receipt and, by default, an after-image. Only board_acked confirms board receipt.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "dx": {
+                  "type": "integer",
+                  "minimum": -127,
+                  "maximum": 127
+                },
+                "dy": {
+                  "type": "integer",
+                  "minimum": -127,
+                  "maximum": 127
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3000,
+                  "default": 2000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+                }
+              },
+              "required": [
+                "dx",
+                "dy",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "click_mouse",
+            "title": "点击手机鼠标左键",
+            "description": "Clicks the left button once at the current pointer position within a phone-enabled control session. No positioning occurs. Returns the original command receipt and, by default, an after-image. Queued state is separate from board acknowledgement and visible app effect.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "button": {
+                  "type": "string",
+                  "enum": [
+                    "left"
+                  ],
+                  "default": "left"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3000,
+                  "default": 2000
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+                }
+              },
+              "required": [
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "scroll_mouse",
+            "title": "Scroll content / 滚动内容",
+            "description": "Sends bounded wheel steps at the current pointer position. Returns the original command receipt and, by default, an after-image. The default confirmed-scroll image window is 5000 ms, separate from the 2000 ms action wait; wait_ms specifies a total budget. ACTION_NO_SCREEN_CHANGE indicates a possible missed action.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "steps": {
+                  "type": "integer",
+                  "minimum": -8,
+                  "maximum": 8
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3000,
+                  "description": "Optional total action and image budget. The default is a 2000 ms action wait with an independent confirmed-scroll image window."
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum actual capture gap after phone board acknowledgement; board receipt and visible UI effect are separate."
+                }
+              },
+              "required": [
+                "steps",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "click_at",
+            "title": "Click target / 点击目标",
+            "description": "Clicks a target at original-image x/y using device_id, source_frame_id, image dimensions, orientation and an optional same-frame source_point_proof. Returns the original command receipt and, by default, an after-image. SCREEN_CHANGED_SINCE_IMAGE indicates a changed source scene; ACTION_NO_SCREEN_CHANGE indicates a possible missed action. Workflow rules are in get_control_guide.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source_frame_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Exact JPEG frame ID of the selected source image, paired with device_id."
+                },
+                "source_point_proof": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "description": "Unmodified proof from the same released visual read, paired with device_id and source_frame_id. When absent, the server looks up that same frame automatically."
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "image_width": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8192
+                },
+                "image_height": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8192
+                },
+                "orientation_epoch": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 300
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "description": "Optional total budget for input and after-image. The default uses an independent paired after-image window."
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "image_width",
+                "image_height",
+                "orientation_epoch",
+                "idempotency_key",
+                "device_id",
+                "source_frame_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "get_mouse_result",
+            "title": "Check original result / 查看原操作结果",
+            "description": "Returns an original command’s state without resubmitting input. Lookup accepts command_id alone or the original click_at_idempotency_key with device_id. Optional include_after_screen returns a read-only after-image for supported commands. Pending, missing and uncertain states remain distinct from confirmed board receipt and visible app effect.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "image_format": {
+                  "type": "string",
+                  "enum": [
+                    "compact_png",
+                    "original_jpeg"
+                  ],
+                  "description": "Compact PNG for Spotlight focus or the original JPEG; the format is tool-default when absent."
+                },
+                "command_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 170,
+                  "description": "Original command ID; mutually exclusive with device_id and click_at_idempotency_key."
+                },
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Device paired with click_at_idempotency_key for receipt lookup without an image; mutually exclusive with command_id."
+                },
+                "click_at_idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "include_after_screen": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "after_command_min_gap_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5000,
+                  "description": "Minimum newer-capture gap, within 0–5000 ms, paired with include_after_screen and an original confirmed click, open_system_search or type_text_in_field command ID. The ceiling of the previous after_command.lower_gap_ms identifies a newer capture. Observation waits up to 5000 ms for an image below 2000 ms old; ACTION_NO_SCREEN_CHANGE is a possible-failure warning after 1500 ms without a callback. No input is resubmitted."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "drag_at",
+            "title": "Drag target / 拖动物件",
+            "description": "Drags a visible object or handle between original-image endpoints with the source frame’s geometry. Uses direct absolute HID with no calibration or relative fallback. Duration is 350 ms by default, within 120–1000 ms. Returns the original command receipt and, by default, an after-image.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "source_frame_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "from_x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Start x in original image pixels; normalized x maps to x*(image_width-1)."
+                },
+                "from_y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Start y in original image pixels; normalized y maps to y*(image_height-1)."
+                },
+                "to_x": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "End x in original image pixels, in the same coordinate space as from_x."
+                },
+                "to_y": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "End y in original image pixels, in the same coordinate space as from_y."
+                },
+                "image_width": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "image_height": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 8192
+                },
+                "orientation_epoch": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 120,
+                  "maximum": 1000,
+                  "default": 350,
+                  "description": "Drag duration, 350 ms by default, within 120–1000 ms."
+                },
+                "settle_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 300
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "description": "Optional total action and image budget. The default is a 6000 ms action wait with an independent confirmed-drag image window."
+                },
+                "observe_after": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "required": [
+                "device_id",
+                "source_frame_id",
+                "from_x",
+                "from_y",
+                "to_x",
+                "to_y",
+                "image_width",
+                "image_height",
+                "orientation_epoch",
+                "idempotency_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": true,
+              "idempotentHint": true,
+              "openWorldHint": true
+            }
+          },
+          {
+            "name": "cancel_current_operation",
+            "title": "Cancel current operation / 取消当前操作",
+            "description": "Cancels running and queued operations. Control permission and screen sharing are unchanged. Results include original command IDs, cancellation state and available typed_count. Missing typed_count is unknown; physical release requires an original receipt.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "stop_mouse",
+            "title": "Cancel current operation / 取消当前操作",
+            "description": "Cancels running and queued operations for owned devices. An omitted, invalid or unmatched device_id selects all owned targets. Control permission, authorization generations and screen sharing are unchanged. Returns original command IDs and available typed_count; physical release is confirmed only by an original receipt.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "read_screen",
+            "title": "Read shared screen / 读取共享画面",
+            "description": "Returns a shared screen image and its source metadata in content_items or MCP content. structuredContent metadata alone contains no visible pixels. static_screen.proven with usable_for_input=true identifies an unchanged input-capable source with its original capture age. SCREEN_CHANGED_SINCE_IMAGE identifies a changed scene; ACTION_NO_SCREEN_CHANGE marks a possible missed action and a non-targeting warning image. wait_for_new_ms defaults to 15000; 5000 is within its range.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "include_read_timing": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Optional bounded database timing and server frame-age timestamps for diagnostics, measured before response serialization rather than host image receipt."
+                },
+                "if_unchanged_since": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "An earlier actual image_ref visible in the current conversation."
+                },
+                "after_command_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "after_command_min_gap_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000,
+                  "default": 0,
+                  "description": "Minimum new-capture delay after the confirmed after_command_id. After 1500 ms, a proven no-change fallback carries an explicit warning, separate from confirmed app effect. 动作后无变化会明确警告。"
+                },
+                "wait_for_new_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15000,
+                  "default": 15000
+                },
+                "max_age_ms": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 2000,
+                  "default": 2000
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "read_screen_live",
+            "title": "读取供 Live 查看的一张手机截图",
+            "description": "Returns one fresh, view-only shared phone image for visual description or image-delivery diagnosis. Default compact_png and optional compact_jpeg share preview dimensions; original_jpeg contains original capture bytes. Released image age is below 2000 ms. No action evidence is issued by this tool.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "image_format": {
+                  "type": "string",
+                  "enum": [
+                    "compact_png",
+                    "compact_jpeg",
+                    "original_jpeg"
+                  ],
+                  "default": "compact_png"
+                },
+                "wait_for_new_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5000,
+                  "default": 1500
+                },
+                "max_age_ms": {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 2000,
+                  "default": 2000
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "set_led",
+            "title": "开关 ESP32 板载灯",
+            "description": "Sets the ESP32 board LED in a phone-enabled foreground control session. Returns the original command ID and receipt state. board_acked confirms the board receipt; queued, pending and error states are separate outcomes.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "on": {
+                  "type": "boolean"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "wait_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5000,
+                  "default": 5000
+                }
+              },
+              "required": [
+                "on"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": false,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "get_command_result",
+            "title": "读取云端灯控执行回执",
+            "description": "Returns the authenticated user’s LED command state and phone-verified board receipt. Queued, claimed and executing states are separate from confirmed physical results. This lookup does not resubmit input.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "command_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "command_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "get_profile",
+            "title": "当前 SaySo 授权身份",
+            "description": "Returns the stable identity represented by this Site’s authenticated OAuth connection, including its ID and name.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            },
+            "_meta": {
+              "openai/profile": true
+            }
+          },
+          {
+            "name": "create_pairing_link",
+            "title": "Create phone connection link / 创建手机连接链接",
+            "description": "Registers a phone request ID and X25519 public key and returns a private Site pairing-page URL valid for five minutes.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "request_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "public_key": {
+                  "type": "string",
+                  "minLength": 44,
+                  "maxLength": 44
+                }
+              },
+              "required": [
+                "request_id",
+                "public_key"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": false,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "create_pairing_code",
+            "title": "Create phone pairing code / 创建手机配对码",
+            "description": "Creates a short-lived code for the SaySo phone app’s service-pairing field. This code does not pair the C124 accessory or enable control.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": false,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "list_devices",
+            "title": "List my phones / 我的手机",
+            "description": "Returns owned phones with home_status for the four SaySo home rows. next_step is a legacy hint. The result includes current screen-sharing and control state.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "stop_session",
+            "title": "Cancel session operations / 取消会话操作",
+            "description": "Compatibility alias that cancels running and queued operations in owned sessions. Control permission and screen sharing are unchanged. An omitted, invalid, unmatched or old stopped bridge_session_id selects all owned targets. Returns original command IDs and available typed_count.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "bridge_session_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Optional owned UUID. Omitted, null, empty or malformed IDs stop all your devices/sessions. A matching owned UUID selects that target; an unmatched ID also falls back to all owned targets."
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": false,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "get_screen_metrics",
+            "title": "查看屏幕链路实测指标",
+            "description": "Returns bounded metadata-only timings for the authenticated user’s phone. Upload-handler and MCP image-handler durations are separate; neither measures internal model inference or voice playback.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "device_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": [
+                "device_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "open_screen_benchmark",
+            "title": "打开合成看屏预取基准",
+            "description": "Opens a labelled synthetic-image benchmark widget. It prefetches fixture pixels and probes host model-context and sampling capabilities, without reading a phone or controlling a device. Synthetic benchmark results are separate from real Live-client latency measurements.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "case_id": {
+                  "type": "string",
+                  "enum": [
+                    "c00",
+                    "c01",
+                    "c02",
+                    "c03",
+                    "c04",
+                    "c05",
+                    "c06",
+                    "c07",
+                    "c08",
+                    "c09",
+                    "c10",
+                    "c11"
+                  ],
+                  "default": "c00"
+                },
+                "preview": {
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            },
+            "_meta": {
+              "ui": {
+                "resourceUri": "ui://sayso/benchmark/v4.html"
+              },
+              "openai/outputTemplate": "ui://sayso/benchmark/v4.html"
+            }
+          },
+          {
+            "name": "read_benchmark_frame",
+            "title": "读取合成基准图片",
+            "description": "Returns one synthetic fixture image without a UI template. Default carrier is mixed PNG; image_format and response_layout select other carriers. match_payload_size aligns full PNG byte count with JPEG while preserving pixels. preview returns a 240×427 PNG with original-size metadata. No phone capture, device command, product-data write or model call occurs.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "case_id": {
+                  "type": "string",
+                  "enum": [
+                    "c00",
+                    "c01",
+                    "c02",
+                    "c03",
+                    "c04",
+                    "c05",
+                    "c06",
+                    "c07",
+                    "c08",
+                    "c09",
+                    "c10",
+                    "c11"
+                  ]
+                },
+                "preview": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "image_format": {
+                  "type": "string",
+                  "enum": [
+                    "png",
+                    "jpeg"
+                  ],
+                  "default": "png"
+                },
+                "response_layout": {
+                  "type": "string",
+                  "enum": [
+                    "mixed",
+                    "content_only"
+                  ],
+                  "default": "mixed"
+                },
+                "match_payload_size": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Full-size PNG byte count aligned with the corresponding JPEG length, with unchanged pixel data."
+                }
+              },
+              "required": [
+                "case_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            },
+            "_meta": {
+              "ui": {
+                "visibility": [
+                  "model",
+                  "app"
+                ]
+              },
+              "openai/widgetAccessible": true
+            }
+          },
+          {
+            "name": "open_benchmark_renderer_probe",
+            "title": "SaySo 组件加载诊断",
+            "description": "Opens a minimal text-only MCP Apps renderer and handshake probe for synthetic benchmark UI loading diagnosis. No image, model, microphone, phone, device storage or command is involved. The probe result is separate from performance measurements.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {},
+              "required": [],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            },
+            "_meta": {
+              "ui": {
+                "resourceUri": "ui://sayso/renderer-probe/v1.html"
+              },
+              "openai/ui": {
+                "entrypoints": [
+                  {
+                    "type": "thread"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "read_benchmark_pixels",
+            "title": "读取合成基准图片内容",
+            "description": "Returns a synthetic fixture PNG and provenance text in content blocks, without structuredContent or a UI template, for image-delivery measurements. No phone access, device-data write or model call occurs.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "case_id": {
+                  "type": "string",
+                  "enum": [
+                    "c00",
+                    "c01",
+                    "c02",
+                    "c03",
+                    "c04",
+                    "c05",
+                    "c06",
+                    "c07",
+                    "c08",
+                    "c09",
+                    "c10",
+                    "c11"
+                  ]
+                }
+              },
+              "required": [
+                "case_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          },
+          {
+            "name": "read_benchmark_jpeg",
+            "title": "读取 JPEG 合成基准图片",
+            "description": "Returns an encoded synthetic fixture JPEG and provenance text in content blocks, without structuredContent or a UI template. The format matches phone JPEG capture; the pixels are generated fixture data. No phone access, device-data write or model API call occurs.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "case_id": {
+                  "type": "string",
+                  "enum": [
+                    "c00",
+                    "c01",
+                    "c02",
+                    "c03",
+                    "c04",
+                    "c05",
+                    "c06",
+                    "c07",
+                    "c08",
+                    "c09",
+                    "c10",
+                    "c11"
+                  ]
+                }
+              },
+              "required": [
+                "case_id"
+              ],
+              "additionalProperties": false
+            },
+            "annotations": {
+              "readOnlyHint": true,
+              "destructiveHint": false,
+              "idempotentHint": true,
+              "openWorldHint": false
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {
+                    "const": "2.0"
+                  },
+                  "id": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    },
+    "/internal/retention": {
+      "post": {
+        "operationId": "retentionMaintenance",
+        "x-sites-private-access-required": true,
+        "security": [
+          {
+            "RetentionMaintenance": []
+          }
+        ],
+        "description": "Scheduled maintenance only. Requires private Site service access and a separate X-SaySo-Retention-Key. No device operation or user content is returned.",
+        "responses": {
+          "200": {
+            "description": "Domain result or JSON-RPC result/error"
+          },
+          "204": {
+            "description": "No queued command"
+          },
+          "400": {
+            "description": "Malformed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Scope or permission rejected"
+          },
+          "409": {
+            "description": "Current authority, command or image conflict"
+          },
+          "422": {
+            "description": "Invalid current contract"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "DeviceBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      },
+      "RetentionMaintenance": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-SaySo-Retention-Key"
+      }
+    }
+  }
+}

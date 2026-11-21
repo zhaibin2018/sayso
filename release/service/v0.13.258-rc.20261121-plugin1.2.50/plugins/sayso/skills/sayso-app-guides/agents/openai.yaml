@@ -1,0 +1,6 @@
+interface:
+  display_name: "App guides / App 使用指南"
+  short_description: "iPhone task recipes from official help. App 操作指南。"
+  default_prompt: "Use $sayso-app-guides with SaySo to help me use an iPhone app."
+policy:
+  allow_implicit_invocation: true

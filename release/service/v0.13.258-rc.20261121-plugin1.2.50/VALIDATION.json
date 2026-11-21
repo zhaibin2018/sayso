@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-21",
+  "worker_tests": {
+    "tests": 1098,
+    "passed": 1098,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": {
+    "install": 0,
+    "tests": 0,
+    "types": 0,
+    "contracts": 0,
+    "budgets": 0,
+    "build": 0
+  },
+  "logs_sha256": {
+    "budgets.log": "9506912028fa30935df3087d784c38f33ed911506160897a936ea6299c20366f",
+    "build.log": "f448e3a10ac16283a55efcdb3766483031bea98db47e8c34d2a102a53091e4d1",
+    "contracts.log": "9b1aadb45eb816015c471da881c89744220107d9cb9ea8285fe40568a57145b7",
+    "install.log": "f12e6a257409424b717b0d8969bd995f4cad6070c7fcef6fd942e3d1afca0912",
+    "tests.log": "a7ac82a1e1ffe5f329c6baf2808daa77b7a037a1d6bb90d8374ae85e535115e6",
+    "types.log": "f8d4288be24ea7f1b0b0e39ec428ab243425d66b11b6c631c37f86d93b61d9e3"
+  },
+  "sql_migrations_applied_to_memory_sqlite": 35,
+  "skills": [
+    "sayso-app-guides",
+    "sayso-click-at",
+    "sayso-control",
+    "sayso-debug",
+    "sayso-drag-to",
+    "sayso-onboarding",
+    "sayso-open-app",
+    "sayso-scroll-view",
+    "sayso-type-text"
+  ],
+  "runtime": "0.13.258",
+  "production_diagnostics_excluded": true,
+  "phone_installation_verified": false,
+  "unattended_schedule_verified": false,
+  "published": false,
+  "note": "Full tests run against an exact package copy with a sibling copy of the nine skills. Native-only optional comparison requires the excluded Swift fixture; synthetic origin neutralization and all release transformations are listed in PROVENANCE.json."
+}

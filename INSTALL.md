@@ -2,6 +2,24 @@
 
 Use the [installation page](https://zhaibin2018.github.io/sayso/install), pinned to `v0.13.259-20261121.1-plugin1.2.51`. It includes T92 and D1 placement migration 0035, with nine skills. After installation, return to SaySo and send Connect ChatGPT in a new Work conversation. Complete physical-phone and unattended-maintenance acceptance remain pending. Root source below is historical; do not mix it with the fixed package.
 
+## 更新已装好的服务 / Update an installed service
+
+2026-11-22，T89 安全整合补充；尚未打入新发行包。新装仍使用[安装页](https://zhaibin2018.github.io/sayso/install)选定的不可变包；不要修改已发布包的 INSTALL、manifest 或 ZIP。
+
+1. **固定新旧版本。** 读回目标 Site 的部署 ID、已保存版本、完整源码 SHA、绑定与插件 release ID。找出当初安装的固定发行包，核验新旧包的外部 manifest SHA、ZIP SHA 和精确文件清单。只凭版本号或相同文件名不足以确认来源。
+2. **先解释旧树。** 从 Sites 源码仓库读取线上提交的完整文件树，与旧包 `mcp/` 逐文件按字节比较，列出增加、删除、修改和散列。只有安装工具预期的、可复现的站点配置差异才可继续，例如 `hosting.json` 的真实 project ID、`bridge-runtime.ts` 的真实 origin。锁文件、绑定名或换行差异也必须逐项说明并重现；不是自动豁免。任何无法解释的业务差异、额外文件或缺失文件都停止并保留清单，先不部署、不迁移。
+3. **保留真实历史。** 已安装站点由发行包生成，线上 SHA 不一定属于开发 Worker 的历史。核验通过后，在这个 Sites 仓库内以当前线上提交为父提交，将树更新为新固定包 `mcp/`，只重施已审查的站点适配。保留原项目、地址、D1、R2、有效密钥、环境和 canonical App/plugin；不复制旧整份 runtime 覆盖新版逻辑。不伪造共同祖先、不强推、不用合并提交掩盖差异。部署前审查新旧整树差异，确认每项都来自新固定包或已批准适配；远端变化则重读并停止旧候选发布。
+4. **构建、迁移、部署。** 按固定包 INSTALL 完整性核验，安装必要的锁定依赖，生产构建一次并保留产物安全检查；源码没有额外修改时复用发行门禁。核对全部 SQL 清单与历史散列，通过 Sites 支持的迁移流程仅补跑未应用项；当前固定包为 0000–0035。Sites 发布流程会在上传 Worker 前处理迁移，不能删表、重置、重放旧迁移或直接改配对行来修错。当前有操作时先安排安静窗口；未获授权不替用户发停止或手机输入。通过原站点权限对应的发布流程保存/部署精确源码与产物，读回终态、源码 SHA、迁移结构及已应用环境修订。隐藏配置不等于缺失；不生成/轮换 SIWC。
+5. **插件原地更新。** 读取现有插件文件和当前 release ID，以并发保护更新同一插件；仅改版本并覆盖新固定包的九个技能及其引用。保留平台 manifests 的 App/MCP、展示信息、权限、用户文件和共享范围；只删除发行说明明确淘汰的文件。读回版本和技能字节；保存成功与后续新对话激活分开报告。
+6. **最小自检与记录。** 使用已有 canonical 入口做一次无设备访问的 guidance/discovery 自检，不读手机、不输入、不配对。只读 `sb_maintenance_state` 的 `id=1`、`d1_placement_json`（平台不提供任意 SQL 时，用原生只读行工具取这一行后投影这一列）；有值才报告 `region / colo / primary`，NULL 写“待有流量后再查”。不造业务流量测位置。记录完整新旧源码 SHA、部署 ID、插件版本、迁移证据和未验收项；已有连接无需重走新装配对。
+
+**更新失败：** 先读回同一次部署和迁移状态，保留旧保存版本及原产物；不要重复创建、轮换密钥或改配对。只有确认旧代码兼容已经应用的增量 schema，才通过支持的发布流程退回该旧版本，数据库保留；迁移不自动倒退。兼容性或执行状态不明就停止，报告具体缺口。
+
+English: Pin and verify both immutable releases. Compare every blob of the deployed Site commit against the original installed package before editing; stop on unexplained differences. An installation-generated commit can legitimately have a separate history from the developer Worker repository. Create the update on that Site commit, replacing source with the new fixed package and reapplying only reviewed Site configuration. Review the complete delta, preserve all identities, data, valid secrets and permissions, build once, apply only pending migrations through the supported Sites workflow, and publish the exact pushed source/archive without force. Overlay the nine skills into the same canonical plugin using its current release ID; preserve platform bindings and unrelated files. Read back deployment/source, plugin bytes/version, migration structure and environment revision. Use one harmless guide check, and read the placement singleton without generating phone traffic. A NULL placement means “check again after traffic.” Keep a prior saved version; redeploy it only after verifying compatibility with any applied schema additions. Never automatically reverse migrations or re-pair devices.
+
+
+## Historical installation notes (superseded)
+
 > **Security source update: MCP 0.13.249 (2026-11-18).** Versions before this snapshot have known stop and text-retention issues. Update before real control. Offline verification is complete; new-account/mobile setup and physical-phone acceptance are not established by this source release.
 >
 > **安全源码更新：MCP 0.13.249。** 更早的公开快照存在已知停止及文字留存问题；真实控制前请先更新。离线通过不等于手机安装或真机验收通过。

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "snapshot": "SaySo historical root source and current installation notices 2026-11-21",
+  "snapshot": "SaySo historical root source and installed-service update guidance 2026-11-22",
   "license": "FSL-1.1-ALv2",
   "licensor": "ZHAI BIN",
   "mcpRuntime": "0.13.252",
@@ -19,8 +19,8 @@
     },
     {
       "path": "INSTALL.md",
-      "bytes": 16044,
-      "sha256": "4e9c71e75be4e4e964a890f488701a6ac9a7b450551a832d5dbc7ca5bd47ddca"
+      "bytes": 21089,
+      "sha256": "b9283915d8b0f29c0a27903a24818aff024ce59ed23ae0614f3a7790d8803bab"
     },
     {
       "path": "LICENSE.md",

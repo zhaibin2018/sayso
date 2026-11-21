@@ -106,6 +106,6 @@ test("installer has a fixed CDN version; no direct serial access in page code", 
     "utf8",
   );
   assert.match(html, /id="locked-install"[^>]*disabled/);
-  assert.match(html, /https:\/\/docs.m5stack.com\/en\/core\/AtomS3-Lite/);
+  assert.match(html, /https:\/\/docs.m5stack.com\/(?:en|zh_CN)\/core\/AtomS3-Lite/);
   assert.match(html, /https:\/\/docs.espressif.com/);
 });

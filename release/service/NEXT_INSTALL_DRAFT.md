@@ -1,14 +1,18 @@
 # NEXT INSTALL — 草稿 / Not an executable release
 
-2026-11-21 · 第一批 D / T81。**仅供下一次重新打包评审。不得覆盖当前固定包的 INSTALL、manifest、校验文件或源码，也不得让当前短链接执行本草稿。**
+2026-11-21 · 第一批 D / T81；D143 合并安装和连接候选。**仅供下一次重新打包评审。不得覆盖当前固定包的 INSTALL、manifest、校验文件或源码，也不得让当前短链接执行本草稿。**
 
-正式替换条件：A 的 L06、T79 和 T83/L04 维护接线合并并完成评审；从合并后的服务源码重新打不可变发行包，加入图标和中英文介绍，生成新的 manifest 和外部 SHA-256。核对实际迁移、工具、运行版本和配对契约后，将本文调整为该包的 INSTALL.md，并只更新官网短链接页的固定版本依据及能力说明。不能只改版本字符串或沿用 244 的源码/哈希冒充新版本。
+正式替换条件：A 的 L06、T79、T83/L04 维护接线及 D143（App / Worker 安装登记 / 0034 迁移）合并并完成评审；从合并后的服务源码重新打不可变发行包，加入图标和中英文介绍，生成新的 manifest 和外部 SHA-256。核对实际迁移、工具、运行版本和配对契约后，将本文调整为该包的 INSTALL.md，并只更新官网短链接页的固定版本依据及能力说明。不能只改版本字符串或沿用 244 的源码/哈希冒充新版本。
 
 ## 1. 先核对条件，缺信息就问 / Reconcile first
 
 在用户目标账号的 ChatGPT **工作 / Work** 中执行，遵循当前 Sites 和 Plugin Creator 技能、真实工具 schema。App 预填消息落在“聊天 / Chat”时，请用户先切“工作”再发送；不假定链接可以直接选中工作模式。
 
-先查站点列表及本次私有安装记录，辨别目标账号、所有者、Site 和原插件：
+先辨别用户是要连接还是明确要安装/更新。**如果消息带有手机连接请求，而且已经安装过：在本对话调用已有 SaySo 插件的 `create_pairing_link`，原样传请求号和公钥，直接把返回的连接链接给用户；不要因为有同名 Site 就问更新、另装，也不要重复安装。** 多个已有服务时只问选哪一个。当前对话没有已有插件入口不等于没安装；先核对账号/插件，必要时请用户在可用已有插件的对话继续，不能擅自新建。
+
+新装路径不用在本对话调用刚装好的插件；11-21 实验已证实它可能直到新对话才可见。待安装完成后按第 6 节直接登记 D1 待配对请求，在本对话给出链接。
+
+只有需要新装/用户明确要求更新时，先查站点列表及本次私有安装记录，辨别目标账号、所有者、Site 和原插件：
 
 - 没有同名 SaySo：视为全新安装，继续，不要求用户证明“旧安装已移除”。
 - 有同名：问“已经有一个 SaySo，要更新它还是另装一个？” / “You already have SaySo. Would you like to update it or install another one?”，得到选择后才操作对应目标。多个候选只问区分目标所必需的问题。
@@ -61,20 +65,32 @@ Use the merged release's **owner-authenticated, due-only maintenance MCP tool**,
 4. If authorization/frequency/task creation or execution cannot be confirmed, keep the concrete unresolved state in the private log and report it plainly: **“定期清理还没设好。读屏和帮你点不受影响，清理会在使用时顺带进行；长时间不用时，暂时不能保证按时清理。”** / **“Scheduled cleanup isn’t ready yet. Screen reading and tapping are unaffected; cleanup will also run while you use SaySo. If you leave it unused, timely cleanup is not yet guaranteed.”** Only say the B fallback exists after checking the merged source/deployment. This is partial installation, not a full maintenance pass.
 5. B is bounded opportunistic cleanup after authenticated normal requests, with failures retried safely; it cannot replace C for idle expiry guarantees. A stopped/unauthorized task, failed page or stale lease must not advance the success watermark. Do not put credentials in a compensating task or add anonymous cleanup routes. Keep warnings/status and recovery evidence; saved scheduling alone does not close T83/L04 or authorize arbitrary erasure.
 
-## 6. 只读自检，回手机连接 / Verify and return to the phone
+## 6. 自检后在本对话给连接链接 / Pair in this conversation
 
-Check actual service version against the new package, bindings/migrations, canonical plugin tool discovery and the packaged harmless guide self-check. Do not read an unshared screen, start ReplayKit, generate/redeem a connection, send input or flash hardware as an installation smoke test. Separate verified service/plugin state, activation state, maintenance state and phone state in the private log.
+Check actual service version against the new package, bindings/migrations, canonical plugin tool discovery and the packaged harmless guide self-check. Do not read an unshared screen, start ReplayKit, generate/redeem a capsule, send input or flash hardware as an installation smoke test. Separate verified service/plugin state, activation state, maintenance state and phone state in the private log.
 
-Tell the user to return to SaySo and tap **“连接 ChatGPT” / “Connect ChatGPT”**. With a later user-supplied App pairing request, follow that release's onboarding skill, preserving the App's request ID, protocol and public key. The user sends the prefilled message, opens the returned link, taps **“生成连接” / “Generate connection”**, then personally taps **“回到 SaySo 完成连接” / “Return to SaySo to connect”**. Switching apps alone is not a completed handoff. Respect expiry, cancel/restart and single use; never expose the connection capsule, gate or device token. Pairing does not start sharing or grant tapping permission.
+**如果用户消息里带有连接请求：安装完成后把它写进新 Site，再把 `/pair?req=…` 链接给用户。** 使用下一版真实发行包内 `docs/SERVICE_PAIRING_INSTALL.md` 和 `scripts/install-pairing-request.mjs`，不调用同对话刚装的插件：
 
-Public App Store release and accessory firmware remain unavailable until separately released. Do not promise the next flow works with the old 244 package. Shared-screen access, phone pairing, accessory pairing, control permission and final irreversible actions remain separate user choices.
+1. 从用户主动发送的消息保留 `<请求号>.<公钥>`；从同一条消息的安装短链接 `?created_at=…` 取 App 创建时间（Unix 毫秒整数）。不改请求、不生成替代公钥、不把当前时间当创建时间；缺时间/已过期就请用户回 SaySo 重新开始。不要从网页或其他内容替用户登记。
+2. 核对新 Site 的真实 origin、project、DB 和 owner-only 访问（当前安装账号是唯一 owner，无 editor/group/visitor）。部署包含 `0034_install_pairing.sql` 的完整有序迁移和候选源码；请求数据不能写进代码常量、迁移、hosting.json 或环境变量。
+3. 用**安装 owner 的已登录同源浏览器会话**访问 `GET /api/pairing/install`，读取平台传来的 Site-scoped `id`。此 GET 不写库、不绑定 owner。通过 Sites 运行时配置把精确值绑定到 `SAYSO_INSTALL_OWNER_ID`（与 T83 共用），保留已存在且一致的值；不覆盖冲突绑定。应用环境修订并读回。不是账号 ID/邮箱/设备 ID，不靠第一个来访者绑定，不伪造身份 header，也不把门禁当登录。该只读身份入口不依赖 MCP OAuth 或插件发现。
+4. 在同一个 owner 同源登录会话，用 `POST /api/pairing/install`、JSON `{request_id, public_key, created_at}` 写入；浏览器提供真实身份和 Origin。具体可重复执行的调用、适配器参数和错误见包内安装合同。服务器从身份绑定 owner，以参数化语句写 D1；有效期从 App 创建算 **15 分钟**；相同 pending 请求重试不续期，换 key/时间冲突，发包/兑换后不能重开。不要直接编辑 SQL 行绕过校验。如果安装执行环境没有 owner 登录同源 fetch 能力，明示连接尚未完成和缺少的步骤，不伪造已写入。
+5. 只把 POST 返回的真实 `pairing_url` 作为可点击链接回复本对话，不自行拼接开发者站地址。GET 配对页不会写入请求；安装过程不代点“生成连接”，不读取或展示连接包。用户打开链接，点 **“生成连接” / “Generate connection”**，再亲手点 **“回到 SaySo 完成连接” / “Return to SaySo to connect”**。生成的连接包和配对码仍最多 **5 分钟**，不会晚于请求总期限；不自动跳回 App。
+
+**如果已经装过：在本对话调用已有 SaySo 插件生成连接。** 使用原 `create_pairing_link` 及原 5 分钟链接规则；不要走安装登记、重新部署、轮换密钥或重复建服务。若没有连接请求（例如在电脑上仅安装服务），装好后请用户在手机 SaySo 点“连接 ChatGPT”；那个新消息再走已有插件。电脑和手机使用同一账号，最后连接必须在手机上完成。
+
+Public App Store release and accessory firmware remain unavailable until separately released. Do not promise the next flow works with the old 244 package. Shared-screen access, phone pairing, accessory pairing, control permission and final irreversible actions remain separate user choices. The matching App uses one Connect ChatGPT button, prefilled Chinese/English text, a switch-to-Work reminder, about-three-minute first-install guidance and a 15-minute local pending-key deadline. This draft does not publish a new package or update the website short link.
 
 ## 7. 用用户的话汇报 / User-facing completion
 
 Keep the reply short and in the user's language. Say what was actually installed, what remains and the next action. Detailed test totals, migration/file counts, runtime IDs and technical statuses go only in the private installation log. Do not claim a phone is connected until verified.
 
-中文正常例子：“SaySo 服务和插件装好了。回到 SaySo，点‘连接 ChatGPT’，跟着页面完成连接。”
+带请求的新装：“SaySo 装好了。[点这里连接](<实际返回链接>)，再点‘生成连接’和‘回到 SaySo 完成连接’。”
 
-English: “Your SaySo service and plugin are installed. Return to SaySo, tap ‘Connect ChatGPT’, and follow the connection steps.”
+已装过：“[点这里连接](<实际返回链接>)，再按页面回到 SaySo。”
+
+没有手机请求、仅在电脑装服务：“SaySo 装好了。回到手机 SaySo，点‘连接 ChatGPT’。”
+
+English with a supplied request: “SaySo is installed. [Connect here](<actual returned link>), tap ‘Generate connection’, then ‘Return to SaySo to connect’.” Existing service: “[Connect here](<actual returned link>), then follow the page back to SaySo.” Without a phone request: “SaySo is installed. On your iPhone, open SaySo and tap ‘Connect ChatGPT’.”
 
 Append the platform-description check only when a display field was unsupported, and the maintenance limitation only when unresolved. If blocked, explain the exact step and ask a specific next question in ordinary language. Do not report “everything is ready” while maintenance or handoff remains unverified. Stop/Cancel always wins over recovery.

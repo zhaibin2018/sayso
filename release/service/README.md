@@ -1,40 +1,19 @@
 # SaySo service release index / 服务发行包索引
 
-**Current published package: `v0.13.256-site244-plugin1.2.49`.** Its immutable manifest/checksum was read back from the public commit on November 21, 2026. This documentation update is local only; it does not publish the new website or update a private service. Start with the [short installation page](https://zhaibin2018.github.io/sayso/install) after the website update is published. The package remains a development preview without production L06 pairing or T83 scheduled maintenance.
+Local candidate **v0.13.258-rc.20261121-plugin1.2.50**, not pushed or published. Fixed package commit `5a1dd40e99a7208c88dc6d9b8d3f915f9868dad8`. Runtime 0.13.258; distribution skills 1.2.50; all nine committed skills. Worker `f488e590581bf12b54ae436c34b198a4afa12e48`, plugin `557b9090c0ce705cd4d0029dfc39ad3aa480d8b5`. The skill version is a distribution metadata increment from the last published 1.2.49; upstream manifests are unchanged.
 
-| Component | Candidate |
-|---|---|
-| Package | `v0.13.256-site244-plugin1.2.49` |
-| Fixed package commit | `ccc8b913c2e04162d5cc3d251fcdb650cec2e969` |
-| Worker | Site 244 source `2f6ba359587854470a9c08862791f4bf62ef5c66`; runtime 0.13.256 |
-| Skills | Published 1.2.49 readback; seven skills |
-| New App display title | SaySo |
-| Short description | iPhone 读屏和帮你点 |
+Manifest SHA-256: `775b7539ae00136d22992fbee7678bd9441899a9240aa314f6113f3fd449535c`. ZIP SHA-256: `def0c30e98a805a77408859d9bac3046ed311a8ae8940e243d2ec0241302a575`.
 
-Read [v0.13.256-site244-plugin1.2.49/README.md](v0.13.256-site244-plugin1.2.49/README.md), INSTALL, RESOURCES, manifest and VALIDATION. The long description and both owner-neutral presentation manifests are checked against manifest `app_presentation`. Keep the canonical App/plugin IDs generated for the new Site. This is not an update to the existing App-owned description.
-
-## One-sentence installation prompts / 一句话安装指令
-
-Open ChatGPT **Work / 工作** in the intended owner account and send the instruction yourself. A prefilled Chat prompt should be switched to Work first. The short page selects the fixed package and checksum; change only that page when selecting a new release. Do not delete an existing installation as part of this prompt. If the requested slug is unavailable, ask the user to choose; never rename automatically.
-
-中文：
+After publication use the permanent [short installation page](https://zhaibin2018.github.io/sayso/install). In SaySo the single **Connect ChatGPT / 连接 ChatGPT** button supplies the installation and phone request together. Standalone desktop instruction:
 
 ```text
 请帮我安装 SaySo：https://zhaibin2018.github.io/sayso/install
 ```
 
-English:
-
 ```text
 Please install SaySo for me: https://zhaibin2018.github.io/sayso/install
 ```
 
-Source-only acceptance: 994 tests passed; both website integrated builds passed 58 tests; manifest and credential-pattern verification passed. Full mobile setup, new App metadata provisioning, approval defaults and InstructionAttempt remain unverified. Production L06 `/pair` and first-time C124 button pairing are absent; assisted developer handoff remains necessary.
+The fixed [INSTALL](v0.13.258-rc.20261121-plugin1.2.50/INSTALL.md) is finalized from the latest D143 NEXT_INSTALL_DRAFT. It includes same-conversation request registration/link return, ask-on-unknown inventory/ownership/slug, localized descriptions, reviewed icon, plan C scheduling and plan B fallback. Read PRESENTATION, RESOURCES, MIGRATIONS, PROVENANCE and VALIDATION. verify.py passes; 1098 Worker tests pass. Full phone installation, idle cleanup, new PID, flashing and device compatibility remain unverified. No publishing/deployment/device action occurred.
 
-## Next INSTALL draft
-
-[NEXT_INSTALL_DRAFT.md](NEXT_INSTALL_DRAFT.md) is review-only and outside both frozen packages. It covers language-specific descriptions, the icon, owner-only scheduled maintenance with request-based fallback and the next phone handoff. Replace the official INSTALL only when A + T79 and maintenance changes have been merged, reviewed and repackaged with a new manifest. Do not execute the draft against the current package.
-
-## Historical package
-
-The previously published [v0.13.256](v0.13.256/) remains unchanged at `82b723d06072cd15e1cc2cdbe8541573d30e1f52` (Worker `f654165`, skills 1.2.45). Its runtime is also 0.13.256; it is not the fresh-install candidate above. Do not overwrite immutable release directories or mix their source files.
+Historical `v0.13.256` and `v0.13.256-site244-plugin1.2.49` directories remain unchanged. NEXT_INSTALL_DRAFT is historical review input, not the executable installation guide.

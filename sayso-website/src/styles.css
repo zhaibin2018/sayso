@@ -1762,3 +1762,12 @@ small {
   .connection-copy h2 { font-size: 21px; }
   .connection-copy .button-primary { flex-wrap: wrap; }
 }
+
+/* Full installation routes: readable ordered steps at phone and desktop widths. */
+.installation-steps { max-width: 800px; padding-left: 26px; }
+.installation-steps li { padding: 8px 0 22px 10px; }
+.installation-steps li::marker { color: var(--accent); font-weight: 650; }
+.installation-steps h3 { font-size: 23px; margin: 0 0 10px; line-height: 1.4; }
+.installation-steps p { line-height: 1.65; }
+.installation-steps a { color: var(--accent); text-underline-offset: 3px; }
+.install-prompt { overflow-wrap: anywhere; padding: 20px; border: 1px solid var(--line); border-radius: 12px; user-select: all; }

@@ -3,7 +3,7 @@
   "appStoreUrl": null,
   "appStoreBadge": null,
   "installerUrl": null,
-  "installerPath": null,
+  "installerPath": "./flash/",
   "repositoryUrl": "https://github.com/zhaibin2018/sayso",
   "supportEmail": "saysoapp.help@gmail.com",
   "publisherName": "BIN ZHAI",

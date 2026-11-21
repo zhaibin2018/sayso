@@ -165,7 +165,7 @@ export const copy = {
     "firmwareSub": "The software is free. Install it once from a browser on your computer.",
     "installerPending": "The installer is still being prepared.",
     "installer": "Open the installer",
-    "firmwareBody": "Before buying an accessory or installing its software, check whether your phone is on the compatibility list. Setup happens on a separate installer page. This website won’t connect to your accessory.",
+    "firmwareBody": "Check phone compatibility first. The flashing page offers only C124 production USB firmware 0.6.0. In desktop Chrome or Edge, you choose the serial port yourself. New-PID device acceptance is still pending.",
     "compatTitle": "Compatibility list",
     "compatColumns": [
       "Use",
@@ -724,7 +724,7 @@ export const copy = {
     "firmwareSub": "程序免费，用电脑浏览器装一次就好。",
     "installerPending": "安装页面还在准备中。",
     "installer": "打开安装页面",
-    "firmwareBody": "买配件、装程序之前，先看看你的手机在不在兼容列表里。安装要在专门的安装页面上做，这个网站不会连接你的配件。",
+    "firmwareBody": "先核对手机兼容性。刷写页只提供 C124 USB 正式固件 0.6.0；用电脑 Chrome 或 Edge 打开，由你选择串口。新 PID 的真机兼容性仍待验收。",
     "compatTitle": "兼容列表",
     "compatColumns": [
       "用途",

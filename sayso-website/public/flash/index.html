@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>C124 firmware · SaySo</title>
+    <link rel="icon" href="../assets/sayso-88.png" />
+    <link rel="stylesheet" href="flash.css" />
+    <script type="module" src="flash.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="../"
+        ><img
+          src="../assets/sayso-88.png"
+          width="32"
+          height="32"
+          alt=""
+        />SaySo</a
+      >
+      <nav aria-label="Language">
+        <button id="zh" lang="zh-CN">中文</button
+        ><button id="en" lang="en">English</button>
+      </nav>
+    </header>
+    <main>
+      <p class="eyebrow" data-copy="eyebrow">ACCESSORY SETUP</p>
+      <h1 data-copy="title">Install C124 firmware</h1>
+      <p class="intro" data-copy="intro">
+        Prepare your M5Stack AtomS3-Lite (C124) for SaySo, then pair it on your
+        iPhone.
+      </p>
+      <aside class="notice" role="note">
+        <strong data-copy="previewTitle">Production USB firmware · 0.6.0</strong>
+        <p data-copy="previewBody">
+          Only the C124 production USB profile is offered. Installation fully
+          erases the accessory and pairing. New-PID device compatibility still
+          awaits acceptance. This local candidate has not been published.
+        </p>
+      </aside>
+      <section aria-labelledby="firmware-title" class="firmware">
+        <h2 id="firmware-title" data-copy="firmware">Firmware to install</h2>
+        <dl>
+          <div>
+            <dt data-copy="version">Version</dt>
+            <dd id="version">—</dd>
+          </div>
+          <div>
+            <dt data-copy="profile">Profile</dt>
+            <dd data-copy="profileValue">
+              C124 · USB-C only · physical button · Wi-Fi/BLE off
+            </dd>
+          </div>
+          <div>
+            <dt>SHA-256</dt>
+            <dd><code id="sha256">—</code></dd>
+          </div>
+        </dl>
+        <p
+          id="verification"
+          role="status"
+          aria-live="polite"
+          data-copy="checking"
+        >
+          Checking the manifest and firmware…
+        </p>
+        <p id="browser-status" role="status"></p>
+        <div id="install-area">
+          <button id="locked-install" disabled data-copy="locked">
+            Installation waits for verification
+          </button>
+        </div>
+        <noscript
+          >JavaScript is required to verify firmware. / 请启用 JavaScript
+          才能校验固件。</noscript
+        >
+      </section>
+      <section aria-labelledby="before-title">
+        <h2 id="before-title" data-copy="before">Before you begin</h2>
+        <ul>
+          <li data-copy="desktop">
+            Use Chrome or Edge on Windows or Mac. Web Serial needs HTTPS; this
+            local preview also works on localhost.
+          </li>
+          <li data-copy="cable">
+            Use a USB-C cable that transfers data. A charging-only cable will
+            power the board but cannot flash it.
+          </li>
+          <li data-copy="target">
+            Use the new C124 only. Leave the existing test board disconnected.
+            The production firmware is for USB-C iPhones; iPhone compatibility
+            still needs acceptance testing.
+          </li>
+          <li data-copy="erase">
+            Installation erases the accessory, including any pairing. Back up
+            anything you need from other firmware first.
+          </li>
+        </ul>
+      </section>
+      <section aria-labelledby="steps-title">
+        <h2 id="steps-title" data-copy="steps">
+          Enter download mode and install
+        </h2>
+        <ol>
+          <li data-copy="step1">
+            Connect the C124 to your computer with the USB-C data cable.
+          </li>
+          <li data-copy="step2">
+            Press and hold the reset/power button on the side for about 2
+            seconds until the internal green light comes on. Release it; the
+            light goes out and the C124 enters download mode. This is separate
+            from the large pairing button.
+          </li>
+          <li data-copy="step3">
+            Check version 0.6.0 and SHA-256, wait for verification, choose
+            Install firmware, and select the ESP32-S3 serial port in the browser dialog.
+          </li>
+          <li data-copy="step4">
+            Confirm installation in ESP Web Tools. Keep the cable connected and
+            the page open until it reports completion.
+          </li>
+          <li data-copy="step5">
+            When installation finishes, unplug the accessory, connect it to your
+            unlocked USB-C iPhone, and follow the pairing prompts in SaySo.
+          </li>
+        </ol>
+        <p class="small">
+          <a
+            href="https://docs.m5stack.com/en/core/AtomS3-Lite"
+            target="_blank"
+            rel="noopener"
+            data-copy="official"
+            >M5Stack official C124 download-mode instructions</a
+          >
+        </p>
+        <p class="small" data-copy="holdNote">
+          If you were told to “hold the button while plugging in”, use the
+          official sequence above: connect first, hold the side reset button
+          until green, then release.
+        </p>
+      </section>
+      <section aria-labelledby="pair-title">
+        <h2 id="pair-title" data-copy="pair">After flashing: pair in SaySo</h2>
+        <p data-copy="pairBody">
+          Unlock your iPhone and connect the accessory. In SaySo, follow the
+          “accessory found” prompt, then press the large button on the C124 once
+          when asked. Wait for pairing to complete. The accessory creates its
+          own identity on first boot; you do not need to import an ID or key.
+        </p>
+        <p data-copy="pairTimeout">
+          If pairing times out, start again in SaySo. A double-click cancels
+          pairing; a long press does not approve it.
+        </p>
+      </section>
+      <section aria-labelledby="help-title">
+        <h2 id="help-title" data-copy="help">If something goes wrong</h2>
+        <details>
+          <summary data-copy="noDevice">No device in the port list</summary>
+          <p data-copy="noDeviceBody">
+            Check download mode, try another data cable and a direct computer
+            USB port, and close other serial tools. In Windows Device Manager,
+            look for the ESP32-S3 USB serial device. Select the port that
+            appears when the new C124 is connected.
+          </p>
+        </details>
+        <details>
+          <summary data-copy="driver">Windows reports a driver problem</summary>
+          <p data-copy="driverBody">
+            Reconnect in download mode and check Windows Update. C124 uses the
+            ESP32-S3 built-in USB Serial/JTAG interface, not a CP210x or CH340
+            bridge. If Windows still reports an unknown device, follow
+            Espressif’s driver guidance for your exact interface; do not replace
+            the normal SaySo HID or network drivers.
+          </p>
+          <a
+            href="https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-guides/usb-serial-jtag-console.html"
+            target="_blank"
+            rel="noopener"
+            data-copy="driverLink"
+            >Espressif USB Serial/JTAG guidance</a
+          >
+        </details>
+        <details>
+          <summary data-copy="interrupted">
+            Installation interrupted or failed
+          </summary>
+          <p data-copy="interruptedBody">
+            Do not connect it to the iPhone yet. Close the installer, re-enter
+            download mode, check the cable, then retry the approved release from
+            the beginning. Keep power connected throughout.
+          </p>
+        </details>
+        <details>
+          <summary data-copy="reset">Reset or move to another iPhone</summary>
+          <p data-copy="resetBody">
+            With the accessory attached to the old iPhone, remove it in SaySo
+            first, then pair on the new phone. Removing it while unplugged only
+            clears that phone’s copy. If the old phone or pairing key is lost,
+            reinstall an approved release with full erase; this deletes pairing
+            and creates a new identity on first boot. Restarting or flashing
+            while preserving NVS does not reset pairing.
+          </p>
+        </details>
+        <details>
+          <summary data-copy="hashError">
+            Verification or installer could not load
+          </summary>
+          <p data-copy="hashErrorBody">
+            Reload the page and check your connection. A failed SHA-256 check
+            blocks installation. The installer loads from jsDelivr at a fixed
+            version; if your network blocks it, try another network. Do not
+            bypass verification.
+          </p>
+        </details>
+      </section>
+    </main>
+    <footer>
+      <a href="../support/" data-copy="support">Support</a
+      ><a href="../privacy/" data-copy="privacy">Privacy</a
+      ><span>ESP Web Tools 10.1.0</span>
+    </footer>
+  </body>
+</html>

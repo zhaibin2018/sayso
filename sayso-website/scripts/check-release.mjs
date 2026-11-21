@@ -29,7 +29,7 @@ for (const p of assets)
     }
 if (c.installerPath)
   try {
-    await access(resolve(contentRoot, "install/index.html"));
+    await access(resolve(contentRoot, "accessory-install/index.html"));
   } catch {
     gaps.push("missing integrated installer build");
   }

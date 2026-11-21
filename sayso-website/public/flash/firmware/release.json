@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "channel": "release",
+  "releaseReady": true,
+  "version": "0.6.0",
+  "runtimeVersion": "0.6.0",
+  "sourceCommit": "c7b453378c33309811845fecd055526024d8f9f6",
+  "profile": "c124-production",
+  "chipFamily": "ESP32-S3",
+  "file": "sayso-c124-0.6.0.bin",
+  "bytes": 634400,
+  "sha256": "32d29251e181b4ae1b951618bc8d172d5aab3acd0a78c0b570a97f53382432b6",
+  "flashOffset": 0,
+  "features": [
+    "button_pairing",
+    "long_text_renewal",
+    "typed_count",
+    "cancel_current_operation"
+  ],
+  "missingFeatures": [],
+  "hardwareValidated": false,
+  "publicationApproved": false,
+  "usb": {
+    "vid": "0x303a",
+    "pid": "0x4004",
+    "interfaces": [
+      [
+        0,
+        0,
+        1,
+        2,
+        13,
+        0,
+        4
+      ],
+      [
+        1,
+        0,
+        0,
+        10,
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        2,
+        10,
+        0,
+        1,
+        0
+      ],
+      [
+        2,
+        0,
+        1,
+        3,
+        0,
+        0,
+        6
+      ]
+    ],
+    "hid_input_bits": {
+      "3": 40,
+      "2": 40,
+      "1": 64,
+      "4": 8
+    },
+    "hid_report_sha256": "5e400dfb56d7cb3afee62ae72890e482cbf0fe7ec5deb79a8c7c1d00d14e6e06",
+    "device_sha256": "8374bbe978c6ca6dab91a3bc9b19bccd9c709643dfbdf427fa0176e869244922",
+    "configuration_sha256": "eff1aa33d42d158a739cef997074109d24b8bc293d91db5ec7f0f13198f51e38"
+  },
+  "parts": [
+    {
+      "file": "bootloader/bootloader.bin",
+      "offset": 0,
+      "bytes": 21056,
+      "sha256": "ab2d26ae091c322ed0000267fa50fe1383c8a2cf27a0400747bc07cc224b7d89"
+    },
+    {
+      "file": "partition_table/partition-table.bin",
+      "offset": 32768,
+      "bytes": 3072,
+      "sha256": "7f00b6c042a89b15b0cac534f82ed988caf29278ff5700b0c511eb1b5bb7c820"
+    },
+    {
+      "file": "sayso_firmware.bin",
+      "offset": 65536,
+      "bytes": 568864,
+      "sha256": "dbaaef670c02703cecb5de334d1c1d08454affa5b89256cd0d8961392c6f22c1"
+    }
+  ],
+  "partitions": [
+    {
+      "label": "nvs",
+      "type": 1,
+      "subtype": 2,
+      "offset": 36864,
+      "size": 24576
+    },
+    {
+      "label": "phy_init",
+      "type": 1,
+      "subtype": 1,
+      "offset": 61440,
+      "size": 4096
+    },
+    {
+      "label": "factory",
+      "type": 0,
+      "subtype": 0,
+      "offset": 65536,
+      "size": 1048576
+    }
+  ],
+  "appBytes": 568864,
+  "appPartitionFreeBytes": 479712,
+  "identityIncluded": false,
+  "nvsErasedPadding": true,
+  "note": "Locally built candidate. Not published, installed or flashed. Hardware acceptance pending."
+}

@@ -23,7 +23,7 @@ test("installer pathname navigation survives root and nested project bases", () 
     "https://custom.example/",
     "https://owner.github.io/RepoCase/",
   ]) {
-    for (const app of ["./install/", "./install/index.html"]) {
+    for (const app of ["./accessory-install/", "./accessory-install/index.html"]) {
       const link = linkTarget(app, "app");
       assert.equal(link.external, false);
       assert.equal(
@@ -37,20 +37,20 @@ test("installer pathname navigation survives root and nested project bases", () 
     external: false,
   });
   for (const bad of [
-    "/install/",
+    "/accessory-install/",
     "//evil.example",
-    "../install/",
-    "./install/../",
-    "./install/%2e%2e/",
+    "../accessory-install/",
+    "./accessory-install/../",
+    "./accessory-install/%2e%2e/",
     "javascript:alert(1)",
   ])
     assert.equal(linkTarget(bad, "app"), null);
   assert.equal(
-    normalizeConfig({ installerPath: "./install/" }).installerPath,
-    "./install/",
+    normalizeConfig({ installerPath: "./accessory-install/" }).installerPath,
+    "./accessory-install/",
   );
   assert.equal(
-    releaseGaps({ installerPath: "./install/" }).includes(
+    releaseGaps({ installerPath: "./accessory-install/" }).includes(
       "installer destination",
     ),
     false,
@@ -75,7 +75,7 @@ test("shared presentation configuration excludes all authorization and firmware 
   ])
     assert.equal(Object.hasOwn(result, key), false);
   assert.equal(
-    new URL(result.startPath, "https://owner.github.io/sayso/install/").href,
+    new URL(result.startPath, "https://owner.github.io/sayso/accessory-install/").href,
     "https://owner.github.io/sayso/#/start",
   );
 });
@@ -121,16 +121,20 @@ test("aggregation isolates apps, removes stale output and cannot authorize firmw
         compatibility: [{ verified: true }],
       }),
     );
+    await mkdir(path.join(fixture, "dist/client/install"));
+    const installPage = '<html><a href="../">SaySo service installation</a></html>';
+    await writeFile(path.join(fixture, "dist/client/install/index.html"), installPage);
     const result = await assemblePages(fixture);
+    assert.equal(await readFile(path.join(result.directory, "install/index.html"), "utf8"), installPage);
     assert.equal(
       JSON.parse(
         await readFile(path.join(result.directory, "site-config.json"), "utf8"),
       ).installerPath,
-      "./install/",
+      "./accessory-install/",
     );
     assert.equal(
       await readFile(
-        path.join(result.directory, "install/releases/channel.json"),
+        path.join(result.directory, "accessory-install/releases/channel.json"),
         "utf8",
       ),
       channel,
@@ -138,14 +142,14 @@ test("aggregation isolates apps, removes stale output and cannot authorize firmw
     assert.notEqual(
       await readFile(path.join(result.directory, "assets/main.js"), "utf8"),
       await readFile(
-        path.join(result.directory, "install/assets/main.js"),
+        path.join(result.directory, "accessory-install/assets/main.js"),
         "utf8",
       ),
     );
-    await writeFile(path.join(result.directory, "install/stale.bin"), "stale");
+    await writeFile(path.join(result.directory, "accessory-install/stale.bin"), "stale");
     await assemblePages(fixture);
     await assert.rejects(
-      access(path.join(result.directory, "install/stale.bin")),
+      access(path.join(result.directory, "accessory-install/stale.bin")),
     );
     await writeFile(
       path.join(fixture, "sayso-install/dist/client/assets/main.js"),

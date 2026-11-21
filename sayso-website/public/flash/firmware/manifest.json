@@ -1,0 +1,17 @@
+{
+  "name": "SaySo C124 USB",
+  "version": "0.6.0",
+  "new_install_prompt_erase": false,
+  "new_install_improv_wait_time": 0,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "sayso-c124-0.6.0.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

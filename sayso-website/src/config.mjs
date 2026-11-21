@@ -1,6 +1,6 @@
 export const sceneIds = ["bus", "food", "subscription", "setting"];
 export function installerPath(value) {
-  return value === "./install/" || value === "./install/index.html"
+  return value === "./accessory-install/" || value === "./accessory-install/index.html"
     ? value
     : null;
 }

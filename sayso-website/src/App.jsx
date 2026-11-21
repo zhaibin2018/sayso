@@ -26,6 +26,7 @@ import {
   ImageSquare,
 } from "@phosphor-icons/react";
 import { copy } from "./copy";
+import { installation } from "./installation.js";
 import {
   normalizeConfig,
   releaseGaps,
@@ -625,74 +626,21 @@ export function Start({ t, lang, config, preview }) {
     <div className="start-flow">
       <section className="start-intro" aria-labelledby="start-title">
         <p className="start-prerequisite">{t.startPrerequisite}</p>
-        <h1 id="start-title">{t.threeSteps}</h1>
-        <ol className="connection-steps">
-          {t.steps.map((step, i) => {
-            const screenshot = config.screenshots.find(
-              (s) => s.step === i + 1 && s.locale === lang,
-            );
-            return (
-              <li className="connection-step" key={step[0]}>
-                <div className="connection-copy">
-                  <span className="step-number" aria-hidden>{i + 1}</span>
-                  <h2>{step[0]}</h2>
-                  <p>{step[1]}</p>
-                  {i === 0 && (config.appStoreUrl ? (
-                    <a className="button-primary" href={config.appStoreUrl} {...external}>
-                      <DownloadSimple aria-hidden />{t.download}
-                    </a>
-                  ) : (
-                    <button className="button-primary" disabled>
-                      <DownloadSimple aria-hidden />{t.storeSoon}
-                    </button>
-                  ))}
-                  {i === 1 && <p className="small-note">{t.connectionPending}</p>}
-                </div>
-                <figure>
-                  <div className="step-capture">
-                    {screenshot ? (
-                      <img src={asset(screenshot.src)} alt={step[2]} />
-                    ) : (
-                      <>
-                        <ImageSquare size={24} aria-hidden />
-                        <span>{t.screenshot}</span>
-                      </>
-                    )}
-                  </div>
-                  <figcaption>
-                    {step[2]}
-                    {screenshot && (
-                      <small>
-                        {t.captured}: {screenshot.capturedAt}
-                        <br />
-                        iOS {screenshot.ios} · SaySo {screenshot.appVersion}
-                        <br />
-                        ChatGPT {screenshot.chatgptVersion} ·{" "}
-                        {screenshot.locale}
-                      </small>
-                    )}
-                  </figcaption>
-                </figure>
-              </li>
-            );
-          })}
-        </ol>
+        <h1 id="start-title">{installation[lang].title}</h1>
+        <p className="notice">{installation[lang].status}</p>
+        <h2>{installation[lang].phone}</h2>
+        <InstallationSteps steps={installation[lang].phoneSteps} lang={lang} />
+        {!config.appStoreUrl ? <button className="button-primary" disabled>{t.storeSoon}</button> : <a className="button-primary" href={config.appStoreUrl} {...external}>{t.download}</a>}
+      </section>
+      <section className="optional-control" aria-labelledby="desktop-install-title">
+        <h2 id="desktop-install-title">{installation[lang].desktop}</h2>
+        <InstallationSteps steps={installation[lang].desktopSteps} lang={lang} />
+        <InstallInstruction lang={lang} />
       </section>
       <section className="optional-control" aria-labelledby="control-title">
-        <h2 id="control-title">{t.controlTitle}</h2>
-        <p className="control-subtitle">{t.controlSubtitle}</p>
-        <ol className="accessory-steps">
-          {t.controlSteps.map(([title, body], i) => (
-            <li key={title}>
-              <span className="accessory-letter" aria-hidden>{"ABC"[i]}</span>
-              <div>
-                <h3>{title}</h3><p>{body}</p>
-                {i === 0 && <Link to="buy">{t.buy}</Link>}
-                {i === 1 && <Link to="firmware">{t.firmware}</Link>}
-              </div>
-            </li>
-          ))}
-        </ol>
+        <h2 id="control-title">{installation[lang].optional}</h2>
+        <InstallationSteps steps={installation[lang].controlSteps} lang={lang} />
+        <div className="link-row"><Link to="buy">{t.buy}</Link><Link to="firmware">{t.firmware}</Link></div>
         <p className="small-note">{t.controlCompatibility}</p>
       </section>
       <Allowance t={t} config={config} preview={preview} />
@@ -724,6 +672,22 @@ export function Start({ t, lang, config, preview }) {
       </section>
     </div>
   );
+}
+function InstallationSteps({ steps, lang }) {
+  const labels = installation[lang];
+  return <ol className="installation-steps">{steps.map(([title, body, expected, faq]) => <li key={title}>
+    <h3>{title}</h3><p>{body}</p><p className="small-note"><strong>{labels.expected}</strong> {expected}</p>
+    <a href={`${import.meta.env.BASE_URL}support/${lang === "en" ? "en/" : ""}#faq-${faq}`}>{labels.help}</a>
+  </li>)}</ol>;
+}
+function InstallInstruction({ lang }) {
+  const [status, setStatus] = useState("");
+  const labels = installation[lang];
+  return <div className="install-instruction"><p className="install-prompt">{labels.prompt}</p>
+    <button className="button-primary" onClick={async () => {
+      try { await navigator.clipboard.writeText(labels.prompt); setStatus(labels.copied); }
+      catch { setStatus(labels.failed); }
+    }}>{labels.copy}</button><p role="status" aria-live="polite">{status}</p></div>;
 }
 function Requirement({ row, Icon, children }) {
   return (
@@ -936,7 +900,7 @@ function Buy({ t }) {
     </div>
   );
 }
-function Privacy({ t, config }) {
+export function Privacy({ t, config, staticDocument = false }) {
   return (
     <div className="document">
       <PageHeading
@@ -961,11 +925,12 @@ function Privacy({ t, config }) {
           <li><Link arrow={false} to="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">{t.githubPagesData}</Link></li>
         </ul>
       </section>
+      {!staticDocument && <p><a href={asset(`privacy/${t === copy.en ? "en/" : ""}`)}>{t === copy.en ? "Read without scripts" : "无需脚本阅读"}</a></p>}
       <Link to="support">{t.support}</Link>
     </div>
   );
 }
-function Support({ t }) {
+export function Support({ t, staticDocument = false }) {
   return (
     <div className="document">
       <PageHeading
@@ -973,9 +938,10 @@ function Support({ t }) {
         title={t.supportTitle}
         subtitle={t.supportSub}
       />
+      {!staticDocument && <p><a href={asset(`support/${t === copy.en ? "en/" : ""}`)}>{t === copy.en ? "Read without scripts" : "无需脚本阅读"}</a></p>}
       <div className="faq-list">
-        {t.supportItems.map(([q, a]) => (
-          <details key={q}>
+        {t.supportItems.map(([q, a], i) => (
+          <details key={q} id={`faq-${i}`} open={staticDocument || undefined}>
             <summary>{q}</summary>
             <DocumentBody body={a} />
           </details>

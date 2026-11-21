@@ -1,3 +1,7 @@
+# Current installation entry
+
+The selected installation guide is the immutable release linked by https://zhaibin2018.github.io/sayso/install. Candidate `v0.13.258-rc.20261121-plugin1.2.50` is prepared locally and awaits publication. Use its INSTALL, RESOURCES, manifest and verifier. The root instructions below describe a historical source snapshot and must not be mixed with that package.
+
 > **Security source update: MCP 0.13.249 (2026-11-18).** Versions before this snapshot have known stop and text-retention issues. Update before real control. Offline verification is complete; new-account/mobile setup and physical-phone acceptance are not established by this source release.
 >
 > **安全源码更新：MCP 0.13.249。** 更早的公开快照存在已知停止及文字留存问题；真实控制前请先更新。离线通过不等于手机安装或真机验收通过。

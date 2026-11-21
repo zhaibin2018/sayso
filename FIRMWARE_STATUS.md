@@ -1,3 +1,7 @@
+# USB 0.6.0 local candidate
+
+The website now prepares only `sayso-website/public/flash/firmware/sayso-c124-0.6.0.bin`, SHA-256 `32d29251e181b4ae1b951618bc8d172d5aab3acd0a78c0b570a97f53382432b6`. It includes button pairing, long-text renewal/progress and current-operation cancellation with PID 303A:4004. The merged image contains no NVS identity or keys. Internal test-dual is excluded. No cryptographic release signature, publication, flashing or new-PID device acceptance is claimed. Historical notes below remain dated evidence.
+
 # DIY firmware publication status
 
 Current hardware scope: **DIY AtomS3 Lite / C124 only**. Own-manufactured hardware, production certificates and factory provisioning are not in the current plan.

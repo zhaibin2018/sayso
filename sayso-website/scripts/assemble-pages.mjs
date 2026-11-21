@@ -85,11 +85,11 @@ export async function auditStaticTree(root, { installer = false } = {}) {
           ),
         ].map((m) => m[1] || m[2]);
         for (const ref of refs) {
-          if (/^(?:https?:|data:|#)/.test(ref)) continue;
+          if (/^(?:https?:|data:|mailto:|#)/.test(ref)) continue;
           if (ref.startsWith("/"))
             throw new Error(`Root-relative asset breaks project Pages: ${ref}`);
           const target = path.resolve(path.dirname(full), ref.split(/[?#]/)[0]);
-          if (!target.startsWith(path.resolve(root) + path.sep))
+          if (target !== path.resolve(root) && !target.startsWith(path.resolve(root) + path.sep))
             throw new Error(`Asset escapes package: ${ref}`);
           await access(target);
         }
@@ -124,9 +124,9 @@ export async function assemblePages(projectRoot) {
   await auditStaticTree(home);
   await auditStaticTree(installer, { installer: true });
   try {
-    await lstat(path.join(home, "install"));
+    await lstat(path.join(home, "accessory-install"));
     throw new Error(
-      "Homepage build already contains install/: refusing nested/stale installer assets.",
+      "Homepage build already contains accessory-install/: refusing nested/stale installer assets.",
     );
   } catch (e) {
     if (e.code !== "ENOENT") throw e;
@@ -143,7 +143,7 @@ export async function assemblePages(projectRoot) {
   // Absolute path and real parent are verified above before recursive removal.
   await rm(stage, { recursive: true, force: true });
   await cp(home, stage, { recursive: true, force: false, errorOnExist: true });
-  await cp(installer, path.join(stage, "install"), {
+  await cp(installer, path.join(stage, "accessory-install"), {
     recursive: true,
     force: false,
     errorOnExist: true,
@@ -153,15 +153,15 @@ export async function assemblePages(projectRoot) {
   );
   await writeFile(
     path.join(stage, "site-config.json"),
-    JSON.stringify({ ...raw, installerPath: "./install/" }, null, 2) + "\n",
+    JSON.stringify({ ...raw, installerPath: raw.installerPath || "./accessory-install/" }, null, 2) + "\n",
   );
   await writeFile(
-    path.join(stage, "install/site-links.json"),
+    path.join(stage, "accessory-install/site-links.json"),
     JSON.stringify(sharedLinks(raw), null, 2) + "\n",
   );
   await writeFile(path.join(stage, ".nojekyll"), "");
   const files = await auditStaticTree(stage);
-  await auditStaticTree(path.join(stage, "install"), { installer: true });
+  await auditStaticTree(path.join(stage, "accessory-install"), { installer: true });
   const records = [];
   for (const file of files) {
     const bytes = await readFile(file);
@@ -177,7 +177,7 @@ export async function assemblePages(projectRoot) {
       {
         schema: 1,
         builtAt: new Date().toISOString(),
-        apps: ["./", "./install/"],
+        apps: ["./", "./accessory-install/"],
         files: records,
       },
       null,

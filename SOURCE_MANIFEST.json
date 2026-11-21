@@ -19,8 +19,8 @@
     },
     {
       "path": "INSTALL.md",
-      "bytes": 16042,
-      "sha256": "0d6b05c192569c2b9bac50816bf6f3ae88a945f6ab7ae637bbd238cd7584991f"
+      "bytes": 16044,
+      "sha256": "4e9c71e75be4e4e964a890f488701a6ac9a7b450551a832d5dbc7ca5bd47ddca"
     },
     {
       "path": "LICENSE.md",
@@ -1704,8 +1704,8 @@
     },
     {
       "path": "scripts/verify-release-candidate.py",
-      "bytes": 1039,
-      "sha256": "ce76887dc1b3b23e5146bbb6bc3244b694df30cf41ac55ee770ed649f0148458"
+      "bytes": 1041,
+      "sha256": "78aa46d8fb253f8951d039a3fc0fc0a02d45112baf66ef8ba90dd9198e678dc5"
     },
     {
       "path": "scripts/verify-source.mjs",
@@ -1714,8 +1714,8 @@
     }
   ],
   "installation_release": {
-    "label": "v0.13.259-20261121-plugin1.2.51",
-    "package_commit": "59d7f6be12307cfe725efdb0121b87e60128cc64",
-    "manifest_sha256": "69aa53ee740ca8e3eb11f8935120210fc3b8ac61a87ce790ddd6fda29edcadd4"
+    "label": "v0.13.259-20261121.1-plugin1.2.51",
+    "package_commit": "857d23bdbd7ae34a86bcf52a5b31ce1a4dd7c9cd",
+    "manifest_sha256": "440d74589eb238e21f806f02c2918e3790545ecca1a236162c8daabcee8d7e54"
   }
 }

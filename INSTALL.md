@@ -1,6 +1,6 @@
 # Current SaySo installation
 
-Use the [installation page](https://zhaibin2018.github.io/sayso/install), pinned to `v0.13.259-20261121-plugin1.2.51`. It includes T92 and D1 placement migration 0035, with nine skills. After installation, return to SaySo and send Connect ChatGPT in a new Work conversation. Complete physical-phone and unattended-maintenance acceptance remain pending. Root source below is historical; do not mix it with the fixed package.
+Use the [installation page](https://zhaibin2018.github.io/sayso/install), pinned to `v0.13.259-20261121.1-plugin1.2.51`. It includes T92 and D1 placement migration 0035, with nine skills. After installation, return to SaySo and send Connect ChatGPT in a new Work conversation. Complete physical-phone and unattended-maintenance acceptance remain pending. Root source below is historical; do not mix it with the fixed package.
 
 > **Security source update: MCP 0.13.249 (2026-11-18).** Versions before this snapshot have known stop and text-retention issues. Update before real control. Offline verification is complete; new-account/mobile setup and physical-phone acceptance are not established by this source release.
 >

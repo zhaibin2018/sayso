@@ -1,12 +1,12 @@
 from pathlib import Path
 import json,hashlib,subprocess,sys,zipfile
 root=Path(__file__).resolve().parents[1]
-package=root/'release/service/v0.13.258-rc.20261121-plugin1.2.50'
+package=root/'release/service/v0.13.259-20261121-plugin1.2.51'
 digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
-assert digest(package/'manifest.json')=='775b7539ae00136d22992fbee7678bd9441899a9240aa314f6113f3fd449535c'
+assert digest(package/'manifest.json')=='69aa53ee740ca8e3eb11f8935120210fc3b8ac61a87ce790ddd6fda29edcadd4'
 subprocess.run([sys.executable,str(package/'verify.py'),str(package)],check=True)
 archive=package.parent/(package.name+'.zip')
-assert digest(archive)=='def0c30e98a805a77408859d9bac3046ed311a8ae8940e243d2ec0241302a575'
+assert digest(archive)=='08f5ae01ade52faf99890419c3e7f73b62a7f9c5e186271ef3be907db951655d'
 assert (archive.parent/(archive.name+'.sha256')).read_text().split()[0]==digest(archive)
 files={package.name+'/'+p.relative_to(package).as_posix():p for p in package.rglob('*') if p.is_file()}
 with zipfile.ZipFile(archive) as z:

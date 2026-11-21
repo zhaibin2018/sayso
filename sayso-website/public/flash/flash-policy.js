@@ -1,7 +1,7 @@
-// D144: only the pinned USB 0.6.0 release is offered. Local candidate; publication is separate.
+// D144: only the pinned USB 0.6.1 release is offered. Published USB channel; physical acceptance remains separate.
 export const PREVIEW_ONLY = false;
-export const RELEASE_VERSION = "0.6.0";
-export const RELEASE_SHA256 = "32d29251e181b4ae1b951618bc8d172d5aab3acd0a78c0b570a97f53382432b6";
+export const RELEASE_VERSION = "0.6.1";
+export const RELEASE_SHA256 = "2d7a03b460b5d6e16cfbc288cb18af1a6188b4d5190a2ba594318c7399e02026";
 export const INSTALLER_URL =
   "https://cdn.jsdelivr.net/npm/esp-web-tools@10.1.0/dist/web/install-button.js";
 

@@ -1,3 +1,7 @@
+# Current USB firmware 0.6.1
+
+The [flash page](https://zhaibin2018.github.io/sayso/flash/) offers only production USB firmware 0.6.1, SHA-256 `2d7a03b460b5d6e16cfbc288cb18af1a6188b4d5190a2ba594318c7399e02026`, 658384 bytes. No identity or keys are included; test-dual is excluded. This is an integrity hash, not a cryptographic release signature. Physical flashing, lights and compatibility still await owner acceptance. Historical notes below remain dated evidence.
+
 # USB 0.6.0 local candidate
 
 The website now prepares only `sayso-website/public/flash/firmware/sayso-c124-0.6.0.bin`, SHA-256 `32d29251e181b4ae1b951618bc8d172d5aab3acd0a78c0b570a97f53382432b6`. It includes button pairing, long-text renewal/progress and current-operation cancellation with PID 303A:4004. The merged image contains no NVS identity or keys. Internal test-dual is excluded. No cryptographic release signature, publication, flashing or new-PID device acceptance is claimed. Historical notes below remain dated evidence.

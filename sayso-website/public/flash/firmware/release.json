@@ -2,14 +2,14 @@
   "schema": 1,
   "channel": "release",
   "releaseReady": true,
-  "version": "0.6.0",
-  "runtimeVersion": "0.6.0",
-  "sourceCommit": "c7b453378c33309811845fecd055526024d8f9f6",
+  "version": "0.6.1",
+  "runtimeVersion": "0.6.1",
+  "sourceCommit": "c5a9ad8ba1a2c3b2204de7e8e60e08f95c34a660",
   "profile": "c124-production",
   "chipFamily": "ESP32-S3",
-  "file": "sayso-c124-0.6.0.bin",
-  "bytes": 634400,
-  "sha256": "32d29251e181b4ae1b951618bc8d172d5aab3acd0a78c0b570a97f53382432b6",
+  "file": "sayso-c124-0.6.1.bin",
+  "bytes": 658384,
+  "sha256": "2d7a03b460b5d6e16cfbc288cb18af1a6188b4d5190a2ba594318c7399e02026",
   "flashOffset": 0,
   "features": [
     "button_pairing",
@@ -19,7 +19,7 @@
   ],
   "missingFeatures": [],
   "hardwareValidated": false,
-  "publicationApproved": false,
+  "publicationApproved": true,
   "usb": {
     "vid": "0x303a",
     "pid": "0x4004",
@@ -76,7 +76,7 @@
       "file": "bootloader/bootloader.bin",
       "offset": 0,
       "bytes": 21056,
-      "sha256": "ab2d26ae091c322ed0000267fa50fe1383c8a2cf27a0400747bc07cc224b7d89"
+      "sha256": "2ce69441da543a59d4ba16f6ec23566829a547aaabf4dfdac092ef2df0196268"
     },
     {
       "file": "partition_table/partition-table.bin",
@@ -87,8 +87,8 @@
     {
       "file": "sayso_firmware.bin",
       "offset": 65536,
-      "bytes": 568864,
-      "sha256": "dbaaef670c02703cecb5de334d1c1d08454affa5b89256cd0d8961392c6f22c1"
+      "bytes": 592848,
+      "sha256": "3d4ac0b139aa40d9b6e97776d3841869dca326d430590fe0b3006366d1c71b1e"
     }
   ],
   "partitions": [
@@ -114,8 +114,8 @@
       "size": 1048576
     }
   ],
-  "appBytes": 568864,
-  "appPartitionFreeBytes": 479712,
+  "appBytes": 592848,
+  "appPartitionFreeBytes": 455728,
   "identityIncluded": false,
   "nvsErasedPadding": true,
   "note": "Locally built candidate. Not published, installed or flashed. Hardware acceptance pending."

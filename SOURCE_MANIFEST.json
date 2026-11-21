@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "snapshot": "SaySo historical root source and local RC installation notices 2026-11-21",
+  "snapshot": "SaySo historical root source and current installation notices 2026-11-21",
   "license": "FSL-1.1-ALv2",
   "licensor": "ZHAI BIN",
   "mcpRuntime": "0.13.252",
@@ -14,13 +14,13 @@
     },
     {
       "path": "FIRMWARE_STATUS.md",
-      "bytes": 2550,
-      "sha256": "fadd2bff9f61301ecbff3e9cb0d9e66fc77b6a8e99a5aa2c014571266cef9237"
+      "bytes": 3018,
+      "sha256": "9d74a8e76640654fb4a6076056a298734fa1b3e88ad2c1835ddddf323aa7ef8a"
     },
     {
       "path": "INSTALL.md",
-      "bytes": 15979,
-      "sha256": "f24340b98db6098ad366080c27c13f08d69242e2c0688410d5df747c19e0d564"
+      "bytes": 16042,
+      "sha256": "0d6b05c192569c2b9bac50816bf6f3ae88a945f6ab7ae637bbd238cd7584991f"
     },
     {
       "path": "LICENSE.md",
@@ -1695,7 +1695,7 @@
     {
       "path": "scripts/check-public-boundaries.mjs",
       "bytes": 2081,
-      "sha256": "7da0bee3eba81c03658277b61170def61426d7a91d225489de82add2811fa690"
+      "sha256": "ec35f0827c08e958289b3926a64e242cf424f63c1769fb358c56f04f71fb5aad"
     },
     {
       "path": "scripts/generate-source-manifest.mjs",
@@ -1704,8 +1704,8 @@
     },
     {
       "path": "scripts/verify-release-candidate.py",
-      "bytes": 1042,
-      "sha256": "b047ce74f630770a12b68e0ca69912843738b982dcdada38f1ddf99f1cc17406"
+      "bytes": 1039,
+      "sha256": "ce76887dc1b3b23e5146bbb6bc3244b694df30cf41ac55ee770ed649f0148458"
     },
     {
       "path": "scripts/verify-source.mjs",
@@ -1714,8 +1714,8 @@
     }
   ],
   "installation_release": {
-    "label": "v0.13.258-rc.20261121-plugin1.2.50",
-    "package_commit": "5a1dd40e99a7208c88dc6d9b8d3f915f9868dad8",
-    "manifest_sha256": "775b7539ae00136d22992fbee7678bd9441899a9240aa314f6113f3fd449535c"
+    "label": "v0.13.259-20261121-plugin1.2.51",
+    "package_commit": "59d7f6be12307cfe725efdb0121b87e60128cc64",
+    "manifest_sha256": "69aa53ee740ca8e3eb11f8935120210fc3b8ac61a87ce790ddd6fda29edcadd4"
   }
 }

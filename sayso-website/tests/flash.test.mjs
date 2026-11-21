@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
+import { installerPhase, preparationIsSlow } from "../public/flash/flash-progress.js";
 import {
   verifyBundle,
   canInstall,
@@ -9,6 +10,16 @@ import {
 } from "../public/flash/flash-policy.js";
 
 const folder = new URL("../public/flash/firmware/", import.meta.url);
+test("preparation warning waits one minute and clears during writing or completion", () => {
+  assert.equal(installerPhase({_installConfirmed:true}), "preparing");
+  for (const state of ["initializing", "preparing"])
+    assert.equal(installerPhase({_installConfirmed:true,_installState:{state}}), "preparing");
+  assert.equal(preparationIsSlow("preparing", 1000, 60999), false);
+  assert.equal(preparationIsSlow("preparing", 1000, 61000), true);
+  assert.equal(preparationIsSlow("preparing", null, 61000), false);
+  for (const state of ["writing", "erasing", "finished", "error"])
+    assert.equal(preparationIsSlow(installerPhase({_installConfirmed:true,_installState:{state}}), 1000, 99999), false);
+});
 async function bundle() {
   const release = JSON.parse(
     await readFile(new URL("release.json", folder), "utf8"),
@@ -72,7 +83,7 @@ test("D144 only the production release and complete feature set can install", as
   const { release } = await bundle();
   const ready = { secure: true, serial: true, verified: true, installerLoaded: true };
   assert.equal(PREVIEW_ONLY, false);
-  assert.equal(release.version, "0.6.0");
+  assert.equal(release.version, "0.6.1");
   assert.equal(release.channel, "release");
   assert.deepEqual(release.missingFeatures, []);
   assert.equal(canInstall(release, ready), true);

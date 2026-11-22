@@ -19,3 +19,4 @@ code { font-size: 14px; }
 footer { border-top: 1px solid #c8c8dc; border-bottom: 0; margin-top: 32px; }
 @media (prefers-color-scheme: dark) { :root { background: #111225; color: #eeeeff; } a { color: #c8baff; } }
 @media (max-width: 420px) { body { padding: 18px; } nav { margin-left: 0; } }
+[hidden]{display:none!important}nav button{font:inherit;font-size:16px;min-height:44px;padding:8px 12px;background:#fff;color:#34303e;border:1px solid #c8c7d5;border-radius:9px;cursor:pointer}nav button[aria-pressed="true"]{background:#ece5fa;border-color:#67419f;color:#432775}nav button:focus-visible{outline:3px solid #8b62cd;outline-offset:3px}

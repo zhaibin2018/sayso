@@ -1,9 +1,11 @@
 // D144: only the pinned USB 0.6.1 release is offered. Published USB channel; physical acceptance remains separate.
 export const PREVIEW_ONLY = false;
 export const RELEASE_VERSION = "0.6.1";
-export const RELEASE_SHA256 = "2d7a03b460b5d6e16cfbc288cb18af1a6188b4d5190a2ba594318c7399e02026";
+export const RELEASE_SHA256 =
+  "2d7a03b460b5d6e16cfbc288cb18af1a6188b4d5190a2ba594318c7399e02026";
 export const INSTALLER_URL =
-  "https://cdn.jsdelivr.net/npm/esp-web-tools@10.1.0/dist/web/install-button.js";
+  "https://cdn.jsdelivr.net/npm/esptool-js@0.7.1/+esm";
+export const MD5_URL = "https://cdn.jsdelivr.net/npm/spark-md5@3.0.2/+esm";
 
 export async function verifyBundle(manifest, release, bytes) {
   const build = manifest.builds?.[0];

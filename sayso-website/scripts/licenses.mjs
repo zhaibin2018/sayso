@@ -21,6 +21,11 @@ for (const name of packages) {
   if (!license) throw new Error(`No license file found: ${name}`);
   text += `\n\n===== ${name} ${meta.version} (${meta.license}) =====\n\n${await readFile(new URL(license, root), "utf8")}`;
 }
+// Frozen notices for the exact CDN tools; standalone website builds stay independent.
+text += await readFile(
+  new URL("../public/flash/TOOL_NOTICES.txt", import.meta.url),
+  "utf8",
+);
 await writeFile(
   new URL("../public/THIRD_PARTY_NOTICES.txt", import.meta.url),
   text,

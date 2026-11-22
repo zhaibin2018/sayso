@@ -144,7 +144,6 @@ export function App() {
   };
   useEffect(() => {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
-    saveSetting("sayso-language", lang);
   }, [lang]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -594,7 +593,7 @@ export function App() {
             className={`language ${lang === "en" ? "active" : ""}`}
             lang="en"
             aria-pressed={lang === "en"}
-            onClick={() => setLang("en")}
+            onClick={() => { saveSetting("sayso-language", "en"); setLang("en"); }}
           >
             EN
           </button>
@@ -603,7 +602,7 @@ export function App() {
             className={`language ${lang === "zh" ? "active" : ""}`}
             lang="zh"
             aria-pressed={lang === "zh"}
-            onClick={() => setLang("zh")}
+            onClick={() => { saveSetting("sayso-language", "zh"); setLang("zh"); }}
           >
             中文
           </button>

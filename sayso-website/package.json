@@ -8,7 +8,7 @@
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs",
-    "test": "node --test tests/config.test.mjs tests/integration.test.mjs tests/workflow.test.mjs tests/requirements.test.mjs tests/documents.test.mjs tests/flash.test.mjs",
+    "test": "node --test tests/config.test.mjs tests/integration.test.mjs tests/workflow.test.mjs tests/requirements.test.mjs tests/documents.test.mjs tests/flash.test.mjs tests/flash-device.test.mjs",
     "preview:flash": "node scripts/preview-flash.mjs",
     "release:check": "node scripts/check-release.mjs",
     "build:pages": "node scripts/build-integrated.mjs",

@@ -53,11 +53,7 @@ export async function loadSiteLinks(base, signal) {
 }
 export function preferredLanguage(saved, languages = []) {
   if (["en", "zh"].includes(saved)) return saved;
-  for (const locale of languages) {
-    if (/^zh\b/i.test(locale)) return "zh";
-    if (/^en\b/i.test(locale)) return "en";
-  }
-  return "en";
+  return /^zh(?:-|$)/i.test(languages[0] || "") ? "zh" : "en";
 }
 export function canLeaveForWebsite(busy, locked) {
   return !busy && !locked;

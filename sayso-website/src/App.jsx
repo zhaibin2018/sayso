@@ -52,11 +52,8 @@ const savePreference = (key, value) => {
 const preferredLanguage = () => {
   const saved = readPreference("sayso-language");
   if (["en", "zh"].includes(saved)) return saved;
-  for (const locale of navigator.languages || [navigator.language]) {
-    if (/^zh\b/i.test(locale)) return "zh";
-    if (/^en\b/i.test(locale)) return "en";
-  }
-  return "en";
+  const locale = navigator.languages?.[0] || navigator.language;
+  return /^zh(?:-|$)/i.test(locale || "") ? "zh" : "en";
 };
 const currentRoute = () =>
   location.hash.replace(/^#\/?/, "").split("?")[0] || "home";
@@ -145,7 +142,6 @@ export function App() {
   }, []);
   useEffect(() => {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
-    savePreference("sayso-language", lang);
   }, [lang]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -233,7 +229,11 @@ export function App() {
         <div className="header-tools">
           <button
             className="language-button"
-            onClick={() => setLang(lang === "en" ? "zh" : "en")}
+            onClick={() => {
+              const next = lang === "en" ? "zh" : "en";
+              savePreference("sayso-language", next);
+              setLang(next);
+            }}
             aria-label={t.language}
           >
             <span className={lang === "en" ? "current-language" : ""}>EN</span>

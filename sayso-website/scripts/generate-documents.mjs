@@ -1,4 +1,4 @@
-// Render the same approved policy/support components into readable, script-free HTML.
+// Readable policy/support HTML; one small module shares the site's language preference.
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -29,7 +29,7 @@ try {
       const t = copy[lang];
       let body = renderToStaticMarkup(createElement(Component, { t, lang, config, staticDocument: true }));
       body = body.replaceAll('href="#/', `href="${prefix}#/`);
-      const html = `<!doctype html><html lang="${lang === "zh" ? "zh-CN" : "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t[route]} · SaySo</title><link rel="stylesheet" href="${prefix}document.css"></head><body><header><a href="${prefix}"><img src="${prefix}assets/sayso-88.png" width="36" height="36" alt=""> SaySo</a><nav><a href="${languageLink}" lang="${lang === "zh" ? "en" : "zh"}">${lang === "zh" ? "English" : "中文"}</a><a href="${prefix}#/${route}">${lang === "zh" ? "交互版" : "Interactive page"}</a></nav></header><main>${body}</main><footer><a href="${prefix}support/">${t.support}</a> · <a href="${prefix}privacy/">${t.privacy}</a> · <a href="${prefix}#/start">${t.start}</a></footer></body></html>\n`;
+      const html = `<!doctype html><html lang="${lang === "zh" ? "zh-CN" : "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${t[route]} · SaySo</title><link rel="stylesheet" href="${prefix}document.css"><script type="module" src="${prefix}document-language.js"></script></head><body data-document-locale="${lang}"><header><a href="${prefix}"><img src="${prefix}assets/sayso-88.png" width="36" height="36" alt=""> SaySo</a><nav><a href="${languageLink}" data-language="${lang === "zh" ? "en" : "zh"}" lang="${lang === "zh" ? "en" : "zh"}">${lang === "zh" ? "English" : "中文"}</a><a href="${prefix}#/${route}">${lang === "zh" ? "交互版" : "Interactive page"}</a></nav></header><main>${body}</main><footer><a href="${prefix}support/">${t.support}</a> · <a href="${prefix}privacy/">${t.privacy}</a> · <a href="${prefix}#/start">${t.start}</a></footer></body></html>\n`;
       const dir = path.join(root, "public", route, lang === "en" ? "en" : "");
       await mkdir(dir, { recursive: true });
       await writeFile(path.join(dir, "index.html"), html);

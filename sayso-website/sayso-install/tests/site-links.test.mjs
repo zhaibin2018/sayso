@@ -40,7 +40,7 @@ test("standalone mode has no invented parent website or store", () => {
 });
 test("shared preferences follow same supported-language and default rules", () => {
   assert.equal(preferredLanguage("zh", ["en"]), "zh");
-  assert.equal(preferredLanguage(null, ["fr", "zh-CN"]), "zh");
+  assert.equal(preferredLanguage(null, ["fr", "zh-CN"]), "en");
   assert.equal(preferredLanguage(null, ["en-US", "zh"]), "en");
   assert.equal(preferredLanguage(null, ["fr"]), "en");
 });

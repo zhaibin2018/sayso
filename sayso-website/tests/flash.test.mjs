@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import { installerPhase, preparationIsSlow } from "../public/flash/flash-progress.js";
+import { preparationIsSlow } from "../public/flash/flash-progress.js";
 import {
   verifyBundle,
   canInstall,
@@ -11,14 +11,11 @@ import {
 
 const folder = new URL("../public/flash/firmware/", import.meta.url);
 test("preparation warning waits one minute and clears during writing or completion", () => {
-  assert.equal(installerPhase({_installConfirmed:true}), "preparing");
-  for (const state of ["initializing", "preparing"])
-    assert.equal(installerPhase({_installConfirmed:true,_installState:{state}}), "preparing");
   assert.equal(preparationIsSlow("preparing", 1000, 60999), false);
   assert.equal(preparationIsSlow("preparing", 1000, 61000), true);
   assert.equal(preparationIsSlow("preparing", null, 61000), false);
   for (const state of ["writing", "erasing", "finished", "error"])
-    assert.equal(preparationIsSlow(installerPhase({_installConfirmed:true,_installState:{state}}), 1000, 99999), false);
+    assert.equal(preparationIsSlow(state, 1000, 99999), false);
 });
 async function bundle() {
   const release = JSON.parse(
@@ -81,31 +78,50 @@ test("wrong chip, offset, filename, size or identity payload fails closed", asyn
 });
 test("D144 only the production release and complete feature set can install", async () => {
   const { release } = await bundle();
-  const ready = { secure: true, serial: true, verified: true, installerLoaded: true };
+  const ready = {
+    secure: true,
+    serial: true,
+    verified: true,
+    installerLoaded: true,
+  };
   assert.equal(PREVIEW_ONLY, false);
   assert.equal(release.version, "0.6.1");
   assert.equal(release.channel, "release");
   assert.deepEqual(release.missingFeatures, []);
   assert.equal(canInstall(release, ready), true);
-  for (const field of Object.keys(ready)) assert.equal(canInstall(release, {...ready, [field]: false}), false);
-  for (const change of [{channel:"internal"}, {releaseReady:false}, {features:release.features.filter(f=>f!=="cancel_current_operation")}])
-    assert.equal(canInstall({...release, ...change}, ready), false);
+  for (const field of Object.keys(ready))
+    assert.equal(canInstall(release, { ...ready, [field]: false }), false);
+  for (const change of [
+    { channel: "internal" },
+    { releaseReady: false },
+    {
+      features: release.features.filter(
+        (f) => f !== "cancel_current_operation",
+      ),
+    },
+  ])
+    assert.equal(canInstall({ ...release, ...change }, ready), false);
 });
-test("installer has a fixed CDN version; no direct serial access in page code", async () => {
+test("installer has a fixed CDN version and only requests a port from a click handler", async () => {
   assert.equal(
     INSTALLER_URL,
-    "https://cdn.jsdelivr.net/npm/esp-web-tools@10.1.0/dist/web/install-button.js",
+    "https://cdn.jsdelivr.net/npm/esptool-js@0.7.1/+esm",
   );
   const script = await readFile(
     new URL("../public/flash/flash.js", import.meta.url),
     "utf8",
   );
-  assert.doesNotMatch(script, /requestPort\s*\(|getPorts\s*\(/);
+  assert.doesNotMatch(script, /getPorts\s*\(/);
+  assert.equal((script.match(/requestPort\s*\(/g) || []).length, 1);
+  assert.doesNotMatch(script, /esp-web-install-button|ewt-install-dialog/);
   const html = await readFile(
     new URL("../public/flash/index.html", import.meta.url),
     "utf8",
   );
   assert.match(html, /id="locked-install"[^>]*disabled/);
-  assert.match(html, /https:\/\/docs.m5stack.com\/(?:en|zh_CN)\/core\/AtomS3-Lite/);
+  assert.match(
+    html,
+    /https:\/\/docs.m5stack.com\/(?:en|zh_CN)\/core\/AtomS3-Lite/,
+  );
   assert.match(html, /https:\/\/docs.espressif.com/);
 });

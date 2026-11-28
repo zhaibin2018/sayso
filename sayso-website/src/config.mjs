@@ -1,7 +1,7 @@
 export const sceneIds = ["bus", "food", "subscription", "setting"];
 export function installerPath(value) {
-  return value === "./accessory-install/" || value === "./accessory-install/index.html"
-    ? value
+  return ["./flash/", "./accessory-install/", "./accessory-install/index.html"].includes(value)
+    ? "./flash/"
     : null;
 }
 export function linkTarget(value, kind = "route") {
@@ -46,6 +46,7 @@ export function assetUrl(value) {
 export function normalizeConfig(raw = {}) {
   const c = raw && typeof raw === "object" ? raw : {};
   const appStoreUrl = httpsUrl(c.appStoreUrl, "apps.apple.com");
+  const testFlightUrl = httpsUrl(c.testFlightUrl, "testflight.apple.com");
   const videos = Object.fromEntries(
     sceneIds.map((id) => {
       const v = c.videos?.[id];
@@ -97,6 +98,10 @@ export function normalizeConfig(raw = {}) {
     appStoreUrl:
       appStoreUrl && /\/id\d+\/?$/.test(new URL(appStoreUrl).pathname)
         ? appStoreUrl
+        : null,
+    testFlightUrl:
+      testFlightUrl && new URL(testFlightUrl).origin === "https://testflight.apple.com" && !new URL(testFlightUrl).search && !new URL(testFlightUrl).hash && !/\/(?:placeholder|example|invitecode|yourcode)\/?$/i.test(testFlightUrl) && /^\/join\/[a-z\d]+\/?$/i.test(new URL(testFlightUrl).pathname)
+        ? testFlightUrl
         : null,
     appStoreBadge: assetUrl(c.appStoreBadge),
     installerUrl: httpsUrl(c.installerUrl),

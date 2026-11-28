@@ -1,5 +1,6 @@
 import {
   readdir,
+  mkdir,
   readFile,
   writeFile,
   lstat,
@@ -11,6 +12,11 @@ import {
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { normalizeConfig } from "../src/config.mjs";
+
+export function siteBase(value = process.env.SAYSO_SITE_BASE || "/sayso/") {
+  if (!/^\/(?:[a-zA-Z0-9_-]+\/)*$/.test(value)) throw new Error("Invalid SaySo site base.");
+  return value;
+}
 
 export function assertStagingTarget(root, target) {
   const expected = path.resolve(root, "dist", "pages");
@@ -86,9 +92,14 @@ export async function auditStaticTree(root, { installer = false } = {}) {
         ].map((m) => m[1] || m[2]);
         for (const ref of refs) {
           if (/^(?:https?:|data:|mailto:|#)/.test(ref)) continue;
-          if (ref.startsWith("/"))
-            throw new Error(`Root-relative asset breaks project Pages: ${ref}`);
-          const target = path.resolve(path.dirname(full), ref.split(/[?#]/)[0]);
+          let localRef = ref.split(/[?#]/)[0];
+          if (ref.startsWith("/")) {
+            const base = siteBase();
+            if (relative !== "404.html" || !ref.startsWith(base))
+              throw new Error(`Root-relative asset breaks project Pages: ${ref}`);
+            localRef = localRef.slice(base.length);
+          }
+          const target = path.resolve(path.dirname(full), localRef);
           if (target !== path.resolve(root) && !target.startsWith(path.resolve(root) + path.sep))
             throw new Error(`Asset escapes package: ${ref}`);
           await access(target);
@@ -143,25 +154,18 @@ export async function assemblePages(projectRoot) {
   // Absolute path and real parent are verified above before recursive removal.
   await rm(stage, { recursive: true, force: true });
   await cp(home, stage, { recursive: true, force: false, errorOnExist: true });
-  await cp(installer, path.join(stage, "accessory-install"), {
-    recursive: true,
-    force: false,
-    errorOnExist: true,
-  });
+  await mkdir(path.join(stage, "accessory-install"));
+  await writeFile(path.join(stage, "accessory-install/index.html"), `<!doctype html><html lang="en"><meta charset="utf-8"><title>Set up the accessory</title><script>location.replace("../flash/")</script><noscript><meta http-equiv="refresh" content="0;url=../flash/"></noscript><a href="../flash/">Set up the accessory · 准备配件</a></html>`);
   const raw = JSON.parse(
     await readFile(path.join(home, "site-config.json"), "utf8"),
   );
   await writeFile(
     path.join(stage, "site-config.json"),
-    JSON.stringify({ ...raw, installerPath: raw.installerPath || "./accessory-install/" }, null, 2) + "\n",
-  );
-  await writeFile(
-    path.join(stage, "accessory-install/site-links.json"),
-    JSON.stringify(sharedLinks(raw), null, 2) + "\n",
+    JSON.stringify({ ...raw, installerPath: "./flash/" }, null, 2) + "\n",
   );
   await writeFile(path.join(stage, ".nojekyll"), "");
   const files = await auditStaticTree(stage);
-  await auditStaticTree(path.join(stage, "accessory-install"), { installer: true });
+
   const records = [];
   for (const file of files) {
     const bytes = await readFile(file);
@@ -177,7 +181,7 @@ export async function assemblePages(projectRoot) {
       {
         schema: 1,
         builtAt: new Date().toISOString(),
-        apps: ["./", "./accessory-install/"],
+        apps: ["./", "./flash/"],
         files: records,
       },
       null,

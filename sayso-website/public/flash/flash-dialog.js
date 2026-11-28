@@ -1,72 +1,75 @@
+import { installHelp } from "./flash-copy.js";
+
 export const dialogCopy = {
   zh: {
     confirm: "确认安装",
-    confirmBody: "确定要给配件安装 SaySo 0.6.1 吗？会清空配件上原来的数据。",
+    confirmBody: "安装 SaySo 会清空此配件的所有数据。确认后开始安装。" + installHelp.zh.waitForInstallation,
     install: "确认安装",
     back: "返回",
     close: "关闭",
     finished: "安装好了！",
-    finishedBody: "拔下来插到 iPhone 上，打开 SaySo。",
+    finishedBody: "把配件接到 iPhone，再打开 SaySo 开始配对。",
     preparing: "正在准备…",
     erasing: "正在清空旧数据…",
     writing: "正在安装…",
     verifying: "正在核对安装结果…",
     restarting: "正在完成安装…",
-    keep: "预计 1–2 分钟。保持数据线连接，不要关闭网页。",
-    slow: "准备已超过 1 分钟。请换一根能传数据的线，或换一个 USB 口，再按第 2 步重新进入刷写模式。请勿在清空、安装或核对时拔线。",
+    keep: "预计 1–2 分钟。保持数据线连接和网页打开，让安装能够完成。",
+    slow: "准备已超过 1 分钟。" + installHelp.zh.downloadMode,
     error: "这次没装好",
     noPort:
-      "刚才没选配件？请再点“开始刷写”，选 USB JTAG/serial debug unit（不要选 PCI Serial Port），再点“连接”。",
-    connectionFailed:
-      "没能连上配件。关闭其他占用配件的串口工具，换能传数据的线或 USB 口，再按第 2 步重新进入刷写模式。",
+      "刚才没选配件？请再点“开始安装”，选 USB JTAG/serial debug unit，再点“连接”。",
+    connectionFailed: "没能连上配件。" + installHelp.zh.serialPort,
     wrongDevice:
-      "选中的设备不是支持的 AtomS3 Lite。请重新点“开始刷写”，选择 USB JTAG/serial debug unit，不要选 PCI Serial Port。",
-    safetyFailed:
-      "配件的安全状态或身份核对没通过，已停止安装。请确认是 AtomS3 Lite，按第 2 步重试；仍失败请查看帮助。",
-    checkFailed:
-      "固件文件核对失败，已停止安装。检查网络后刷新页面；不要使用来源不明的固件。",
+      "选中的设备不是支持的 AtomS3 Lite。请重新点“开始安装”，选择 USB JTAG/serial debug unit。",
+    safetyFailed: [
+      "无法确认这是 AtomS3 Lite（C124），安装已停止。请核对包装上的型号：如果不是，请看“",
+      "去哪里买配件",
+      "”；如果是 C124，请重做第 2 步。",
+    ],
+    checkFailed: installHelp.zh.fileCheck,
     toolFailed:
-      "刷写工具没加载成功，已停止安装。请检查网络后刷新页面，再点“开始刷写”。",
+      "安装工具未能加载，已停止安装。请检查网络并刷新页面，重新加载工具，再点“开始安装”。",
     writeFailed:
-      "安装中断了。请换能传数据的线或 USB 口，重新进入刷写模式，再从“开始刷写”重试。刷好前先不要接 iPhone。",
+      "安装中断了。请换能传数据的线或 USB 口，重新进入下载模式，再从“开始安装”重试。安装完成后即可和 iPhone 配对。",
     verifyFailed:
-      "安装结果没能核对通过。请换能传数据的线或 USB 口，重新进入刷写模式并安装；刷好前先不要接 iPhone。",
+      "安装结果没能核对通过。请换能传数据的线或 USB 口，重新进入下载模式并安装；安装完成后即可和 iPhone 配对。",
     progressLabel: "安装进度",
   },
   en: {
     confirm: "Confirm installation",
-    confirmBody:
-      "Install SaySo 0.6.1 on this accessory? This will erase all data currently on it.",
+    confirmBody: "Installing SaySo erases all data on this accessory. Confirm to begin. " + installHelp.en.waitForInstallation,
     install: "Install SaySo",
     back: "Back",
     close: "Close",
     finished: "All installed!",
     finishedBody:
-      "Unplug the accessory, connect it to your iPhone, and open SaySo.",
+      "Connect the accessory to your iPhone and open SaySo to pair it.",
     preparing: "Getting ready…",
     erasing: "Clearing old data…",
     writing: "Installing…",
     verifying: "Checking the installation…",
     restarting: "Finishing up…",
-    keep: "Allow 1–2 minutes. Keep the cable connected and this page open.",
-    slow: "Getting ready has taken over a minute. Try another data cable or USB port, then repeat step 2 to enter flashing mode. Keep the cable connected during clearing, installing and checking.",
+    keep: "This usually takes 1–2 minutes. Keep the cable connected and this page open so installation can finish.",
+    slow: "Getting ready has taken over a minute. " + installHelp.en.downloadMode,
     error: "Installation didn’t finish",
     noPort:
-      "Didn’t select the accessory? Click “Start flashing” again, choose USB JTAG/serial debug unit (not PCI Serial Port), then click Connect.",
-    connectionFailed:
-      "We couldn’t connect to the accessory. Close other serial tools, try another data cable or USB port, then repeat step 2 to enter flashing mode.",
+      "Didn’t select the accessory? Click “Start installation” again, choose USB JTAG/serial debug unit, then click Connect.",
+    connectionFailed: "We couldn’t connect to the accessory. " + installHelp.en.serialPort,
     wrongDevice:
-      "The selected device isn’t a supported AtomS3 Lite. Click “Start flashing” again and choose USB JTAG/serial debug unit, not PCI Serial Port.",
-    safetyFailed:
-      "The accessory’s security or identity check didn’t pass, so installation stopped. Check that it’s an AtomS3 Lite and repeat step 2. If it fails again, see the help below.",
-    checkFailed:
-      "The firmware file check failed, so installation stopped. Check your connection and reload. Only use firmware from a trusted source.",
+      "The selected device isn’t a supported AtomS3 Lite. Click “Start installation” again and choose USB JTAG/serial debug unit.",
+    safetyFailed: [
+      "We couldn’t confirm this is an AtomS3 Lite (C124), so installation stopped. Check the model on the box. If it’s a different model, see ",
+      "Where to buy",
+      ". If it is a C124, repeat step 2.",
+    ],
+    checkFailed: installHelp.en.fileCheck,
     toolFailed:
-      "The flashing tool couldn’t load, so installation stopped. Check your connection, reload, then click “Start flashing” again.",
+      "The installation tool couldn’t load, so installation stopped. Check your connection and reload to load the tool, then click “Start installation” again.",
     writeFailed:
-      "Installation was interrupted. Try another data cable or USB port, enter flashing mode again, then click “Start flashing”. Finish installing before connecting to your iPhone.",
+      "Installation was interrupted. Try another data cable or USB port, enter download mode again, then click “Start installation”. A complete installation is required for iPhone pairing.",
     verifyFailed:
-      "The installation check didn’t pass. Try another data cable or USB port, enter flashing mode again and reinstall before connecting to your iPhone.",
+      "The installation check didn’t pass. Try another data cable or USB port, enter download mode again and reinstall. A complete installation is required for iPhone pairing.",
     progressLabel: "Installation progress",
   },
 };
@@ -91,14 +94,23 @@ export function createFlashDialog({ language, onLanguage, onInstall }) {
     dialog.dataset.phase = state.phase;
     dialog.lang = lang === "zh" ? "zh-CN" : "en";
     el("h2").textContent = t[state.phase] || t.preparing;
-    el("#flash-dialog-body").textContent =
-      state.phase === "confirm"
-        ? t.confirmBody
-        : state.phase === "finished"
-          ? t.finishedBody
-          : state.phase === "error"
-            ? t[state.error] || t.writeFailed
-            : t.keep;
+    const body = el("#flash-dialog-body");
+    if (state.phase === "error" && state.error === "safetyFailed") {
+      const [before, label, after] = t.safetyFailed;
+      const link = document.createElement("a");
+      link.href = "../#/buy";
+      link.textContent = label;
+      body.replaceChildren(before, link, after);
+    } else {
+      body.textContent =
+        state.phase === "confirm"
+          ? t.confirmBody
+          : state.phase === "finished"
+            ? t.finishedBody
+            : state.phase === "error"
+              ? t[state.error] || t.writeFailed
+              : t.keep;
+    }
     const progress = el("progress");
     progress.hidden = !active;
     progress.setAttribute("aria-label", t.progressLabel);

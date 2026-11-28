@@ -9,8 +9,7 @@ const packages = [
   "dijkstrajs",
   "pngjs",
 ];
-let text =
-  "SaySo website — third-party notices\n\nThese licenses cover their named dependencies only. They do not license the SaySo app, firmware, plugin or brand.\n";
+let text = "";
 for (const name of packages) {
   const root = new URL(`../node_modules/${name}/`, import.meta.url);
   const meta = JSON.parse(
@@ -28,6 +27,7 @@ text += await readFile(
 );
 await writeFile(
   new URL("../public/THIRD_PARTY_NOTICES.txt", import.meta.url),
-  text,
+  "SaySo website third-party notices. These licenses apply to the listed dependencies.\n"+text,
 );
+await writeFile(new URL("../public/THIRD_PARTY_NOTICES.zh.txt",import.meta.url), "SaySo 网站第三方许可。这些许可仅适用于各自列出的依赖。\n"+text);
 console.log("Bundled third-party notices generated.");

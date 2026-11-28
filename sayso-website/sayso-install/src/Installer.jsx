@@ -502,20 +502,20 @@ export function App() {
       "此固件发行清单已过期。重新签名的版本发布前暂停安装，尚未写入设备。",
     ),
     lightning: t(
-      "Lightning iPhones aren't supported in this release — neither screen guidance nor tapping.",
-      "本版本暂不支持 Lightning 接口的 iPhone，读屏和帮你点都不支持。",
+      "Lightning iPhones can share their screen with ChatGPT. Tapping for you requires an iPhone with USB-C (iPhone 15 or later).",
+      "Lightning 接口的 iPhone 可以让 ChatGPT 看屏幕。帮你点需要 USB-C 接口的 iPhone（iPhone 15 及以后机型）。",
     ),
     unknown: t(
       "Check your model in Settings → General → About. Unlisted models need verification before installation.",
       "请在“设置 → 通用 → 关于本机”查看机型。未列出的机型需先验证，才能安装。",
     ),
     unavailable: t(
-      "The first DIY firmware release is being validated. Installation will open when firmware and compatibility checks are complete.",
-      "首个 DIY 固件正在验证中。固件与兼容性检查完成后，将开放安装。",
+      "This is the legacy installer. Use the current flashing guide to install the USB firmware.",
+      "这是旧版安装器。请用当前的刷写指南安装 USB 固件。",
     ),
     unverified: t(
-      "This model has not been verified with this release. Explore screen guidance while device support is being checked.",
-      "此机型尚未通过本版本验证。设备支持确认前，可以先了解读屏。",
+      "This model has not been verified with this release. Learn how to let ChatGPT see your screen while device support is being checked.",
+      "此机型尚未通过本版本验证。设备支持确认前，可以先了解怎么让 ChatGPT 看屏幕。",
     ),
     "update-ios": t(
       "Check your iOS version in Settings → General → About. Available updates are in Software Update.",
@@ -540,7 +540,7 @@ export function App() {
       <strong>
         {release
           ? `SaySo ${release.version}`
-          : t("Not yet available", "尚未开放")}
+          : t("Legacy installer", "旧版安装器")}
       </strong>
       {release && (
         <>
@@ -745,7 +745,7 @@ export function App() {
                 )}
               </p>
               <button className="text-link" onClick={() => setModal("screen")}>
-                {t("Learn about screen guidance", "了解读屏")}
+                {t("Let ChatGPT see your screen", "让 ChatGPT 看屏幕")}
               </button>
             </div>
           </section>
@@ -781,15 +781,15 @@ export function App() {
                   <div className="secondary-copy" hidden={match.kind === "lightning"}>
                     <p>
                       {t(
-                        "No device yet? Explore screen guidance.",
-                        "还没有设备？先了解读屏。",
+                        "No device yet? Learn how to let ChatGPT see your screen.",
+                        "还没有设备？先了解怎么让 ChatGPT 看屏幕。",
                       )}
                     </p>
                     <button
                       className="text-link"
                       onClick={() => setModal("screen")}
                     >
-                      {t("Learn about screen guidance", "了解读屏")}
+                      {t("Let ChatGPT see your screen", "让 ChatGPT 看屏幕")}
                     </button>
                   </div>
                 </div>
@@ -915,7 +915,7 @@ export function App() {
                             className="text-link"
                             onClick={() => setModal("screen")}
                           >
-                            {t("Explore screen guidance", "了解读屏")}
+                            {t("Let ChatGPT see your screen", "让 ChatGPT 看屏幕")}
                           </button>
                         )}
                         {decision === "unavailable" && (
@@ -1471,10 +1471,7 @@ export function App() {
                   "Signed DIY release · Installation requires your confirmation",
                   "已签名 DIY 版本 · 安装须经你确认",
                 )
-              : t(
-                  "DIY firmware release not yet available",
-                  "DIY 固件版本尚未开放",
-                )}
+              : <a href="../flash/">{t("Open the current flashing guide", "打开当前的刷写指南")}</a>}
         </p>
       </footer>
       {siteLinks.homePath && (

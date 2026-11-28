@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { preparationIsSlow } from "../public/flash/flash-progress.js";
+import { flashCopy, diagramAlts, installHelp } from "../public/flash/flash-copy.js";
+import { dialogCopy } from "../public/flash/flash-dialog.js";
 import {
   verifyBundle,
   canInstall,
@@ -124,4 +126,35 @@ test("installer has a fixed CDN version and only requests a port from a click ha
     /https:\/\/docs.m5stack.com\/(?:en|zh_CN)\/core\/AtomS3-Lite/,
   );
   assert.match(html, /https:\/\/docs.espressif.com/);
+});
+
+test("flash fallbacks match the bilingual step copy, actions and diagram labels", async () => {
+  const read = (file) => readFile(new URL(`../public/flash/${file}`, import.meta.url), "utf8");
+  for (const [index, lang] of ["en", "zh"].entries()) {
+    const t = flashCopy[lang];
+    const html = await read(lang === "en" ? "index.html" : "zh.html");
+    const fields = [...html.matchAll(/data-copy="([^"]+)"[^>]*>([^<]*)</g)];
+    assert.ok(fields.length > 30);
+    for (const [, key, value] of fields) assert.equal(value.replaceAll("&amp;", "&"), t[key], key);
+    assert.ok(t.handoffBody.includes(t.copyLink));
+    assert.ok(t.cable.endsWith(installHelp[lang].waitForInstallation));
+    assert.ok(dialogCopy[lang].confirmBody.endsWith(installHelp[lang].waitForInstallation));
+    assert.ok(dialogCopy[lang].slow.endsWith(t.slow));
+    assert.ok(dialogCopy[lang].connectionFailed.endsWith(t.helpBody));
+    assert.equal(dialogCopy[lang].checkFailed, t.failed);
+    const [safetyIntro, buyLabel, safetyRetry] = dialogCopy[lang].safetyFailed;
+    assert.match(safetyIntro, /AtomS3 Lite[ (（]+C124/);
+    assert.equal(buyLabel, lang === "en" ? "Where to buy" : "去哪里买配件");
+    assert.match(safetyRetry, lang === "en" ? /If it is a C124, repeat step 2/ : /如果是 C124，请重做第 2 步/);
+    assert.ok(t.pairRecovery.includes(lang === "en" ? "Paired with another iPhone" : "配件已和另一台 iPhone 配对"));
+    assert.ok(t.pairAfterReset.includes(lang === "en" ? "“Pair again”" : "“重新配对”"));
+    assert.ok(t.acceptance.includes(lang === "en" ? "Accessory software version" : "配件程序版本"));
+    assert.match(html, /href="\.\.\/#\/start\?section=assistive-touch" data-copy="assistiveNext"/);
+    assert.doesNotMatch(html + await read(`images/prepare-${lang}.svg`), /leave unplugged|先别插线|电脑或 iPhone|unplugged from both/i);
+    assert.ok(html.includes(`alt="${diagramAlts.prepare[index]}"`));
+    assert.ok(html.indexOf(t.modeConnect) < html.indexOf(t.modeHold) && html.indexOf(t.modeHold) < html.indexOf(t.modeReady));
+    assert.equal(html.split("PCI Serial Port").length, 2);
+    assert.doesNotMatch(html, /Accessor(y|ies) diagram, not a photo|Diagram based on|非照片|官方结构绘制/i);
+    assert.match(html, /<dd id="version">0\.6\.1<\/dd>[\s\S]*?<code id="sha256">[a-f\d]{64}/);
+  }
 });

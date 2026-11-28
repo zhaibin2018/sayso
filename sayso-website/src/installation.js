@@ -1,51 +1,198 @@
 export const installationUrl = "https://zhaibin2018.github.io/sayso/install";
-export const installation = {
+export const installationMessage = {
+  en: `Please install SaySo for me: ${installationUrl}`,
+  zh: `请帮我安装 SaySo：${installationUrl}`,
+};
+
+export const switchingGuide =
+  "https://help.openai.com/en/articles/20001275-chatgpt-work-and-codex";
+export const sharingInstructions = {
+  en: {
+    title: "Start sharing and ask",
+    short:
+      "Tap “Start sharing” in SaySo and confirm with “Start Broadcast” in iOS, then tap “Open ChatGPT”, send the prefilled message in Chat, start Voice, and switch to the app you want help with and ask your question.",
+    example: "For example, ask: “What does this switch do?”",
+    accessoryPrompt: "Using the accessory? If SaySo shows “Allow tapping”, tap it before you ask ChatGPT to tap.",
+    steps: [
+      "In the SaySo app, tap “Start sharing”. If SaySo asks for consent, review where your screen goes, then tap “Agree and start sharing” if you agree.",
+      "In the iOS window, check that it shows SaySo, tap “Start Broadcast”, and wait for the countdown. If the window doesn’t open, tap “Open broadcast window” in SaySo first.",
+      "When sharing starts, tap “Open ChatGPT” in SaySo. In ChatGPT, tap the model name and choose Chat if needed. Send the prefilled message.",
+      "In that conversation, start Voice.",
+      "Switch to the app you want help with and ask your question.",
+    ],
+    end: "When you’re done, tap “End sharing” on the SaySo home screen.",
+  },
   zh: {
-    title: "开始使用", phone: "手机上装（推荐）", desktop: "服务在电脑上装", optional: "想让它帮你点（可选）",
-    status: "App Store 即将上线。服务安装包和配件固件已发布；完整手机流程尚待真机验收。",
-    copy: "复制安装指令", copied: "已复制", failed: "复制失败，请选中上面的文字复制。",
-    prompt: `请帮我安装 SaySo：${installationUrl}`,
-    help: "遇到问题？", expected: "正常应该看到：",
-    phoneSteps: [
-      ["在 iPhone 上安装 SaySo", "App Store 即将上线。上架后下载并打开 SaySo。", "SaySo 的首次打开页。", 0],
-      ["连接 ChatGPT", "在 SaySo 点“连接 ChatGPT”。ChatGPT 打开时已填好安装和连接请求；如果在“聊天”，先切到“工作”再发送。第一次安装约需 3 分钟；已装过会直接给连接链接。", "安装完成后回到 SaySo，再点一次“连接 ChatGPT”，在新的“工作”对话发送（约 2 分钟后可用）。", 5],
-      ["完成连接", "已装过服务时，在新的“工作”对话取得连接链接并打开。在页面上点“生成连接”，再亲手点“回到 SaySo 完成连接”。只切回 App 不会完成连接。", "SaySo 显示“已连接”。请求从手机创建起 15 分钟后过期；过期就回 SaySo 重新点“连接 ChatGPT”。", 5],
-      ["核对插件权限", "在 ChatGPT 的 SaySo 插件权限里选择“全部允许”。请你自己设置。", "插件权限显示“全部允许”。", 5],
-      ["开始屏幕共享", "在 SaySo 点“开始屏幕共享”，读提示后点“同意并开始共享”，再在系统提示中点“开始直播”。点“打开 ChatGPT”，发送预填文字；想用语音就开启语音，再去要用的 App 跟 ChatGPT 说。", "SaySo 显示“共享中”，屏幕顶部出现红色录屏标志。", 6],
+    title: "开始共享并提问",
+    short:
+      "在 SaySo 点“开始共享”，在 iOS 窗口点“开始直播”确认，再点“打开 ChatGPT”，在“聊天”里发送预填消息，开启语音，然后切到你想请 ChatGPT 帮忙的 App 并提问。",
+    example: "比如问：“这个开关是干什么的？”",
+    accessoryPrompt: "用配件时：如果 SaySo 显示“允许帮你点”，先点它，再让 ChatGPT 帮你点。",
+    steps: [
+      "在 SaySo App 点“开始共享”。如果 SaySo 询问是否同意，请先阅读画面会发到哪里。同意后点“同意并开始共享”。",
+      "在 iOS 窗口确认显示的是 SaySo，点“开始直播”并等倒数完成。如果窗口没打开，先在 SaySo 点“打开系统广播窗口”。",
+      "共享开始后，在 SaySo 点“打开 ChatGPT”。如有需要，在 ChatGPT 点模型名称并选择“聊天”。发送预填消息。",
+      "在这段对话里开启语音。",
+      "切到你想请 ChatGPT 帮忙的 App，然后提问。",
     ],
-    desktopSteps: [
-      ["打开同一个账号", "在电脑的网页或桌面 App 打开 ChatGPT，登录和手机上同一个账号，切到“工作”。", "目标账号的“工作”模式。", 5],
-      ["发送安装指令", "点下面的“复制安装指令”，粘贴到 ChatGPT 后发送，等它说装好了。", "服务安装完成的回复；如果问你已有安装或名字，请按实际情况回答。", 5],
-      ["回手机完成连接", "在手机上完成上面的第 1–5 步；已有服务会复用。连接最后要点链接回到 SaySo，所以必须在手机上完成。", "SaySo 先显示“已连接”，开始共享后显示“共享中”。新版连接流程仍待完整真机验收。", 5],
-    ],
+    end: "用完后，在 SaySo 首页点“结束共享”。",
+  },
+};
+
+export const serviceDefinition = {
+  en: "The SaySo service is a private service set up in your own ChatGPT account. ChatGPT uses it to see your shared screen and, with an accessory, tap for you.",
+  zh: "SaySo 服务是建在你自己 ChatGPT 账号下的私人服务。ChatGPT 通过它看你共享的屏幕，接上配件后还能帮你点。",
+};
+
+export const installation = {
+  en: {
+    title: "Get started",
+    before: "Before you start",
+    phone: "Set up on your iPhone",
+    optional: "Want ChatGPT to tap for you? (optional)",
+    help: "Need help?",
+    workChat:
+      "Use Work’s tools to install and connect your private SaySo service. For everyday help, switch to Chat and start Voice in the conversation where you send the prefilled sharing message in step 3. To switch, tap the model name in ChatGPT and choose Work or Chat.",
+    switchLabel: "How to switch",
+    install: {
+      title: "Install the SaySo app on your iPhone",
+      expected: "The SaySo app appears on your iPhone Home Screen.",
+    },
+    connection: {
+      title: "Connect ChatGPT",
+      action: "Tap “Connect ChatGPT” in the SaySo app.",
+      steps: [
+        [
+          "In ChatGPT, tap the model name, choose Work, and send the prefilled connection message. You’ll see a connection link.",
+          "If ChatGPT installs the SaySo service first instead, wait for it to finish, return to the SaySo app, tap “Connect ChatGPT” again, and send the new message in a new Work conversation.",
+        ],
+        [
+          "Open the link ChatGPT gives you. Tap “Generate connection”, then “Return to SaySo to connect”.",
+          "The SaySo app shows “Service connected”.",
+        ],
+      ],
+    },
+    sharingResult: "ChatGPT answers about the screen you’re on.",
+    permissions: {
+      title: "In ChatGPT: app permissions (optional)",
+      body: "In ChatGPT, open Settings, go to Apps (or Plugins if that’s what your menu shows), select SaySo, and open Permissions. If available, choose “Allow all actions”. Some accounts show “Allow all tools” or “Allow all”. This lets ChatGPT use SaySo for tapping with fewer approval prompts. For payments, orders, sending and deleting, ChatGPT is told to leave the final tap to you. You can tap “Stop tapping” in the SaySo app at any time while tapping is allowed.",
+    },
+    assistiveTouch: {
+      title: ["The accessory needs AssistiveTouch", " to tap the screen"],
+      summary:
+        "In Settings, search for “AssistiveTouch”. Turn on AssistiveTouch. To drag, also turn on “Perform Touch Gestures” on the same screen.",
+      open: "In SaySo, tap “Open Settings”.",
+      steps: [
+        "If Settings is on the SaySo page, go back to the main Settings screen first.",
+        "Tap “Accessibility”.",
+        "Tap “Touch” to find the touch and pointer controls.",
+        "Tap “AssistiveTouch” to open its settings.",
+        "Turn on “AssistiveTouch” so the accessory can tap the screen.",
+        "For dragging, scroll down on the same screen and turn on “Perform Touch Gestures”. This lets the accessory drag items like a finger.",
+        "Optional: Tap “Pointer Style”, then “Color”, and choose a color you can easily see. You can keep the default size. Labels may vary by iOS version.",
+      ],
+      confirm: "Back in SaySo, tap “I’ve turned on AssistiveTouch”.",
+      details: "AssistiveTouch instructions",
+    },
+    tapping: {
+      title: "In SaySo: how to allow tapping",
+      subtitle: "You can change this in Settings.",
+      automatic: "Allow automatically",
+      automaticBody:
+        "Turns on tapping automatically each time you start sharing when your accessory is ready.",
+      ask: "Ask me each time",
+      askBody:
+        "After you start sharing, tap “Allow tapping” in SaySo when you want help.",
+      safety:
+        "For payments, orders, sending and deleting, ChatGPT is told to leave the final tap to you. Tap “Stop tapping” in SaySo whenever tapping is on.",
+    },
     controlSteps: [
-      ["用电脑准备配件", "准备 M5Stack AtomS3 Lite（C124）及能传数据的 USB-C 线。用电脑的 Chrome 或 Edge 打开配件刷写页，装好 SaySo 程序。", "配件刷写页提供 USB 固件 0.6.1；刷写、灯效和真机兼容性仍待验收。", 1],
-      ["插上并按一下按钮", "把配件用 USB-C 数据线插到兼容 iPhone 上。出现“发现 SaySo 配件”后，按一下配件上的按钮完成配对。", "配件已连接。（新版按键配对已合并，待真机验收。）", 5],
-      ["打开辅助触控", "打开 iPhone 设置 → 辅助功能 → 触控 → 辅助触控。回到 SaySo，想让它帮你点时点“允许帮你点”。帮你点需要已验证的机型和系统，手机要竖着拿。", "辅助触控已开启；SaySo 显示帮你点的实际状态。只读屏不用配件。", 1],
+      [
+        "Set up the accessory on a computer",
+        "Get an M5Stack AtomS3 Lite (C124) and a USB-C data cable. Open the accessory setup page in Chrome or Edge on your computer and install SaySo on the accessory so it can pair with your iPhone.",
+        "The browser shows “All installed!”.",
+        1,
+      ],
+      [
+        "Connect and pair",
+        "Connect the accessory to a compatible iPhone with the USB-C data cable. When “SaySo accessory found” appears, tap “Start pairing”. When the light flashes, press the front button once. This confirms you’re pairing the accessory in your hand.",
+        "The accessory shows as connected.",
+        5,
+      ],
     ],
   },
-  en: {
-    title: "Get started", phone: "Install on your iPhone (recommended)", desktop: "Install the service on a computer", optional: "Want it to tap for you? (optional)",
-    status: "App Store release coming soon. The service package and accessory firmware are published; the complete iPhone flow still awaits device acceptance.",
-    copy: "Copy installation instruction", copied: "Copied", failed: "Couldn’t copy. Select and copy the text above.",
-    prompt: `Please install SaySo for me: ${installationUrl}`,
-    help: "Need help?", expected: "You should see:",
-    phoneSteps: [
-      ["Install SaySo on your iPhone", "Coming soon on the App Store. Once released, download and open SaySo.", "SaySo’s first-open screen.", 0],
-      ["Connect ChatGPT", "In SaySo, tap “Connect ChatGPT”. ChatGPT opens with the installation and connection request filled in. Switch from Chat to Work before sending. First installation takes about 3 minutes; an existing installation goes straight to a connection link.", "After installation, return to SaySo, tap “Connect ChatGPT” again and send in a new Work conversation (available in about 2 minutes).", 5],
-      ["Finish connecting", "With the service installed, get and open the connection link in the new Work conversation. Tap “Generate connection”, then personally tap “Return to SaySo to connect”. Simply switching apps does not finish connecting.", "SaySo shows “Connected”. Requests expire 15 minutes after creation on the phone. If expired, tap “Connect ChatGPT” in SaySo again.", 5],
-      ["Check plugin permissions", "In ChatGPT’s SaySo plugin permissions, select “Allow all actions” yourself.", "The plugin permissions show “Allow all actions”.", 5],
-      ["Start screen sharing", "In SaySo, tap “Start screen sharing”, read the notice and tap “Agree and start sharing”, then tap “Start Broadcast” in the system prompt. Tap “Open ChatGPT” and send the prefilled message. Start voice if you want, then go to the app you want to use and ask ChatGPT.", "SaySo shows “Sharing” and the red screen-recording indicator appears at the top.", 6],
-    ],
-    desktopSteps: [
-      ["Open the same account", "Open ChatGPT on the web or desktop app. Sign in to the same account you use on your iPhone and switch to Work.", "Work mode in the intended account.", 5],
-      ["Send the installation instruction", "Select “Copy installation instruction” below, paste it into ChatGPT and send it. Wait for the installation confirmation.", "A reply confirming service installation. Answer any questions about an existing installation or an unavailable name.", 5],
-      ["Finish connecting on your iPhone", "On your iPhone, complete steps 1–5 above; an existing service is reused. Connecting must happen on the phone because the final link returns to SaySo.", "“Connected”, then “Sharing” once you start sharing. The new connection flow still awaits full device acceptance.", 5],
-    ],
+  zh: {
+    title: "开始使用",
+    before: "开始前",
+    phone: "在 iPhone 上设置",
+    optional: "想让 ChatGPT 帮你点（可选）",
+    help: "遇到问题？",
+    workChat:
+      "用“工作”里的工具安装并连接你的私人 SaySo 服务。平时需要帮忙时，切到“聊天”，在第 3 步发送共享消息的对话里开启语音。切换时，在 ChatGPT 点模型名称，选“工作”或“聊天”。",
+    switchLabel: "怎么切换",
+    install: {
+      title: "在 iPhone 上安装 SaySo App",
+      expected: "iPhone 主屏幕会出现 SaySo App。",
+    },
+    connection: {
+      title: "连接 ChatGPT",
+      action: "在 SaySo App 点“连接 ChatGPT”。",
+      steps: [
+        [
+          "在 ChatGPT 点模型名称，选“工作”，发送用于连接的预填消息，你会看到连接链接。",
+          "如果 ChatGPT 先帮你安装了 SaySo 服务，请等它装好，回到 SaySo App 再点一次“连接 ChatGPT”，在新的“工作”对话里发送新的消息。",
+        ],
+        [
+          "打开 ChatGPT 给你的链接，点“生成连接”，再点“回到 SaySo 完成连接”。",
+          "SaySo App 会显示“服务已连接”。",
+        ],
+      ],
+    },
+    sharingResult: "ChatGPT 会回答关于你当前屏幕的问题。",
+    permissions: {
+      title: "在 ChatGPT 里：应用权限（可选）",
+      body: "在 ChatGPT 打开“设置”，进入“应用”（如果菜单显示“插件”，就进入“插件”），选择 SaySo，再打开“权限”。如果有“全部允许所有操作”这类选项，选它。不同账号的叫法可能是“允许所有工具”或“全部允许”。这样 ChatGPT 用 SaySo 帮你点时可以减少反复确认。遇到付款、下单、发送和删除，ChatGPT 会按要求把最后一下留给你。允许帮你点期间，随时可以在 SaySo App 点“停止帮你点”。",
+    },
+    assistiveTouch: {
+      title: ["配件需要辅助触控", "才能点按屏幕"],
+      summary:
+        "在“设置”里搜索“辅助触控”。打开“辅助触控”。如果要拖动，也要在同一页打开“执行触控手势”。",
+      open: "在 SaySo 点“打开设置”。",
+      steps: [
+        "如果设置停在 SaySo 页面，先返回设置首页。",
+        "点“辅助功能”。",
+        "点“触控”，查找触控和指针设置。",
+        "点“辅助触控”，打开该功能的设置。",
+        "打开“辅助触控”，配件就可以点按屏幕。",
+        "要使用拖动，在同一页往下找并打开“执行触控手势”。这样配件就能像手指一样拖动。",
+        "可选：点“指针样式”，再点“颜色”，选一个容易看清的颜色。大小可以保持默认。选项名称可能随 iOS 版本变化。",
+      ],
+      confirm: "回到 SaySo 后，点“我已打开辅助触控”。",
+      details: "辅助触控设置步骤",
+    },
+    tapping: {
+      title: "在 SaySo 里：怎么允许帮你点",
+      subtitle: "你可以在设置里更改。",
+      automatic: "自动允许",
+      automaticBody: "配件就绪时，每次开始共享都会自动开启帮你点。",
+      ask: "每次先问我",
+      askBody: "每次开始共享后，需要帮你点时，在 SaySo 点“允许帮你点”。",
+      safety:
+        "遇到付款、下单、发送和删除，ChatGPT 会按要求把最后一下留给你。开启帮你点后，随时可以在 SaySo 点“停止帮你点”。",
+    },
     controlSteps: [
-      ["Prepare the accessory on a computer", "Get an M5Stack AtomS3 Lite (C124) and a USB-C data cable. Open the accessory installer in Chrome or Edge on your computer and install the SaySo program.", "The flashing page offers USB firmware 0.6.1. Flashing, lights and device compatibility still await acceptance.", 1],
-      ["Plug it in and press its button", "Connect the accessory to a compatible iPhone with the USB-C data cable. When “SaySo accessory found” appears, press the accessory’s button to pair it.", "The accessory shows as connected. (Button pairing is merged and awaits physical-device acceptance.)", 5],
-      ["Turn on AssistiveTouch", "Open iPhone Settings → Accessibility → Touch → AssistiveTouch. Return to SaySo and tap “Allow tapping” when you want it to tap. Tapping requires a verified phone/iOS combination and portrait mode.", "AssistiveTouch is on; SaySo shows the actual tapping status. Screen reading needs no accessory.", 1],
+      [
+        "用电脑准备配件",
+        "准备 M5Stack AtomS3 Lite（C124）及能传数据的 USB-C 线。用电脑的 Chrome 或 Edge 打开配件设置页，给配件装上 SaySo，装好后才能和 iPhone 配对。",
+        "浏览器显示“安装好了！”。",
+        1,
+      ],
+      [
+        "连接并配对",
+        "把配件用 USB-C 数据线接到兼容的 iPhone。看到“发现 SaySo 配件”后，点“开始配对”，等灯闪烁再按一下配件正面按钮，确认你要配对的是手上的配件。",
+        "配件已连接。",
+        5,
+      ],
     ],
   },
 };

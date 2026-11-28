@@ -1,6 +1,4 @@
-SaySo website — third-party notices
-
-These licenses cover their named dependencies only. They do not license the SaySo app, firmware, plugin or brand.
+SaySo website third-party notices. These licenses apply to the listed dependencies.
 
 
 ===== react 19.2.0 (MIT) =====

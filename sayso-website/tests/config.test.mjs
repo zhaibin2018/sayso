@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { assertBetaAnchors } from "../scripts/verify-beta-anchors.mjs";
 import {
   normalizeConfig,
   releaseGaps,
@@ -107,4 +108,24 @@ test("step screenshots require provenance and correct language/step", () => {
     }).screenshots.length,
     1,
   );
+});
+
+test("beta invitations require the Apple join origin and an invitation code", () => {
+  const base="https://testflight.apple.com";
+  for (const value of [null,"",base+"/",base+"/join/",base+":8443/join/abc",base+"/join/placeholder",base+"/join/code?else",base+".example/join/123","https://user@testflight.apple.com/join/abc"])
+    assert.equal(normalizeConfig({testFlightUrl:value}).testFlightUrl,null);
+  assert.equal(normalizeConfig({testFlightUrl:base+"/join/Ab12cD34"}).testFlightUrl,base+"/join/Ab12cD34");
+});
+
+test("beta gate checks invitation placement and consistency on Home and Get started", () => {
+  const invite = "https://testflight.apple.com/join/Ab12cD34";
+  const link = (slot, href = invite) => `<a href="${href}" data-beta-link="${slot}">Invitation</a>`;
+  for (const [route, slot] of [["home", "hero"], ["start", "start"]]) {
+    assert.doesNotThrow(() => assertBetaAnchors(route, "<span>Beta sign-up opens soon</span>", null));
+    assert.doesNotThrow(() => assertBetaAnchors(route, "<p>Pending</p>", invite + "?invalid=1"));
+    assert.doesNotThrow(() => assertBetaAnchors(route, link("banner") + link(slot), invite));
+    assert.throws(() => assertBetaAnchors(route, link("banner") + link("banner"), invite), /inconsistent/);
+    assert.throws(() => assertBetaAnchors(route, link("banner") + link(slot, invite + "Bad"), invite), /inconsistent/);
+    assert.throws(() => assertBetaAnchors(route, link("banner"), null), /inconsistent/);
+  }
 });

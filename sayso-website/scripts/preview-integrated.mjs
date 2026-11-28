@@ -2,10 +2,11 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, stat, realpath } from "node:fs/promises";
+import { siteBase } from "./assemble-pages.mjs";
 const root = await realpath(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist/pages"),
 );
-const prefix = "/sayso/";
+const prefix = siteBase();
 const port = Number(process.env.PORT || 4320);
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -72,7 +73,9 @@ http
       });
       res.end(req.method === "HEAD" ? undefined : bytes);
     } catch (error) {
-      res.writeHead(error.code === "ENOENT" ? 404 : 400).end("Not found");
+      if (error.code === "ENOENT" || error.code === "ENOTDIR") {
+        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" }).end(req.method === "HEAD" ? undefined : await readFile(path.join(root, "404.html")));
+      } else { res.writeHead(400).end("Bad request"); }
     }
   })
   .listen(port, "127.0.0.1", () =>

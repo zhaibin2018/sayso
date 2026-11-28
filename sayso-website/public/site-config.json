@@ -1,6 +1,7 @@
 {
   "releaseReady": false,
   "appStoreUrl": null,
+  "testFlightUrl": null,
   "appStoreBadge": null,
   "installerUrl": null,
   "installerPath": "./flash/",
@@ -9,12 +10,46 @@
   "publisherName": "BIN ZHAI",
   "privacyApproved": true,
   "quotaVerified": false,
-  "compatibility": [],
+  "compatibility": [
+    {
+      "mode": "screen",
+      "model": "iPhone 11",
+      "ios": "26.7.2",
+      "appVersion": "143",
+      "testedAt": "2026-11-10",
+      "verified": true
+    },
+    {
+      "mode": "screen",
+      "model": "iPhone 16 Pro",
+      "ios": "26.6.2",
+      "appVersion": "0.3 (3408)",
+      "testedAt": "2026-11-22",
+      "verified": true
+    },
+    {
+      "mode": "control",
+      "model": "iPhone 16 Pro",
+      "ios": "26.6.2",
+      "appVersion": "0.3 (242)",
+      "accessory": "M5Stack AtomS3 Lite (C124)",
+      "firmware": "test-dual",
+      "testedAt": "2026-11-21",
+      "verified": true
+    }
+  ],
   "screenshots": [],
   "videos": {
     "bus": null,
     "food": null,
     "subscription": null,
     "setting": null
+  },
+  "servicePackage": {
+    "commit": "b4788ee96a99d021de398042eada9fa321396a9c",
+    "label": "v0.13.293-20261128-plugin1.2.62",
+    "manifestSha256": "54051a13c9452745ee44c17602bd6a5557286a9a33a7f0f277cb86e36f030796",
+    "zipSha256": "0b9748da2c8621f80b94b089ec73c2e5451ba86ae651b9744752e421690ef6ae",
+    "archivePath": "release/service/v0.13.293-20261128-plugin1.2.62.zip"
   }
 }

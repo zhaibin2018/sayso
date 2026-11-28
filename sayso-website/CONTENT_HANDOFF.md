@@ -6,7 +6,9 @@ Update `public/site-config.json`; keep unavailable values `null`. Use UTF-8. Ass
 
 `appStoreUrl`: verified `https://apps.apple.com/.../id...` product page. A real QR is generated from this same URL only. `appStoreBadge`: official Apple badge asset path (not an Image Gen imitation). No store URL means no enabled download.
 
-`installerPath`: the integrated build supplies `./install/` (also accepts `./install/index.html`). This is a real same-origin pathname, never a hash route or root-relative path. Leave it null in standalone website development unless the installer output is also hosted there. `installerUrl` is an optional verified HTTPS fallback for standalone deployments. `repositoryUrl`, `supportEmail`, `publisherName` remain actual approved public details.
+`installerPath` points to `./flash/` in the integrated build. `/accessory-install/` redirects there. The App uses `/install/` to find the pinned service package. Leave `installerPath` null in standalone website development unless the tool is hosted there. `installerUrl` is an optional verified HTTPS fallback for standalone deployments. `repositoryUrl`, `supportEmail` and `publisherName` use the approved public details.
+
+Before a beta publication, configure and verify the public `testFlightUrl` and compatible `servicePackage`. Run `node scripts/check-release.mjs --integrated --channel=beta` against the final build. The banner, homepage and first Get started step use the same invitation. The default Pages prefix is `/sayso/`. To build and preview the HTTP 404 under a root-hosted site, set `SAYSO_SITE_BASE=/` for both commands.
 
 Use an approved domain support mailbox for `supportEmail`, not a personal mailbox. Keep it null until that public address is actually available.
 

@@ -4,10 +4,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   ArrowCounterClockwise,
-  Moon,
-  Sun,
-  List,
-  X,
   Play,
   Pause,
   SpeakerSlash,
@@ -15,48 +11,31 @@ import {
   ClosedCaptioning,
   DeviceMobile,
   UserCircle,
-  Waveform,
   WifiHigh,
   Cpu,
   Laptop,
   HandTap,
   Info,
   DownloadSimple,
-  QrCode,
-  ImageSquare,
 } from "@phosphor-icons/react";
 import { copy } from "./copy";
-import { installation } from "./installation.js";
+import { SiteHeader, NotFound } from "./SiteChrome.jsx";
+import { getLanguage, rememberLanguage } from "../public/language.js";
+import { getTheme, toggleTheme, watchTheme } from "../public/site-preferences.js";
+import { installation, serviceDefinition, sharingInstructions, switchingGuide } from "./installation.js";
 import {
   normalizeConfig,
-  releaseGaps,
   sceneIds,
   linkTarget,
 } from "./config.mjs";
 import "@fontsource-variable/inter";
 
-const readPreference = (key) => {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
-const savePreference = (key, value) => {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* Private browsing can be nonpersistent. */
-  }
-};
-const preferredLanguage = () => {
-  const saved = readPreference("sayso-language");
-  if (["en", "zh"].includes(saved)) return saved;
-  const locale = navigator.languages?.[0] || navigator.language;
-  return /^zh(?:-|$)/i.test(locale || "") ? "zh" : "en";
+const entryLanguage = () => {
+  const fragment = location.hash.slice(1);
+  return fragment === "zh" || fragment === "en" ? fragment : null;
 };
 const currentRoute = () =>
-  location.hash.replace(/^#\/?/, "").split("?")[0] || "home";
+  entryLanguage() ? "home" : location.hash.replace(/^#\/?/, "").split("?")[0] || "home";
 const asset = (path) =>
   path?.startsWith("https://") ? path : `${import.meta.env.BASE_URL}${path}`;
 const external = { target: "_blank", rel: "noopener noreferrer" };
@@ -85,33 +64,22 @@ function Link({
   );
 }
 export function App() {
-  const [lang, setLang] = useState(preferredLanguage);
-  const [theme, setTheme] = useState(() =>
-    ["light","dark"].includes(readPreference("sayso-theme")) ? readPreference("sayso-theme") : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"),
-  );
+  const [lang, setLang] = useState(() => entryLanguage() ?? getLanguage());
+  const [theme, setTheme] = useState(getTheme);
   const [route, setRoute] = useState(currentRoute);
   const [menu, setMenu] = useState(false);
   const [config, setConfig] = useState(() => normalizeConfig());
-  const [preview, setPreview] = useState(true);
   const [configError, setConfigError] = useState(false);
   const main = useRef(null);
   const t = copy[lang];
   useEffect(() => {
     const sync = (event) => {
-      if (
-        event.key === "sayso-language" &&
-        ["en", "zh"].includes(event.newValue)
-      )
-        setLang(event.newValue);
-      if (
-        event.key === "sayso-theme" &&
-        ["dark", "light"].includes(event.newValue)
-      )
-        setTheme(event.newValue);
+      if (event.key === "sayso-language" || event.key === null) setLang(getLanguage());
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
   }, []);
+  useEffect(() => watchTheme(setTheme), []);
   useEffect(() => {
     const abort = new AbortController();
     fetch(`${import.meta.env.BASE_URL}site-config.json`, {
@@ -123,7 +91,6 @@ export function App() {
       })
       .then((raw) => {
         setConfig(normalizeConfig(raw));
-        setPreview(releaseGaps(raw).length > 0);
       })
       .catch((e) => {
         if (e.name !== "AbortError") setConfigError(true);
@@ -133,6 +100,8 @@ export function App() {
   useEffect(() => {
     const change = () => {
       setRoute(currentRoute());
+      const locale = entryLanguage();
+      if (locale) setLang(locale);
       setMenu(false);
       window.scrollTo(0, 0);
       main.current?.focus({ preventScroll: true });
@@ -145,26 +114,11 @@ export function App() {
   }, [lang]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    savePreference("sayso-theme", theme);
   }, [theme]);
   useEffect(() => {
     document.title = `${route === "home" ? (lang === "en" ? "Make your iPhone easier to use" : "让 iPhone 更容易使用") : t[route] || t.notFound} · SaySo`;
   }, [route, t, lang]);
-  const nav = (
-    <>
-      {["start", "guides", "firmware"].map((key) => (
-        <a
-          key={key}
-          href={`#/${key}`}
-          aria-current={route === key ? "page" : undefined}
-          onClick={() => setMenu(false)}
-        >
-          {t[key]}
-        </a>
-      ))}
-    </>
-  );
-  const props = { t, lang, config, preview };
+  const props = { t, lang, config };
   let page;
   switch (route) {
     case "home":
@@ -195,13 +149,9 @@ export function App() {
       page = <Licenses {...props} />;
       break;
     default:
-      page = (
-        <div className="document">
-          <h1>{t.notFound}</h1>
-          <Link to="home">{t.backHome}</Link>
-        </div>
-      );
+      page = <NotFound lang={lang} />;
   }
+  const notFound = page.type === NotFound;
   return (
     <>
       <a
@@ -214,79 +164,35 @@ export function App() {
       >
         {t.skip}
       </a>
-      <header className="site-header shell">
-        <a className="brand" href="#/home" aria-label={lang === "zh" ? "SaySo 首页" : "SaySo home"}>
-          <img src={asset("assets/sayso-88.png")} alt="" width="44" height="44" />
-          <span>SaySo</span>
-        </a>
-        <span className="header-divider" aria-hidden />
-        <nav
-          className="desktop-nav"
-          aria-label={lang === "en" ? "Main navigation" : "主导航"}
-        >
-          {nav}
-        </nav>
-        <div className="header-tools">
-          <button
-            className="language-button"
-            onClick={() => {
-              const next = lang === "en" ? "zh" : "en";
-              savePreference("sayso-language", next);
-              setLang(next);
-            }}
-            aria-label={t.language}
-          >
-            <span className={lang === "en" ? "current-language" : ""}>EN</span>
-            <span aria-hidden>/</span>
-            <span className={lang === "zh" ? "current-language" : ""}>
-              中文
-            </span>
-          </button>
-          <button
-            className="icon-button theme-button"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            aria-label={t.theme}
-            title={t.theme}
-          >
-            {theme === "dark" ? <Moon /> : <Sun />}
-          </button>
-          <button
-            className="icon-button menu-button"
-            aria-label={menu ? t.closeMenu : t.menu}
-            aria-expanded={menu}
-            aria-controls="mobile-navigation"
-            onClick={() => setMenu(!menu)}
-          >
-            {menu ? <X /> : <List />}
-          </button>
-        </div>
-      </header>
-      {menu && (
-        <nav
-          id="mobile-navigation"
-          className="mobile-nav shell"
-          aria-label={lang === "en" ? "Mobile navigation" : "手机导航"}
-        >
-          {nav}
-
-        </nav>
-      )}
+      <SiteHeader lang={lang} route={route} theme={theme} menu={menu} setMenu={setMenu}
+        setLanguage={(locale) => {
+          rememberLanguage(locale);
+          if (entryLanguage()) history.replaceState(history.state, "", `#${locale}`);
+          setLang(locale);
+        }}
+        onTheme={() => setTheme(toggleTheme(theme))} />
       <main
         id="main-content"
         ref={main}
         tabIndex={-1}
-        className={`shell route-${route}`}
+        className={`shell route-${notFound ? "not-found" : route}`}
       >
-        {configError && (
+        {!notFound && configError && (
           <p className="notice" role="status">
             <Info />
             {t.configError}
           </p>
         )}
-        {preview && <p className="notice preview-banner">{t.preview}</p>}
+        {!notFound && <div className="preview-banner">
+          {config.testFlightUrl ? (
+            <Link to={config.testFlightUrl} data-beta-link="banner">{t.betaJoin}</Link>
+          ) : (
+            <span>{t.betaPending}</span>
+          )}
+        </div>}
         {page}
       </main>
-      <footer className="site-footer shell">
+      {!notFound && <footer className="site-footer shell">
         <div className="footer-row">
           <nav aria-label={lang === "en" ? "Footer navigation" : "页脚导航"}>
             {["requirements", "buy", "privacy", "support", "licenses"].map((key) => (
@@ -304,7 +210,7 @@ export function App() {
           <p>{t.disclaimer}</p>
         </div>
 
-      </footer>
+      </footer>}
     </>
   );
 }
@@ -313,16 +219,15 @@ function Download({ t, config }) {
   useEffect(() => {
     let live = true;
     setQr(null);
-    if (config.appStoreUrl)
-      QRCode.toDataURL(config.appStoreUrl, {
-        width: 140,
-        margin: 2,
-        errorCorrectionLevel: "M",
+    QRCode.toDataURL(config.appStoreUrl, {
+      width: 140,
+      margin: 2,
+      errorCorrectionLevel: "M",
+    })
+      .then((url) => {
+        if (live) setQr(url);
       })
-        .then((url) => {
-          if (live) setQr(url);
-        })
-        .catch(() => {});
+      .catch(() => {});
     return () => {
       live = false;
     };
@@ -330,58 +235,39 @@ function Download({ t, config }) {
   return (
     <div className="download-block">
       <div className="download-row">
-        {config.appStoreUrl ? (
-          <a
-            className={`download-button ${config.appStoreBadge ? "official-badge" : ""}`}
-            href={config.appStoreUrl}
-            {...external}
-          >
-            {config.appStoreBadge ? (
-              <img src={asset(config.appStoreBadge)} alt={t.download} />
-            ) : (
-              <>
-                <DownloadSimple />
-                {t.download}
-              </>
-            )}
-          </a>
-        ) : (
-          <button className="download-button unavailable" disabled>
-            <DownloadSimple aria-hidden />
-            <span>
-              {t.download}
-              <small>{t.downloadPending}</small>
-            </span>
-          </button>
-        )}
-        <div className="qr-slot">
-          {qr ? (
-            <img src={qr} alt={t.qrLabel} width="96" height="96" />
+        <a
+          className={`download-button ${config.appStoreBadge ? "official-badge" : ""}`}
+          href={config.appStoreUrl}
+          {...external}
+        >
+          {config.appStoreBadge ? (
+            <img src={asset(config.appStoreBadge)} alt={t.download} />
           ) : (
             <>
-              <QrCode aria-hidden />
-              <small>{t.qrPending}</small>
+              <DownloadSimple />
+              {t.download}
             </>
           )}
-        </div>
+        </a>
+        {qr && (
+          <div className="qr-slot">
+            <img src={qr} alt={t.qrLabel} width="96" height="96" />
+          </div>
+        )}
       </div>
-      {!config.appStoreUrl && <p className="small-note">{t.downloadNote}</p>}
     </div>
   );
 }
-export function Home({ t, lang, config, preview }) {
+export function Home({ t, lang, config }) {
   const [scene, setScene] = useState("food");
   return (
     <>
       <section className="hero" aria-labelledby="home-title">
-        <h1 id="home-title">
-          <span>{t.headline[0]}</span>
-          <span>{t.headline[1]}</span>
-        </h1>
+        <h1 id="home-title">{t.headline}</h1>
         <p className="hero-subtitle">{t.subtitle}</p>
-        <p className="small-note hero-safety-note">{t.finalTapNote}</p>
-        <Download t={t} config={config} />
-        <Link to="start">{t.already}</Link>
+        <p className="hero-safety-note">{t.finalTapNote}</p>
+        {config.appStoreUrl && <Download t={t} config={config} />}
+        <Link className="button-primary" to={config.testFlightUrl || "start"} data-beta-link={config.testFlightUrl ? "hero" : undefined}>{config.testFlightUrl ? t.betaJoin : lang === "zh" ? "查看开始步骤" : "See how to get started"}</Link>
         <div className="hero-requirements">
           <p>{t.hardware}</p>
           <Link to="requirements">{t.checkAll}</Link>
@@ -397,9 +283,8 @@ export function Home({ t, lang, config, preview }) {
         />
         <div className="demo-copy">
           <h2 id="demo-title">
-            {t.everyday[0]}
-            <br />
-            {t.everyday[1]}
+            <span>{t.everyday[0]}</span>{" "}
+            <span>{t.everyday[1]}</span>
           </h2>
           <p>{t.chooseScene}</p>
           <div className="scene-list" role="group" aria-label={t.chooseScene}>
@@ -419,8 +304,14 @@ export function Home({ t, lang, config, preview }) {
           {config.videos[scene] && <p className="playback-note">{t.playback}</p>}
         </div>
       </section>
+      <section className="document-sections home-sharing">
+        <h2>{sharingInstructions[lang].title}</h2>
+        <p>{sharingInstructions[lang].short}</p>
+        <p>{sharingInstructions[lang].example}</p>
+        <Link to="start">{t.start}</Link>
+      </section>
       <ScreenSharingComparison t={t} />
-      <Allowance t={t} config={config} preview={preview} />
+      <Allowance t={t} paragraphs={t.feeParagraphs} />
       <section className="privacy-strip">
         <Info aria-hidden />
         <div>
@@ -428,15 +319,6 @@ export function Home({ t, lang, config, preview }) {
           <Link to="privacy">{t.privacyLink}</Link>
         </div>
       </section>
-      <p className="price-footnote">
-        {t.priceNote}{" "}
-        <a
-          href="https://shop.m5stack.com/products/atoms3-lite-esp32s3-dev-kit"
-          {...external}
-        >
-          {t.currentPrice}
-        </a>
-      </p>
     </>
   );
 }
@@ -450,11 +332,11 @@ function ScreenSharingComparison({ t }) {
     </section>
   );
 }
-function Allowance({ t }) {
+function Allowance({ t, paragraphs = [t.free] }) {
   return (
     <section className="pricing-band" aria-label={t.feesTitle}>
       <h2>{t.feesTitle}</h2>
-      <p>{t.free}</p>
+      {paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
     </section>
   );
 }
@@ -601,93 +483,147 @@ function PortraitVideo({ scene, video, t, lang }) {
               <ClosedCaptioning />
             </button>
           </div>
-        ) : (
-          <div className="empty-media-note">
-            <ClosedCaptioning aria-hidden />
-            <span>{t.exampleLabel}</span>
-          </div>
-        )}
+        ) : null}
       </div>
-      {scene === "food" && <p className="small-note">{t.appNameNote}</p>}
     </div>
   );
 }
-const requirementIcons = [
-  DeviceMobile,
-  UserCircle,
-  Waveform,
-  WifiHigh,
-  DeviceMobile,
-  Cpu,
-  Laptop,
-];
-export function Start({ t, lang, config, preview }) {
+const requirementIcons = {
+  screen: [DeviceMobile, UserCircle, WifiHigh],
+  tapping: [DeviceMobile, Cpu, Laptop],
+};
+export function Start({ t, lang, config, documentPrefix }) {
+  const labels = installation[lang];
+  const sharing = sharingInstructions[lang];
+  const { connection, permissions, assistiveTouch, tapping } = labels;
+  const supportDirectory = lang === "zh" ? "support/" : "support/en/";
+  const resource = path => documentPrefix ? documentPrefix + path : asset(path);
+  const support = faq => <a href={resource(`${supportDirectory}#faq-${faq}`)}>{labels.help}</a>;
+  useEffect(() => {
+    const focusAssistiveTouch = () => {
+      if (location.hash !== "#/start?section=assistive-touch") return;
+      const target = document.getElementById("assistive-touch");
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView();
+    };
+    focusAssistiveTouch();
+    window.addEventListener("hashchange", focusAssistiveTouch);
+    return () => window.removeEventListener("hashchange", focusAssistiveTouch);
+  }, []);
   return (
     <div className="start-flow">
       <section className="start-intro" aria-labelledby="start-title">
-        <p className="start-prerequisite">{t.startPrerequisite}</p>
-        <h1 id="start-title">{installation[lang].title}</h1>
-        <p className="notice">{installation[lang].status}</p>
-        <h2>{installation[lang].phone}</h2>
-        <InstallationSteps steps={installation[lang].phoneSteps} lang={lang} />
-        {!config.appStoreUrl ? <button className="button-primary" disabled>{t.storeSoon}</button> : <a className="button-primary" href={config.appStoreUrl} {...external}>{t.download}</a>}
-      </section>
-      <section className="optional-control" aria-labelledby="desktop-install-title">
-        <h2 id="desktop-install-title">{installation[lang].desktop}</h2>
-        <InstallationSteps steps={installation[lang].desktopSteps} lang={lang} />
-        <InstallInstruction lang={lang} />
+        <h1 id="start-title">{labels.title}</h1>
+        <div className="start-before">
+          <h2>{labels.before}</h2>
+          <p>{t.startPrerequisite}</p>
+          <p>{t.beforeSub}</p>
+        </div>
+        <h2>{labels.phone}</h2>
+        <ol className="installation-steps">
+          <li>
+            <h3>{labels.install.title}</h3>
+            {config.testFlightUrl
+              ? <><a href={config.testFlightUrl} data-beta-link="start">{t.betaJoin}</a>
+                <p className="small-note">{labels.install.expected}</p></>
+              : <p>{t.supportBetaPending}</p>}
+          </li>
+          <li>
+            <h3>{connection.title}</h3>
+            <p>{connection.action}</p>
+            <ol className="setup-actions">{connection.steps.map(([action, detail]) => <li key={action}>
+              <p>{action}</p>
+              <p className="setup-step-detail">{detail}</p>
+            </li>)}</ol>
+            <div className="work-chat">
+              <p>{serviceDefinition[lang]}</p>
+              <p>{labels.workChat} <Link to={switchingGuide} arrow={false}>{labels.switchLabel}</Link></p>
+            </div>
+            {support(5)}
+          </li>
+          <li>
+            <h3>{sharing.title}</h3>
+            <ol className="setup-actions">{sharing.steps.map(step => <li key={step}>{step}</li>)}</ol>
+            <p>{sharingInstructions[lang].accessoryPrompt}</p>
+            <p className="small-note">{labels.sharingResult}</p>
+            {support(6)}
+          </li>
+        </ol>
+        {config.appStoreUrl && <a className="button-primary" href={config.appStoreUrl} {...external}>{t.download}</a>}
       </section>
       <section className="optional-control" aria-labelledby="control-title">
         <h2 id="control-title">{installation[lang].optional}</h2>
-        <InstallationSteps steps={installation[lang].controlSteps} lang={lang} />
-        <div className="link-row"><Link to="buy">{t.buy}</Link><Link to="firmware">{t.firmware}</Link></div>
+        <p>{t.usbRequirement}</p>
+        <ol className="installation-steps">
+          {labels.controlSteps.map(([title, body, expected, faq], i) => <li key={title}>
+            <h3>{title}</h3>
+            <p>{body}{i === 0 && <> <a href="#/buy">{t.buy}</a></>}</p>
+            {i === 0 && <a href={resource(lang === "zh" && documentPrefix ? "flash/zh.html" : "flash/")}>{t.firmware}</a>}
+            <p className="small-note">{expected}</p>
+            {support(faq)}
+          </li>)}
+          <li id="assistive-touch" tabIndex={-1}>
+            <h3>{assistiveTouch.title[0]}<wbr />{assistiveTouch.title[1]}</h3>
+            <p>{assistiveTouch.summary}</p>
+            <details className="setup-detail">
+              <summary>{assistiveTouch.details}</summary>
+              <p>{assistiveTouch.open}</p>
+              <ol className="setup-actions">{assistiveTouch.steps.map(step => <li key={step}>{step}</li>)}</ol>
+              <p>{assistiveTouch.confirm}</p>
+            </details>
+            {support(7)}
+          </li>
+        </ol>
+        <details className="setup-detail tapping-permissions">
+          <summary>{permissions.title}</summary>
+          <p>{permissions.body}</p>
+        </details>
+        <section className="tapping-options" aria-labelledby="tapping-options-title">
+          <h3 id="tapping-options-title">{tapping.title}</h3>
+          <p>{tapping.subtitle}</p>
+          <dl>
+            <dt>{tapping.automatic}</dt><dd>{tapping.automaticBody}</dd>
+            <dt>{tapping.ask}</dt><dd>{tapping.askBody}</dd>
+          </dl>
+          <p>{tapping.safety}</p>
+          <p className="small-note">{t.finalTapNote}</p>
+        </section>
+        {!documentPrefix && <div className="link-row"><Link to="buy">{t.buy}</Link><Link to="firmware">{t.firmware}</Link></div>}
         <p className="small-note">{t.controlCompatibility}</p>
       </section>
-      <Allowance t={t} config={config} preview={preview} />
+      <Allowance t={t} />
       <section className="start-details" aria-labelledby="details-title">
         <h2 id="details-title">{t.detailsTitle}</h2>
         <details>
           <summary>{t.need}</summary>
           <div className="details-content">
             <h3 className="group-label">{t.screenGroup}</h3>
-            {t.needs.slice(0, 4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i]} />)}
+            <RequirementList rows={t.requirementGroups.screen} group="screen" />
             <h3 className="group-label">{t.controlGroup}</h3>
-            {t.needs.slice(4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i + 4]} />)}
-            <p>{t.noAccessory}</p>
+            <RequirementList rows={t.requirementGroups.tapping} group="tapping" />
           </div>
         </details>
         <details>
           <summary>{t.compatTitle}</summary>
-          <div className="details-content"><Compatibility t={t} config={config} /></div>
+          <div className="details-content"><Compatibility t={t} config={config} heading={false} supportUrl={documentPrefix && resource(supportDirectory)} /></div>
         </details>
         <details>
           <summary>{t.support}</summary>
           <div className="details-content start-help">
-            <p>{t.beforeSub}</p><p>{t.needs[1][1]}</p>
-            <h3>{t.approve}</h3><p>{t.approveSub}</p>
-            <p>{t.connectedNote}</p><p>{t.keyboardNote}</p>
-            <Link to="support">{t.resume}</Link>
+            <h3>{t.approve}</h3><p><DocumentText text={t.approveSub} /></p>
+            <p>{t.connectedNote}</p>
+            {t.appNameNote && <p>{t.appNameNote}</p>}
+            <p>{t.keyboardNote}</p>
+            {documentPrefix ? <a href={resource(supportDirectory)}>{t.resume}</a> : <Link to="support">{t.resume}</Link>}
           </div>
         </details>
       </section>
+      <ScreenSharingComparison t={t} />
     </div>
   );
 }
-function InstallationSteps({ steps, lang }) {
-  const labels = installation[lang];
-  return <ol className="installation-steps">{steps.map(([title, body, expected, faq]) => <li key={title}>
-    <h3>{title}</h3><p>{body}</p><p className="small-note"><strong>{labels.expected}</strong> {expected}</p>
-    <a href={`${import.meta.env.BASE_URL}support/${lang === "en" ? "en/" : ""}#faq-${faq}`}>{labels.help}</a>
-  </li>)}</ol>;
-}
-function InstallInstruction({ lang }) {
-  const [status, setStatus] = useState("");
-  const labels = installation[lang];
-  return <div className="install-instruction"><p className="install-prompt">{labels.prompt}</p>
-    <button className="button-primary" onClick={async () => {
-      try { await navigator.clipboard.writeText(labels.prompt); setStatus(labels.copied); }
-      catch { setStatus(labels.failed); }
-    }}>{labels.copy}</button><p role="status" aria-live="polite">{status}</p></div>;
+function RequirementList({ rows, group }) {
+  return rows.map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[group][i]} />);
 }
 function Requirement({ row, Icon, children }) {
   return (
@@ -714,16 +650,18 @@ export function Requirements({ t, config }) {
   return (
     <div className="document">
       <PageHeading title={t.requirements} subtitle={t.hardware} />
-      <section className="document-sections">
+      <section className="document-sections requirements-detail">
         <h2>{t.screenGroup}</h2>
-        {t.needs.slice(0, 4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i]} />)}
+        <RequirementList rows={t.requirementGroups.screen} group="screen" />
         <h2>{t.controlGroup}</h2>
-        {t.needs.slice(4).map((row, i) => <Requirement key={row[0]} row={row} Icon={requirementIcons[i + 4]} />)}
-        <p>{t.controlCompatibility}</p>
-        <p>{t.keyboardNote}</p>
+        <RequirementList rows={t.requirementGroups.tapping} group="tapping" />
+        <p className="requirements-keyboard">{t.requirementsKeyboard}</p>
       </section>
-      <Compatibility t={t} config={config} mode="control" />
-      <Link className="button-primary" to="start">{t.start}</Link>
+      <Compatibility t={t} config={config} />
+      <div className="link-row">
+        <Link className="button-primary" to="buy">{t.buy}</Link>
+        <Link to="start">{t.start}</Link>
+      </div>
     </div>
   );
 }
@@ -735,11 +673,13 @@ function DocumentText({ text }) {
 }
 function DocumentBody({ body }) {
   if (body?.blocks) return body.blocks.map((block, i) => {
-    if (block.type === "p") return <p key={i}><DocumentText text={block.text} /></p>;
+    if (block.type === "p") return <p key={i}>{block.link
+      ? <>{block.link.before}<Link to={block.link.route} arrow={false}>{block.link.label}</Link>{block.link.after}</>
+      : <DocumentText text={block.text} />}</p>;
     const Tag = block.type === "ol" ? "ol" : "ul";
-    return <Tag key={i}>{block.items.map((item) => <li key={item}><DocumentText text={item} /></li>)}</Tag>;
+    return <Tag key={i}>{block.items.map(item => <li key={item}><DocumentText text={item} /></li>)}</Tag>;
   });
-  if (!Array.isArray(body)) return <p>{body}</p>;
+  if (!Array.isArray(body)) return <p><DocumentText text={body} /></p>;
   const [lead, ...details] = body;
   return (
     <>
@@ -772,7 +712,7 @@ function Repository({ config, t }) {
     </p>
   );
 }
-function Guides({ t, config, lang }) {
+export function Guides({ t, config, lang }) {
   return (
     <div className="document">
       <PageHeading
@@ -781,26 +721,32 @@ function Guides({ t, config, lang }) {
         subtitle={t.guidesSub}
       />
       <DocumentSections sections={t.guideSections} />
-      <section className="document-sections"><h2>{t.trySaying}</h2>{t.guideExamples.map(([title,...examples])=><section key={title}><h3>{title}</h3><ul>{examples.map(example=><li key={example}>“{example}”</li>)}</ul></section>)}</section>
+      <section className="document-sections guide-examples">
+        <h2>{t.trySaying}</h2>
+        {sceneIds.map((scene, index) => {
+          const [title, ...examples] = t.guideExamples[scene];
+          return (
+            <section key={scene}>
+              <h3>{title} <small>{t.scenes[index][1]}</small></h3>
+              <ul>
+                {examples.map((example) => <li key={example}>“{example}”</li>)}
+              </ul>
+            </section>
+          );
+        })}
+      </section>
       <ScreenSharingComparison t={t} />
-      <p>{t.needHelp} <Link to="support">{t.support}</Link></p>
-      <details className="developer-details"><summary>{t.developerTitle}</summary>
-        <p>{t.developerSetup}</p>
-        <p>{t.developerVersion}</p><Repository t={t} config={config} />
-        <Link to="https://github.com/zhaibin2018/sayso/blob/main/INSTALL.md">{t.installGuide}</Link>
-        <Link to="https://github.com/zhaibin2018/sayso/blob/main/README.md">{lang === "zh" ? "复制一句话安装指令" : "Copyable one-sentence setup instruction"}</Link>
-        <p><Link to="https://help.openai.com/en/articles/20001339-creating-and-using-chatgpt-sites">{t.sitesDocs}</Link></p>
-      </details>
+      <p>{t.needHelp} <Link to="support">{t.viewSupport}</Link></p>
       <Link className="button-primary" to="start">
         {t.start}
       </Link>
     </div>
   );
 }
-function Compatibility({t,config,mode}) {
-  const rows=config.compatibility.filter(row => !mode || row.mode===mode);
+function Compatibility({t,config,heading = true,supportUrl}) {
+  const rows=config.compatibility;
   return (      <section className="document-sections" id="compatibility">
-        <h2>{t.compatTitle}</h2>
+        {heading && <h2>{t.compatTitle}</h2>}
         {rows.length ? (
           <div className="table-scroll" tabIndex={0}>
             <table>
@@ -817,50 +763,40 @@ function Compatibility({t,config,mode}) {
                     <td>
                       {r.mode === "screen" ? t.screenMode : t.controlMode}
                     </td>
-                    <td>{r.model}</td>
+                    <td className="compatibility-model">{r.model}</td>
                     <td>{r.ios}</td>
-                    <td>{r.appVersion}</td>
-                    <td>
-                      {r.mode === "control"
-                        ? `${r.accessory} / ${r.firmware}`
-                        : "—"}
-                    </td>
-                    <td>{r.testedAt}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : (
-          <p>{t.compatPending}</p>
-        )}
+        ) : null}
+        <p>{supportUrl ? <a href={supportUrl}>{t.compatUnverified}</a> : <Link to="support">{t.compatUnverified}</Link>}</p>
       </section>);
 }
-function Firmware({ t, config }) {
+export function Firmware({ t, config }) {
   return (
     <div className="document">
       <PageHeading
-        eyebrow="SaySo Install"
+        eyebrow={t.firmware}
         title={t.firmwareTitle}
         subtitle={t.firmwareSub}
       />
       <p className="lead">{t.firmwareBody}</p>
-      <p>{t.needs[5].join(" — ")}</p><p>{t.needs[6].join(" — ")}</p>
+      <section className="accessory-requirements" aria-labelledby="accessory-requirements">
+        <h2 id="accessory-requirements">{t.need}</h2>
+        <ul>
+          <li>{t.usbRequirement}</li>
+          {t.requirementGroups.tapping.slice(1).map(row => <li key={row[0]}>{row.join(" — ")}</li>)}
+        </ul>
+      </section>
       {config.installerPath || config.installerUrl ? (
-        <Link
-          className="button-primary"
-          to={config.installerPath || config.installerUrl}
-          kind={config.installerPath ? "app" : "route"}
-        >
-          {t.installer}
-        </Link>
+        <Link className="button-primary" to={config.installerPath || config.installerUrl}
+          kind={config.installerPath ? "app" : "route"}>{t.installer}</Link>
       ) : (
-        <p className="notice">
-          <Info aria-hidden />
-          {t.installerPending}
-        </p>
+        <a className="button-primary" href={asset("flash/")}>{t.installer}</a>
       )}
-      <Compatibility t={t} config={config} mode="control" />
+      <Compatibility t={t} config={config} />
       <div className="link-row">
         <Link to="requirements">{t.checkAll}</Link>
         <Link to="buy">{t.buy}</Link>
@@ -870,8 +806,9 @@ function Firmware({ t, config }) {
 }
 function Buy({ t }) {
   return (
-    <div className="document">
-      <PageHeading eyebrow={t.buy} title={t.buyTitle} subtitle={t.buySub} />
+    <div className="document buy-document">
+      <PageHeading eyebrow={t.buy} title={t.buyTitle} subtitle={t.buyIntro} />
+      <p>{t.buySub}</p>
       <div className="vendor-list">
         {[
           [
@@ -896,11 +833,14 @@ function Buy({ t }) {
         ))}
       </div>
       <p>{t.buyNote}</p>
-      <Link to="firmware">{t.viewCompat}</Link>
+      <div className="link-row">
+        <Link to="requirements">{t.viewCompat}</Link>
+        <Link className="button-primary" to="firmware">{t.firmware}</Link>
+      </div>
     </div>
   );
 }
-export function Privacy({ t, config, staticDocument = false }) {
+export function Privacy({ t, config }) {
   return (
     <div className="document">
       <PageHeading
@@ -914,7 +854,7 @@ export function Privacy({ t, config, staticDocument = false }) {
           {t.draft}
         </p>
       )}
-      <p className="small-note">{t.publisherLabel}{t.publisherType}{config.publisherName || t.publisherPending}{t.publisherContact}<a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a></p>
+      <p className="publisher-info">{t.publisherLabel}{t.publisherType}{config.publisherName || t.publisherPending}{t.publisherContact}<a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a></p>
       <p className="lead">{t.privacyIntro}</p>
       <DocumentSections sections={t.privacySections} />
       <section className="document-sections">
@@ -925,12 +865,11 @@ export function Privacy({ t, config, staticDocument = false }) {
           <li><Link arrow={false} to="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#data-collection">{t.githubPagesData}</Link></li>
         </ul>
       </section>
-      {!staticDocument && <p><a href={asset(`privacy/${t === copy.en ? "en/" : ""}`)}>{t === copy.en ? "Read without scripts" : "无需脚本阅读"}</a></p>}
       <Link to="support">{t.support}</Link>
     </div>
   );
 }
-export function Support({ t, staticDocument = false }) {
+export function Support({ t, config, staticDocument = false }) {
   return (
     <div className="document">
       <PageHeading
@@ -938,12 +877,13 @@ export function Support({ t, staticDocument = false }) {
         title={t.supportTitle}
         subtitle={t.supportSub}
       />
-      {!staticDocument && <p><a href={asset(`support/${t === copy.en ? "en/" : ""}`)}>{t === copy.en ? "Read without scripts" : "无需脚本阅读"}</a></p>}
       <div className="faq-list">
         {t.supportItems.map(([q, a], i) => (
           <details key={q} id={`faq-${i}`} open={staticDocument || undefined}>
             <summary>{q}</summary>
-            <DocumentBody body={a} />
+            {a ? <DocumentBody body={a} /> : config.testFlightUrl
+              ? <p><Link to={config.testFlightUrl} data-beta-link="support">{t.betaJoin}</Link></p>
+              : <p>{t.supportBetaPending}</p>}
           </details>
         ))}
       </div>
@@ -951,25 +891,24 @@ export function Support({ t, staticDocument = false }) {
         <h2>{t.supportContactTitle}</h2>
         <DocumentBody body={t.supportContactBody} />
         <div className="link-row">
-          <Link to="start">{t.start}</Link>
-          <Link to="requirements">{t.requirements}</Link>
-          <Link to="firmware">{t.firmware}</Link>
+          <ul className="support-links"><li><Link to="start">{t.start}</Link></li><li><Link to="requirements">{t.requirements}</Link></li><li><Link to="firmware">{t.firmware}</Link></li></ul>
         </div>
         <p><Link to="privacy">{t.supportPrivacyLink}</Link></p>
       </section>
     </div>
   );
 }
-function Licenses({ t, config }) {
+export function Licenses({ t, config }) {
   return (
     <div className="document">
       <PageHeading
         eyebrow={t.licenses}
         title={t.licensesTitle}
-        subtitle={t.licensesSub}
+        subtitle={t.licensesIntro}
       />
-      <p className="lead">{t.licensesIntro}</p>
+      <p>{t.licensesSub}</p>
       <p className="lead">{t.licensesBody}</p>
+      <p>{t.publisherLabel}{config.publisherName}</p>
       <p>
         <a
           href="https://github.com/zhaibin2018/sayso/blob/main/LICENSE.md"
@@ -995,7 +934,7 @@ function Licenses({ t, config }) {
           <li>QRCode — MIT</li>
         </ul>
         <a
-          href={asset("THIRD_PARTY_NOTICES.txt")}
+          href={asset(t === copy.en ? "THIRD_PARTY_NOTICES.txt" : "THIRD_PARTY_NOTICES.zh.txt")}
           className="text-link"
           {...external}
         >

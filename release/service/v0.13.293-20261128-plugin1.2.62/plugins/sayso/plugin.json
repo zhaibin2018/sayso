@@ -1,0 +1,34 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "App developer"
+  },
+  "description": "Read & tap / 读屏和帮你点",
+  "name": "sayso",
+  "version": "1.2.62",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "capabilities": [],
+        "category": "Other",
+        "defaultPrompt": null,
+        "developerName": "App developer",
+        "displayName": "SaySo",
+        "longDescription": "SaySo reads the iPhone screen you choose to share. With a SaySo accessory connected, it can tap, type and scroll for you. Stop tapping or end sharing in the SaySo app. SaySo 读取已共享的 iPhone 画面；连接 SaySo 配件后，可帮你点、输入和滚动。停止帮你点与结束共享可在 SaySo App 中完成。",
+        "shortDescription": "Read & tap / 读屏和帮你点",
+        "websiteURL": "https://zhaibin2018.github.io/sayso/"
+      }
+    }
+  },
+  "keywords": [
+    "iPhone",
+    "screen",
+    "tap",
+    "accessibility",
+    "Live voice",
+    "读屏",
+    "看屏幕",
+    "帮你点",
+    "语音"
+  ]
+}

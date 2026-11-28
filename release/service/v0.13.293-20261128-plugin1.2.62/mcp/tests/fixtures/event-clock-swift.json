@@ -1,0 +1,109 @@
+{
+  "frame": {
+    "bridge_session_id": "5c38d16f-4efe-4763-af54-b884e821f0a6",
+    "broadcast_id": "9004584d-47b3-47fc-b900-63416a3df161",
+    "capture_elapsed_lower_ms": 1000,
+    "capture_from_probe_lower_ms": -13,
+    "event_clock": {
+      "bridge_session_id": "5c38d16f-4efe-4763-af54-b884e821f0a6",
+      "broadcast_id": "9004584d-47b3-47fc-b900-63416a3df161",
+      "clock_domain_id": "45fa6867-aa4a-47aa-b842-0858b6a8046c",
+      "device_id": "6bd26987-176f-4401-9aae-d3a016b7e521",
+      "version": "broadcast_elapsed_ms.v1",
+      "worker_id": "53fd381b-6b8b-4d6a-9634-65a5e9bf3357"
+    },
+    "frame_id": "3910c44f-6620-4558-b70e-c396a63d9ff2",
+    "lease_epoch": 1,
+    "source_seq": 1,
+    "worker_id": "53fd381b-6b8b-4d6a-9634-65a5e9bf3357"
+  },
+  "headers": {
+    "Content-Length": "3",
+    "Content-Type": "image/jpeg",
+    "X-Bridge-Session-ID": "5c38d16f-4efe-4763-af54-b884e821f0a6",
+    "X-Broadcast-ID": "9004584d-47b3-47fc-b900-63416a3df161",
+    "X-Capture-Elapsed-Lower-Ms": "1000",
+    "X-Capture-From-Probe-Lower-Ms": "-13",
+    "X-Frame-Geometry": "{\"source_seq\":1}",
+    "X-Frame-ID": "3910c44f-6620-4558-b70e-c396a63d9ff2",
+    "X-Lease-Epoch": "1",
+    "X-SaySo-Event-Clock": "{\"bridge_session_id\":\"5c38d16f-4efe-4763-af54-b884e821f0a6\",\"broadcast_id\":\"9004584d-47b3-47fc-b900-63416a3df161\",\"clock_domain_id\":\"45fa6867-aa4a-47aa-b842-0858b6a8046c\",\"device_id\":\"6bd26987-176f-4401-9aae-d3a016b7e521\",\"version\":\"broadcast_elapsed_ms.v1\",\"worker_id\":\"53fd381b-6b8b-4d6a-9634-65a5e9bf3357\"}",
+    "X-Worker-ID": "53fd381b-6b8b-4d6a-9634-65a5e9bf3357"
+  },
+  "paired": {
+    "board_receipt": {
+      "board_boot_id": "76c151d2-4a25-41f6-897e-df10050184f3",
+      "command_id": "e0ba8c90-fa2f-4b48-a14f-1a709ccda383",
+      "effect": {
+        "hid_reports_sent": true
+      },
+      "state": "executed"
+    },
+    "event_clock": {
+      "bridge_session_id": "30b6e7e6-8892-4443-974e-7d0484790dd7",
+      "broadcast_id": "04b30bc7-6ebf-4053-b173-47ba0fbacb28",
+      "clock_domain_id": "ee0128e0-0fc7-49bc-b5e7-34b2b973cf6b",
+      "device_id": "293f9303-faef-4d07-8c4c-5475423c38e4",
+      "version": "broadcast_elapsed_ms.v1",
+      "worker_id": "c8f99a42-cbce-494a-9d53-ad7ec8c0d610"
+    },
+    "input_finished_elapsed_upper_ms": 1001,
+    "input_submitted": true,
+    "point_result": {
+      "click": {
+        "board_receipt": {
+          "board_boot_id": "76c151d2-4a25-41f6-897e-df10050184f3",
+          "command_id": "a8b4bbac-54e7-4c4c-94e3-b9e7cbf13743",
+          "effect": {
+            "hid_reports_sent": true
+          },
+          "state": "executed"
+        },
+        "input_finished_elapsed_upper_ms": 1001,
+        "input_submitted": true,
+        "state": "board_acked"
+      },
+      "protocol": "paired_mouse_point.v1"
+    },
+    "state": "board_acked"
+  },
+  "diagnostics": {
+    "index": {
+      "capture": null,
+      "capture_manifests": [],
+      "queue_or_io_dropped_records": 0,
+      "recording_active": false,
+      "run_id": "0eaf6282-0338-4489-a77d-13381021c69b",
+      "schema": "sayso_numeric_log_index.v1",
+      "sealed_windows_retained": 6,
+      "window_seconds": 300,
+      "windows": [
+        {
+          "committed_bytes": 195,
+          "file": "75b807e2-8e9c-43df-a237-f4c6e881b684.jsonl",
+          "records": 1,
+          "rejected_records": 0,
+          "sealed": true,
+          "truncated": false,
+          "window_elapsed": false,
+          "window_end_elapsed_ms": 300000,
+          "window_end_utc_ms": 1795000300000,
+          "window_start_elapsed_ms": 0
+        }
+      ]
+    },
+    "rows": [
+      {
+        "fields": {
+          "encode_ms": 12,
+          "source_seq": 1
+        },
+        "kind": "frame",
+        "recorded_elapsed_ms": 0,
+        "recorded_wall_ms": 1795000000000,
+        "run_id": "0eaf6282-0338-4489-a77d-13381021c69b",
+        "schema": "sayso_numeric_log.v2"
+      }
+    ]
+  }
+}

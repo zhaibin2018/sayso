@@ -1,0 +1,20 @@
+{
+  "baseline": "6a364e554c377494c32e4c09f6d27ff1fd256514",
+  "format": "explicit_compact_v1",
+  "measurements": [
+    {
+      "tool": "read_screen",
+      "fixture": "MODEL_TIME_synthetic_success_not_live",
+      "before_nonimage_bytes": 6518,
+      "after_nonimage_bytes": 3396,
+      "reduction_percent": 47.9
+    },
+    {
+      "tool": "click_at",
+      "fixture": "MODEL_TIME_synthetic_success_not_live",
+      "before_nonimage_bytes": 8678,
+      "after_nonimage_bytes": 4806,
+      "reduction_percent": 44.62
+    }
+  ]
+}

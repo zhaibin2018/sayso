@@ -1,0 +1,6 @@
+interface:
+  display_name: "Debug report / 调试报告"
+  short_description: "给我调试报告、出错了。Show a debug or troubleshooting report."
+  default_prompt: "给我调试报告。Use $sayso-debug to paste the server report unchanged without translating it."
+policy:
+  allow_implicit_invocation: true

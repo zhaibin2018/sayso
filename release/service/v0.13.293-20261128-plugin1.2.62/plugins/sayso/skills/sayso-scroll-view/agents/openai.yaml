@@ -1,0 +1,6 @@
+interface:
+  display_name: "Scroll / 滚动翻页"
+  short_description: "往下看、往上翻、找列表内容。Scroll down, scroll up or read more."
+  default_prompt: "往下看。Use $sayso-scroll-view to scroll this page and show more content."
+policy:
+  allow_implicit_invocation: true

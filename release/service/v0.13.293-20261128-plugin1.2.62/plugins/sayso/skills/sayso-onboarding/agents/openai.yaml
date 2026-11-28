@@ -1,0 +1,6 @@
+interface:
+  display_name: "Connect SaySo / 连接 SaySo"
+  short_description: "连接 ChatGPT、开始共享、配件没连。Connect or start screen sharing."
+  default_prompt: "怎么连接 ChatGPT？Use $sayso-onboarding to connect my phone or start sharing."
+policy:
+  allow_implicit_invocation: true

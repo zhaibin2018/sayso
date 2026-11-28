@@ -1,0 +1,6 @@
+interface:
+  display_name: "Control iPhone / 帮你点"
+  short_description: "帮我点、帮我打开、帮我操作。Help me tap or operate my iPhone."
+  default_prompt: "帮我操作手机。Use $sayso-control to help me tap and complete my iPhone task."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-28",
+  "runtime": "0.13.293",
+  "skill_version": "1.2.62",
+  "worker_commit": "becbf3f1f0aa7ec7b8527f82c013a146695c8467",
+  "plugin_commit": "2eebe3126d0c84f3cb755f630ddfbdeaade52fa3",
+  "checks": {
+    "full_worker": {
+      "command": "node --experimental-strip-types --test --test-concurrency=1 --test-timeout=60000 --test-reporter=spec tests/*.test.ts",
+      "exit": 1,
+      "tests": 1329,
+      "passed": 1325,
+      "failed": 4,
+      "skipped": 0
+    },
+    "failed_group_rerun": {
+      "command": "node --experimental-strip-types --test --test-concurrency=1 --test-timeout=60000 --test-reporter=spec --test-name-pattern 'A2 action route counts' tests/bridge.test.ts",
+      "exit": 0,
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "note": "The three initial subtest failures and their enclosing A2 test passed on the isolated rerun. The first run reported extra D1 calls."
+    },
+    "guidance_checks": {
+      "command": "node --experimental-strip-types --test --test-reporter=spec tests/batch2-offline.test.ts tests/guidance-consistency.test.ts tests/complete-call-journal.test.ts",
+      "exit": 0,
+      "tests": 15,
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exit": 0
+    },
+    "contracts": {
+      "command": "npm run contracts:check",
+      "exit": 0
+    },
+    "source_budget": {
+      "command": "npm run source:check",
+      "exit": 0
+    },
+    "build": {
+      "command": "npm run build",
+      "exit": 0,
+      "production_diagnostic_boundary_js_artifacts": 61
+    }
+  },
+  "private_release": {
+    "worker_deployed": true,
+    "plugin_published": true,
+    "live_stop_guide_exact": true,
+    "live_control_skill_exact": true,
+    "old_app_diagnostics_responded": 2,
+    "live_raw_mcp_readback": false
+  },
+  "fresh_account_installation_verified": false,
+  "sql_migrations_applied_to_memory_sqlite": 39,
+  "skills": [
+    "sayso-app-guides",
+    "sayso-click-at",
+    "sayso-control",
+    "sayso-debug",
+    "sayso-drag-to",
+    "sayso-onboarding",
+    "sayso-open-app",
+    "sayso-read-screen",
+    "sayso-scroll-view",
+    "sayso-type-text"
+  ]
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "App guides / App 操作指南"
+  short_description: "调大字体、找照片、准备消息。Help me use Maps, Photos or Messages."
+  default_prompt: "帮我用这个 App。Use $sayso-app-guides to complete my task in this iPhone app."
+policy:
+  allow_implicit_invocation: true

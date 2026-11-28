@@ -1,0 +1,26 @@
+{
+  "baseline_commit": "6a364e554c377494c32e4c09f6d27ff1fd256514",
+  "candidate_runtime": "0.13.265",
+  "tests": {"total": 1210, "pass": 1210, "fail": 0, "cancelled": 0, "skipped": 0},
+  "typecheck": "passed",
+  "contracts": "passed",
+  "source_budgets": "passed",
+  "production_build": "passed",
+  "production_js_artifacts_checked": 61,
+  "production_hot_path": "passed",
+  "ordinary_read_d1_calls": 2,
+  "additional_journal_d1_round_trips": 0,
+  "production_smoke_outbound_requests": 0,
+  "production_smoke_covers": ["five primitive action chains", "two-step app search", "no Return", "exact final frame", "read-only replay", "mid-step Stop", "minimal call records with diagnostics disabled", "revoked token"],
+  "new_tests": 13,
+  "plugin_version": "1.2.55",
+  "plugin_published": false,
+  "deployed": false,
+  "real_device_ui_and_model_latency": "not_measured_offline",
+  "minimum_record_limit": "Best effort; final records wait for the next existing business write. Process exit can lose the bounded queue tail.",
+  "additional_baseline_checks": {
+    "lint": "Not passing: baseline has no eslint.config file.",
+    "format": "Two unchanged baseline files fail formatting: lib/device-erasure.ts, lib/device-frame-headers.ts. Changed files in the repository format command pass."
+  },
+  "local_logs_relative_to_worktree_parent": ["full-tests-delivery.log", "typecheck-release.log", "contracts-release.log", "budgets-release.log", "production-build-delivery.log", "hot-path-production-delivery.log", "focused-final.log", "lint.log", "format-check-final.log"]
+}

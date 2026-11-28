@@ -1,0 +1,6 @@
+interface:
+  display_name: "Tap once / 点一下"
+  short_description: "帮我点这个、点按钮或图标。Tap this button, icon or field."
+  default_prompt: "帮我点这个。Use $sayso-click-at to tap this visible target once."
+policy:
+  allow_implicit_invocation: true

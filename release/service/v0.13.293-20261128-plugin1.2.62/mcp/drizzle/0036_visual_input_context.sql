@@ -1,0 +1,1 @@
+ALTER TABLE sb_released_system_search_field_proofs ADD COLUMN source_json TEXT;

@@ -1,0 +1,1 @@
+ALTER TABLE `sb_mouse_commands` ADD `precondition` text;

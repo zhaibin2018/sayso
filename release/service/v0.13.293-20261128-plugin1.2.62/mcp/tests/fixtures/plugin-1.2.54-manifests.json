@@ -1,0 +1,68 @@
+{
+  "root": {
+    "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+    "author": {
+      "name": "App developer"
+    },
+    "description": "iPhone 读屏和帮你点",
+    "name": "sayso",
+    "version": "1.2.54",
+    "extensions": {
+      "com.openai": {
+        "apps": "./.app.json",
+        "interface": {
+          "capabilities": [],
+          "category": "Other",
+          "defaultPrompt": null,
+          "developerName": "App developer",
+          "displayName": "SaySo",
+          "longDescription": "iPhone 读屏和帮你点",
+          "shortDescription": "iPhone 读屏和帮你点",
+          "websiteURL": "https://YOUR-SITE.chatgpt.site"
+        }
+      }
+    },
+    "keywords": [
+      "iPhone",
+      "screen",
+      "tap",
+      "accessibility",
+      "Live voice",
+      "读屏",
+      "看屏幕",
+      "帮你点",
+      "语音"
+    ]
+  },
+  "overlay": {
+    "apps": "./.app.json",
+    "interface": {
+      "capabilities": [],
+      "category": "Other",
+      "defaultPrompt": null,
+      "developerName": "App developer",
+      "displayName": "SaySo",
+      "longDescription": "iPhone 读屏和帮你点",
+      "shortDescription": "iPhone 读屏和帮你点",
+      "websiteURL": "https://YOUR-SITE.chatgpt.site"
+    },
+    "name": "sayso",
+    "version": "1.2.54",
+    "description": "iPhone 读屏和帮你点",
+    "author": {
+      "name": "App developer"
+    },
+    "keywords": [
+      "iPhone",
+      "screen",
+      "tap",
+      "accessibility",
+      "Live voice",
+      "读屏",
+      "看屏幕",
+      "帮你点",
+      "语音"
+    ],
+    "skills": "./skills"
+  }
+}

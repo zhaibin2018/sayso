@@ -1,0 +1,6 @@
+interface:
+  display_name: "Type text / 输入文字"
+  short_description: "输入这段、帮我打字、搜一下。Type this text or search for it."
+  default_prompt: "帮我输入这段。Use $sayso-type-text to enter my text in this field."
+policy:
+  allow_implicit_invocation: true

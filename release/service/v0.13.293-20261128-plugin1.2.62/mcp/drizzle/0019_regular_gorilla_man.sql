@@ -1,0 +1,1 @@
+ALTER TABLE `sb_observations` ADD `acceptance_json` text;

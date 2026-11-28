@@ -1,0 +1,20 @@
+{
+  "displayName": "SaySo",
+  "localizations": {
+    "zh": {
+      "shortDescription": "iPhone 读屏和帮你点",
+      "longDescription": "SaySo 读取已共享的 iPhone 画面；连接 SaySo 配件后，可帮你点、输入和滚动。停止帮你点与结束共享可在 SaySo App 中完成。"
+    },
+    "en": {
+      "shortDescription": "Read your iPhone screen and tap for you",
+      "longDescription": "SaySo reads the iPhone screen you choose to share. With a SaySo accessory connected, it can tap, type and scroll for you. Stop tapping or end sharing in the SaySo app."
+    }
+  },
+  "icon": {
+    "path": "assets/sayso-icon.png",
+    "bytes": 18532,
+    "sha256": "dfc86fc2c0d30e3d786753d0b067419ab1486357058e7303047c7c5ad5d5ff91",
+    "source": "Reviewed SaySo website public/assets/sayso-180.png",
+    "license": "SaySo brand asset; use only to identify SaySo; see TRADEMARK.md"
+  }
+}

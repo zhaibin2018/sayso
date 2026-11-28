@@ -1,0 +1,6 @@
+interface:
+  display_name: "Read screen / 看屏幕"
+  short_description: "看看我屏幕上有什么；读屏。Look at my screen; read this page."
+  default_prompt: "看看我屏幕上有什么？Use $sayso-read-screen to look at my screen and briefly describe what you see."
+policy:
+  allow_implicit_invocation: true

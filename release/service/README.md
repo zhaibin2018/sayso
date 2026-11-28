@@ -1,5 +1,11 @@
 # SaySo service release index / 服务发行包索引
 
+## November 28, 2026
+
+[Service 0.13.293 and plugin 1.2.62](v0.13.293-20261128-plugin1.2.62/manifest.json) ([ZIP](v0.13.293-20261128-plugin1.2.62.zip)). See the [installation page](https://zhaibin2018.github.io/sayso/install/) for setup.
+
+## Earlier release record
+
 Local candidate **v0.13.258-rc.20261121-plugin1.2.50**, not pushed or published. Fixed package commit `5a1dd40e99a7208c88dc6d9b8d3f915f9868dad8`. Runtime 0.13.258; distribution skills 1.2.50; all nine committed skills. Worker `f488e590581bf12b54ae436c34b198a4afa12e48`, plugin `557b9090c0ce705cd4d0029dfc39ad3aa480d8b5`. The skill version is a distribution metadata increment from the last published 1.2.49; upstream manifests are unchanged.
 
 Manifest SHA-256: `775b7539ae00136d22992fbee7678bd9441899a9240aa314f6113f3fd449535c`. ZIP SHA-256: `def0c30e98a805a77408859d9bac3046ed311a8ae8940e243d2ec0241302a575`.

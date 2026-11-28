@@ -1,0 +1,6 @@
+interface:
+  display_name: "Open app / 打开 App"
+  short_description: "打开淘宝、帮我打开 App。Open Taobao, WhatsApp or Google Maps."
+  default_prompt: "打开淘宝。Use $sayso-open-app to open the requested installed iPhone app."
+policy:
+  allow_implicit_invocation: true

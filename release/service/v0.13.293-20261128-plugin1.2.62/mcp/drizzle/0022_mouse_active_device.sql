@@ -1,0 +1,1 @@
+CREATE INDEX `sb_mouse_active_device_idx` ON `sb_mouse_commands` (`device_id`,`state`) WHERE "sb_mouse_commands"."state" IN ('queued','claimed','executing','embedded');
